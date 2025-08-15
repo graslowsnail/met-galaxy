@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 
 interface ImageItem {
   id: string
@@ -10,178 +10,399 @@ interface ImageItem {
   width: number
   height: number
   aspectRatio: number
-  gridX: number // Added grid coordinates for omnidirectional layout
-  gridY: number
+  chunkX: number
+  chunkY: number
+  localIndex: number // Index within the chunk
 }
 
+interface Chunk {
+  id: string
+  x: number
+  y: number
+  images: ImageItem[]
+  positions: Array<{ x: number; y: number; height: number }>
+  bounds: { minX: number; maxX: number; minY: number; maxY: number }
+  actualHeight: number // The real height this chunk occupies
+}
+
+// Constants for grid-based layout
 const COLUMN_WIDTH = 280
 const GAP = 16
+const CHUNK_SIZE = 20 // Images per chunk
+const COLUMNS_PER_CHUNK = 4
+const AXIS_MARGIN = 15 // Space around the axis lines
+const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN) // Width includes margins
+const CHUNK_HEIGHT = 1600 // Height of each grid cell
+const VIEWPORT_BUFFER = 800 // Buffer zone around viewport
+const MAX_CHUNKS = 25 // Maximum chunks to keep in memory
+const HORIZONTAL_TILE_CHUNKS = 2 // Repeat content every N horizontal chunks
 
-// Generate random botanical/vintage style images
-const generateImageData = (startIndex: number, count: number, gridX = 0, gridY = 0): ImageItem[] => {
-  const queries = [
-    "vintage botanical illustration",
-    "antique scientific drawing",
-    "old botanical print",
-    "vintage nature illustration",
-    "historical botanical art",
-    "antique plant drawing",
-    "vintage scientific diagram",
-    "old natural history illustration",
-    "botanical vintage print",
-    "antique nature study",
-  ]
+// Grid origin - chunks are positioned relative to this center point
+const GRID_ORIGIN_X = 0
+const GRID_ORIGIN_Y = 0
 
-  return Array.from({ length: count }, (_, i) => {
-    const index = startIndex + i
-    const aspectRatios = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6] // Mix of portrait, square, landscape
-    const aspectRatio = aspectRatios[index % aspectRatios.length]
+// Optimized image generation with consistent aspect ratios
+const generateChunkImages = (chunkX: number, chunkY: number): ImageItem[] => {
+  const aspectRatios = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6]
+  
+  return Array.from({ length: CHUNK_SIZE }, (_, i) => {
+    const seed = Math.abs(chunkX * 1000 + chunkY * 100 + i) // Deterministic seed, ensure positive
+    const aspectRatio = aspectRatios[seed % aspectRatios.length]
     const width = COLUMN_WIDTH
-    const height = Math.round(width / aspectRatio)
-    const query = queries[index % queries.length]
+    const height = Math.max(100, Math.round(width / aspectRatio)) // Ensure minimum height
 
     return {
-      id: `image-${index}-${gridX}-${gridY}`,
-      src: `/placeholder.svg?height=${height}&width=${width}&query=${encodeURIComponent(query)}`,
+      id: `img-${chunkX}-${chunkY}-${i}`,
+      // Use picsum photos to avoid broken image icons and ensure coverage
+      src: `https://picsum.photos/seed/${seed}/${Math.max(1, width)}/${Math.max(1, height)}`,
       width,
       height,
       aspectRatio,
-      gridX, // Store grid position for omnidirectional layout
-      gridY,
+      chunkX,
+      chunkY,
+      localIndex: i,
     }
   })
 }
 
 export function DraggableImageGrid() {
-  const [images, setImages] = useState<ImageItem[]>([])
+  // Core state
+  const [chunks, setChunks] = useState<Map<string, Chunk>>(new Map())
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
-  const [columns, setColumns] = useState(4)
-  const [loadedSections, setLoadedSections] = useState(new Set<string>()) // Track loaded grid sections
-  const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 }) // Added viewport dimensions state for visibility calculations
+  const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 })
 
+  // Performance tracking
   const containerRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  const imageCount = useRef(0)
+  const lastViewport = useRef({ x: 0, y: 0, width: 0, height: 0 })
+  const rafId = useRef<number | undefined>(undefined)
+  const loadingChunks = useRef<Set<string>>(new Set())
+  
+  // Track loaded chunks for grid-based layout
+  const loadedChunks = useRef<Set<string>>(new Set())
 
-  // Calculate number of columns based on container width
-  const updateColumns = useCallback(() => {
+  // Update viewport dimensions on mount and resize
+  const updateViewportDimensions = useCallback(() => {
     if (containerRef.current) {
       const containerWidth = containerRef.current.clientWidth
       const containerHeight = containerRef.current.clientHeight
-      const newColumns = Math.max(2, Math.floor((containerWidth + GAP) / (COLUMN_WIDTH + GAP)))
-      setColumns(newColumns)
       setViewportDimensions({ width: containerWidth, height: containerHeight })
     }
   }, [])
 
-  // Load initial images
-  useEffect(() => {
-    const initialImages = generateImageData(0, 20, 0, 0)
-    setImages(initialImages)
-    imageCount.current = 20
-    setLoadedSections(new Set(["0,0"])) // Track initial section
+  // Initialize column heights for independent chunk layout
+  const initializeChunkColumnHeights = useCallback((): number[] => {
+    // Start with AXIS_MARGIN offset since that's where images begin
+    return new Array(COLUMNS_PER_CHUNK).fill(AXIS_MARGIN)
   }, [])
 
-  // Handle window resize
+  // Create a chunk as a discrete grid cell
+  const createChunk = useCallback((chunkX: number, chunkY: number): Chunk => {
+    // Tile horizontally by repeating content every HORIZONTAL_TILE_CHUNKS
+    // Handle negative coordinates properly
+    const tileX = ((chunkX % HORIZONTAL_TILE_CHUNKS) + HORIZONTAL_TILE_CHUNKS) % HORIZONTAL_TILE_CHUNKS
+    const baseImages = generateChunkImages(tileX, chunkY)
+    // Ensure React keys remain unique while image content repeats horizontally
+    const images = baseImages.map((img, i) => ({
+      ...img,
+      id: `img-${chunkX}-${chunkY}-${i}`,
+      chunkX,
+      chunkY,
+    }))
+
+    // Independent masonry layout within this grid cell
+    const columnHeights = initializeChunkColumnHeights()
+    const positions: Array<{ x: number; y: number; height: number }> = []
+
+    // Grid-based positioning - each chunk is a discrete cell
+    const baseX = GRID_ORIGIN_X + (chunkX * CHUNK_WIDTH)
+    const baseY = GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+
+    images.forEach((image, imageIndex) => {
+      const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights))
+      
+      // Calculate position with different logic for negative X chunks
+      let localX, localY
+      
+      if (chunkX < 0) {
+        // For negative X chunks, position from right edge to create space toward Y-axis
+        //localX = CHUNK_WIDTH - AXIS_MARGIN - ((COLUMNS_PER_CHUNK - 1 - shortestColumnIndex) * (COLUMN_WIDTH + GAP)) - COLUMN_WIDTH
+        localX = CHUNK_WIDTH - AXIS_MARGIN - (shortestColumnIndex + 1) * (COLUMN_WIDTH + GAP)
+        localY = columnHeights[shortestColumnIndex]
+      } else {
+        // For positive X chunks, position from left edge
+        localX = AXIS_MARGIN + shortestColumnIndex * (COLUMN_WIDTH + GAP)
+        localY = columnHeights[shortestColumnIndex]
+      }
+      
+      // Final position
+      const x = baseX + localX
+      const y = baseY + localY
+      
+
+
+      // Ensure image doesn't exceed chunk boundaries (with margin on all sides)
+      const chunkMaxY = baseY + CHUNK_HEIGHT - AXIS_MARGIN
+      const chunkMaxX = baseX + CHUNK_WIDTH - AXIS_MARGIN
+      const availableHeight = chunkMaxY - y
+      const availableWidth = chunkMaxX - x
+      
+      // Skip this image if there's no room in this chunk
+      if (availableHeight < 100 || availableWidth < COLUMN_WIDTH) { // Minimum thresholds
+        return
+      }
+      
+      // Constrain image height to fit within chunk
+      const constrainedHeight = Math.min(image.height, availableHeight)
+      
+      // Validate height to prevent NaN values
+      if (!constrainedHeight || constrainedHeight <= 0 || !isFinite(constrainedHeight) || isNaN(constrainedHeight)) {
+        console.warn(`Invalid height for image ${image.id}:`, {
+          originalHeight: image.height,
+          availableHeight,
+          constrainedHeight,
+          chunkX,
+          chunkY
+        })
+        return
+      }
+
+      positions.push({ x, y, height: constrainedHeight })
+      
+      // Update column heights - always building downward within each chunk
+      const oldHeight = columnHeights[shortestColumnIndex]
+      columnHeights[shortestColumnIndex] += constrainedHeight + GAP
+      
+
+
+      // Update bounds
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x + COLUMN_WIDTH)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y + constrainedHeight)
+    })
+
+    return {
+      id: `chunk-${chunkX}-${chunkY}`,
+      x: chunkX,
+      y: chunkY,
+      images,
+      positions,
+      bounds: { minX, maxX, minY, maxY },
+      actualHeight: CHUNK_HEIGHT // Fixed grid cell height
+    }
+  }, [initializeChunkColumnHeights])
+
+  // Get visible chunk coordinates for quadrant-based grid
+  const getVisibleChunkCoords = useCallback(() => {
+    const viewLeft = -translate.x - VIEWPORT_BUFFER
+    const viewRight = -translate.x + viewportDimensions.width + VIEWPORT_BUFFER
+    const viewTop = -translate.y - VIEWPORT_BUFFER
+    const viewBottom = -translate.y + viewportDimensions.height + VIEWPORT_BUFFER
+    
+    // Calculate grid coordinates (supporting negative values for quadrants)
+    const startChunkX = Math.floor((viewLeft - GRID_ORIGIN_X) / CHUNK_WIDTH)
+    const endChunkX = Math.ceil((viewRight - GRID_ORIGIN_X) / CHUNK_WIDTH)
+    const startChunkY = Math.floor((viewTop - GRID_ORIGIN_Y) / CHUNK_HEIGHT)
+    const endChunkY = Math.ceil((viewBottom - GRID_ORIGIN_Y) / CHUNK_HEIGHT)
+    
+    const coords: Array<{ x: number; y: number }> = []
+    for (let x = startChunkX; x <= endChunkX; x++) {
+      for (let y = startChunkY; y <= endChunkY; y++) {
+        coords.push({ x, y })
+      }
+    }
+    
+    return coords
+  }, [translate, viewportDimensions])
+
+  // Cleanup distant chunks to prevent memory leaks
+  const cleanupDistantChunks = useCallback(() => {
+    const visibleCoords = getVisibleChunkCoords()
+    const visibleSet = new Set(visibleCoords.map(coord => `${coord.x},${coord.y}`))
+    
+    setChunks(prevChunks => {
+      const newChunks = new Map(prevChunks)
+      const chunkKeys = Array.from(newChunks.keys())
+      
+      // Only keep chunks that are visible or recently visible
+      const chunksToRemove = chunkKeys.filter(key => !visibleSet.has(key))
+      
+      if (newChunks.size - chunksToRemove.length > MAX_CHUNKS) {
+        // Remove oldest chunks first
+        chunksToRemove.slice(0, chunksToRemove.length - (MAX_CHUNKS - visibleSet.size))
+          .forEach(key => newChunks.delete(key))
+      }
+      
+      return newChunks
+    })
+  }, [getVisibleChunkCoords])
+
+  // Load chunks efficiently with async batching
+  const loadChunks = useCallback(async (coords: Array<{ x: number; y: number }>) => {
+    const newChunks: Array<Chunk> = []
+    
+    for (const coord of coords) {
+      const chunkKey = `${coord.x},${coord.y}`
+      
+      if (!chunks.has(chunkKey) && !loadingChunks.current.has(chunkKey)) {
+        loadingChunks.current.add(chunkKey)
+        try {
+          const newChunk = createChunk(coord.x, coord.y)
+          if (newChunk && newChunk.positions.length > 0) {
+            newChunks.push(newChunk)
+          }
+        } catch (error) {
+          console.error(`Error creating chunk ${coord.x},${coord.y}:`, error)
+        }
+      }
+    }
+    
+    if (newChunks.length > 0) {
+      setLoading(true)
+      
+      // Simulate async loading with batch processing
+      await new Promise(resolve => setTimeout(resolve, 50))
+      
+      setChunks(prev => {
+        const updated = new Map(prev)
+        newChunks.forEach(chunk => {
+          updated.set(`${chunk.x},${chunk.y}`, chunk)
+          loadingChunks.current.delete(`${chunk.x},${chunk.y}`)
+        })
+        return updated
+      })
+      
+      setLoading(false)
+    } else {
+      // Clean up loading state for failed chunks
+      coords.forEach(coord => {
+        const chunkKey = `${coord.x},${coord.y}`
+        loadingChunks.current.delete(chunkKey)
+      })
+    }
+  }, [chunks, createChunk])
+
+  // Initialize with 4 chunks centered around origin (only once)
   useEffect(() => {
-    updateColumns()
-    const handleResize = () => updateColumns()
+    // Only run once when viewport dimensions are first available
+    if (viewportDimensions.width && viewportDimensions.height && translate.x === 0 && translate.y === 0) {
+      // Calculate center position
+      const centerX = viewportDimensions.width / 2
+      const centerY = viewportDimensions.height / 2
+      
+      // Set initial translate to center (0,0) chunk in viewport - ONLY ONCE
+      setTranslate({ x: centerX, y: centerY })
+      
+      // Load the 4 chunks around origin
+      loadChunks([
+        { x: -1, y: -1 }, // top-left
+        { x: 0, y: -1 },  // top-right  
+        { x: -1, y: 0 },  // bottom-left
+        { x: 0, y: 0 }    // bottom-right
+      ])
+    }
+  }, [viewportDimensions, translate.x, translate.y, loadChunks])
+
+  // Handle window resize and recalculate viewport
+  useEffect(() => {
+    updateViewportDimensions()
+    const handleResize = () => {
+      updateViewportDimensions()
+      // Clear layout state on resize but DON'T reset translate position
+      setChunks(new Map())
+      loadedChunks.current.clear()
+    }
+    
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [updateColumns])
+  }, [updateViewportDimensions])
 
-  const loadMoreImages = useCallback(
-    (direction: "top" | "bottom" | "left" | "right") => {
-      if (loading) return
+  // Optimized viewport-based chunk loading with RAF
+  const updateVisibleChunks = useCallback(() => {
+    if (!viewportDimensions.width || !viewportDimensions.height) return
+    
+    const currentViewport = {
+      x: -translate.x,
+      y: -translate.y,
+      width: viewportDimensions.width,
+      height: viewportDimensions.height
+    }
+    
+    // Only update if viewport changed significantly
+    const threshold = 100
+    if (
+      Math.abs(currentViewport.x - lastViewport.current.x) < threshold &&
+      Math.abs(currentViewport.y - lastViewport.current.y) < threshold
+    ) return
+    
+    lastViewport.current = currentViewport
+    
+    const visibleCoords = getVisibleChunkCoords()
+    loadChunks(visibleCoords)
+    
+    // Cleanup after loading
+    cleanupDistantChunks()
+  }, [translate, viewportDimensions, getVisibleChunkCoords, loadChunks, cleanupDistantChunks])
 
-      setLoading(true)
-      setTimeout(() => {
-        // Calculate which grid section to load based on current view
-        const containerRect = containerRef.current?.getBoundingClientRect()
-        if (!containerRect) return
-
-        const viewCenterX = -translate.x + containerRect.width / 2
-        const viewCenterY = -translate.y + containerRect.height / 2
-
-        const gridWidth = columns * (COLUMN_WIDTH + GAP)
-        const gridHeight = 1000 // Approximate section height
-
-        let gridX = Math.floor(viewCenterX / gridWidth)
-        let gridY = Math.floor(viewCenterY / gridHeight)
-
-        // Adjust grid coordinates based on direction
-        switch (direction) {
-          case "top":
-            gridY -= 1
-            break
-          case "bottom":
-            gridY += 1
-            break
-          case "left":
-            gridX -= 1
-            break
-          case "right":
-            gridX += 1
-            break
-        }
-
-        const sectionKey = `${gridX},${gridY}`
-        if (loadedSections.has(sectionKey)) {
-          setLoading(false)
-          return
-        }
-
-        const newImages = generateImageData(imageCount.current, 15, gridX, gridY)
-        setImages((prev) => [...prev, ...newImages])
-        setLoadedSections((prev) => new Set([...prev, sectionKey]))
-        imageCount.current += 15
-        setLoading(false)
-      }, 300)
-    },
-    [loading, translate, columns, loadedSections],
-  )
-
-  const calculateLayout = useCallback(() => {
-    const sectionLayouts = new Map<string, { columnHeights: number[]; baseY: number; baseX: number }>()
-    const positions: Array<{ x: number; y: number }> = []
-
-    // Group images by grid section
-    const imagesBySection = new Map<string, ImageItem[]>()
-    images.forEach((image) => {
-      const sectionKey = `${image.gridX},${image.gridY}`
-      if (!imagesBySection.has(sectionKey)) {
-        imagesBySection.set(sectionKey, [])
+  // Throttled viewport updates using RAF
+  useEffect(() => {
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current)
+    }
+    
+    rafId.current = requestAnimationFrame(() => {
+      updateVisibleChunks()
+    })
+    
+    return () => {
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current)
       }
-      imagesBySection.get(sectionKey)!.push(image)
-    })
+    }
+  }, [updateVisibleChunks])
 
-    // Calculate layout for each section
-    imagesBySection.forEach((sectionImages, sectionKey) => {
-      const [gridX, gridY] = sectionKey.split(",").map(Number)
-      const baseX = gridX * columns * (COLUMN_WIDTH + GAP)
-      const baseY = gridY * 1000 // Section height
-
-      const columnHeights = new Array(columns).fill(0)
-
-      sectionImages.forEach((image) => {
-        const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights))
-        const x = baseX + shortestColumnIndex * (COLUMN_WIDTH + GAP)
-        const y = baseY + columnHeights[shortestColumnIndex]
-
-        positions.push({ x, y })
-        columnHeights[shortestColumnIndex] += image.height + GAP
+  // Get all visible images from loaded chunks
+  const visibleImages = useMemo(() => {
+    const images: Array<{ image: ImageItem; position: { x: number; y: number; height: number } }> = []
+    
+    const viewLeft = -translate.x - VIEWPORT_BUFFER
+    const viewRight = -translate.x + viewportDimensions.width + VIEWPORT_BUFFER
+    const viewTop = -translate.y - VIEWPORT_BUFFER
+    const viewBottom = -translate.y + viewportDimensions.height + VIEWPORT_BUFFER
+    
+    chunks.forEach((chunk) => {
+      // Quick chunk bounds check
+      if (
+        chunk.bounds.maxX < viewLeft ||
+        chunk.bounds.minX > viewRight ||
+        chunk.bounds.maxY < viewTop ||
+        chunk.bounds.minY > viewBottom
+      ) return
+      
+      // Check individual images within visible chunks
+      chunk.images.forEach((image, index) => {
+        const position = chunk.positions[index]
+        if (!position) return
+        
+        if (
+          position.x + COLUMN_WIDTH >= viewLeft &&
+          position.x <= viewRight &&
+          position.y + position.height >= viewTop &&
+          position.y <= viewBottom
+        ) {
+          images.push({ image, position })
+        }
       })
-
-      sectionLayouts.set(sectionKey, { columnHeights, baseY, baseX })
     })
-
-    return { positions }
-  }, [images, columns])
-
-  const { positions } = calculateLayout()
+    
+    return images
+  }, [chunks, translate, viewportDimensions])
 
   // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -234,49 +455,7 @@ export function DraggableImageGrid() {
     setIsDragging(false)
   }, [])
 
-  useEffect(() => {
-    const checkScroll = () => {
-      if (!containerRef.current) return
 
-      const containerRect = containerRef.current.getBoundingClientRect()
-      const threshold = 800 // Distance from edge to trigger loading
-
-      // Check all four directions
-      const viewLeft = -translate.x
-      const viewRight = -translate.x + containerRect.width
-      const viewTop = -translate.y
-      const viewBottom = -translate.y + containerRect.height
-
-      // Find the bounds of current images
-      let minX = Number.POSITIVE_INFINITY,
-        maxX = Number.NEGATIVE_INFINITY,
-        minY = Number.POSITIVE_INFINITY,
-        maxY = Number.NEGATIVE_INFINITY
-      positions.forEach((pos) => {
-        minX = Math.min(minX, pos.x)
-        maxX = Math.max(maxX, pos.x + COLUMN_WIDTH)
-        minY = Math.min(minY, pos.y)
-        maxY = Math.max(maxY, pos.y + 400) // Approximate image height
-      })
-
-      // Load more content when approaching edges
-      if (viewLeft < minX + threshold) {
-        loadMoreImages("left")
-      }
-      if (viewRight > maxX - threshold) {
-        loadMoreImages("right")
-      }
-      if (viewTop < minY + threshold) {
-        loadMoreImages("top")
-      }
-      if (viewBottom > maxY - threshold) {
-        loadMoreImages("bottom")
-      }
-    }
-
-    const scrollTimer = setInterval(checkScroll, 200)
-    return () => clearInterval(scrollTimer)
-  }, [translate, positions, loadMoreImages])
 
   useEffect(() => {
     if (isDragging) {
@@ -294,26 +473,7 @@ export function DraggableImageGrid() {
     }
   }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
-  const isImageVisible = useCallback(
-    (position: { x: number; y: number }, imageHeight: number) => {
-      if (!viewportDimensions.width || !viewportDimensions.height) return true
 
-      const buffer = 500 // Buffer zone around viewport
-      const viewLeft = -translate.x - buffer
-      const viewRight = -translate.x + viewportDimensions.width + buffer
-      const viewTop = -translate.y - buffer
-      const viewBottom = -translate.y + viewportDimensions.height + buffer
-
-      const imageLeft = position.x
-      const imageRight = position.x + COLUMN_WIDTH
-      const imageTop = position.y
-      const imageBottom = position.y + imageHeight
-
-      // Check if image intersects with visible area + buffer
-      return !(imageRight < viewLeft || imageLeft > viewRight || imageBottom < viewTop || imageTop > viewBottom)
-    },
-    [translate, viewportDimensions],
-  )
 
   return (
     <div
@@ -329,34 +489,85 @@ export function DraggableImageGrid() {
           transform: `translate(${translate.x}px, ${translate.y}px)`,
         }}
       >
-        {images.map((image, index) => {
-          const position = positions[index]
-          if (!position) return null
+        {/* Grid axis lines - centered at origin */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: GRID_ORIGIN_X,
+            top: -50000,
+            width: 2,
+            height: 100000,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 1
+          }}
+        />
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: -50000,
+            top: GRID_ORIGIN_Y,
+            width: 100000,
+            height: 2,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 1
+          }}
+        />
 
-          if (!isImageVisible(position, image.height)) {
-            return null
-          }
-
-          return (
+        {/* Chunk containers with clipping */}
+        {Array.from(chunks.values()).map((chunk) => (
+          <div key={`container-${chunk.id}`}>
+            {/* Chunk boundary outline */}
             <div
-              key={image.id}
-              className="absolute bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200"
+              className="absolute pointer-events-none border border-dashed border-neutral-300"
               style={{
-                left: position.x,
-                top: position.y,
-                width: image.width,
-                height: image.height,
+                left: GRID_ORIGIN_X + (chunk.x * CHUNK_WIDTH),
+                top: GRID_ORIGIN_Y + (chunk.y * CHUNK_HEIGHT),
+                width: CHUNK_WIDTH,
+                height: CHUNK_HEIGHT,
+                zIndex: 0
+              }}
+            />
+            {/* Clipping container for images */}
+            <div
+              className="absolute overflow-hidden"
+              style={{
+                left: GRID_ORIGIN_X + (chunk.x * CHUNK_WIDTH),
+                top: GRID_ORIGIN_Y + (chunk.y * CHUNK_HEIGHT),
+                width: CHUNK_WIDTH,
+                height: CHUNK_HEIGHT,
+                zIndex: 1
               }}
             >
-              <img
-                src={image.src || "/placeholder.svg"}
-                alt={`Vintage botanical illustration ${index + 1}`}
-                className="w-full h-full object-cover pointer-events-none select-none"
-                draggable={false}
-              />
+              {chunk.images.map((image, index) => {
+                const position = chunk.positions[index]
+                if (!position || !position.height || position.height <= 0 || !isFinite(position.height)) return null
+                
+                return (
+                  <div
+                    key={image.id}
+                    className="absolute bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200"
+                    style={{
+                      left: position.x - (GRID_ORIGIN_X + (chunk.x * CHUNK_WIDTH)),
+                      top: position.y - (GRID_ORIGIN_Y + (chunk.y * CHUNK_HEIGHT)),
+                      width: image.width,
+                      height: position.height,
+                    }}
+                  >
+                    <img
+                      src={image.src}
+                      alt={`Artwork ${image.id}`}
+                      className="w-full h-full object-cover pointer-events-none select-none"
+                      draggable={false}
+                      loading="lazy"
+                    />
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
+
+
 
         {loading && (
           <div
@@ -366,11 +577,22 @@ export function DraggableImageGrid() {
             <div className="bg-white rounded-full px-4 py-2 shadow-lg border border-neutral-200">
               <div className="flex items-center gap-2 text-sm text-neutral-600">
                 <div className="w-4 h-4 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
-                Loading more images...
+                Loading chunks... ({chunks.size} loaded)
               </div>
             </div>
           </div>
         )}
+
+        {/* Debug info - remove in production */}
+        <div
+          className="fixed top-4 left-4 z-10 bg-black/75 text-white px-3 py-2 rounded text-xs font-mono space-y-1"
+          style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
+        >
+          <div>Chunks: {chunks.size}</div>
+          <div>Images: {Array.from(chunks.values()).reduce((total, chunk) => total + chunk.positions.length, 0)}</div>
+          <div>Pos: ({Math.round(-translate.x)}, {Math.round(-translate.y)})</div>
+          <div>Grid: ({Math.floor((-translate.x - GRID_ORIGIN_X) / CHUNK_WIDTH)}, {Math.floor((-translate.y - GRID_ORIGIN_Y) / CHUNK_HEIGHT)})</div>
+        </div>
       </div>
     </div>
   )
