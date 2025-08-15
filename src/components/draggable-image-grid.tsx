@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { api } from "@/trpc/react"
 
 interface ImageItem {
   id: string
@@ -13,6 +14,14 @@ interface ImageItem {
   chunkX: number
   chunkY: number
   localIndex: number // Index within the chunk
+  // Database fields
+  objectId?: number
+  title?: string | null
+  artist?: string | null
+  date?: string | null
+  department?: string | null
+  culture?: string | null
+  medium?: string | null
 }
 
 interface Chunk {
@@ -41,20 +50,61 @@ const HORIZONTAL_TILE_CHUNKS = 2 // Repeat content every N horizontal chunks
 const GRID_ORIGIN_X = 0
 const GRID_ORIGIN_Y = 0
 
-// Optimized image generation with consistent aspect ratios
-const generateChunkImages = (chunkX: number, chunkY: number): ImageItem[] => {
+// Store artwork data for chunks
+const artworkCache = new Map<string, any[]>()
+
+// Generate image items from artwork data
+const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artworks: any[]): ImageItem[] => {
+  const defaultAspectRatios = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6]
+  
+  return artworks
+    .slice(0, CHUNK_SIZE)
+    .filter((artwork) => artwork.primaryImageSmall || artwork.primaryImage) // Only include artworks with images
+    .map((artwork, i) => {
+      const seed = Math.abs(chunkX * 1000 + chunkY * 100 + i)
+      const fallbackAspectRatio = defaultAspectRatios[seed % defaultAspectRatios.length]!
+      const aspectRatio = fallbackAspectRatio // We'll calculate from image dimensions later
+      const width = COLUMN_WIDTH
+      const height = Math.max(100, Math.round(width / aspectRatio))
+
+      // Use primaryImageSmall if available, fallback to primaryImage
+      const imageUrl = artwork.primaryImageSmall || artwork.primaryImage
+      const src = imageUrl!
+
+      return {
+        id: `artwork-${artwork.objectId || seed}-${chunkX}-${chunkY}-${i}`,
+        src,
+        width,
+        height,
+        aspectRatio,
+        chunkX,
+        chunkY,
+        localIndex: i,
+        // Database fields
+        objectId: artwork.objectId,
+        title: artwork.title,
+        artist: artwork.artist,
+        date: artwork.date,
+        department: artwork.department,
+        culture: artwork.culture,
+        medium: artwork.medium,
+      }
+    })
+}
+
+// Fallback function for when no artworks are available
+const generatePlaceholderImages = (chunkX: number, chunkY: number): ImageItem[] => {
   const aspectRatios = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6]
   
   return Array.from({ length: CHUNK_SIZE }, (_, i) => {
-    const seed = Math.abs(chunkX * 1000 + chunkY * 100 + i) // Deterministic seed, ensure positive
-    const aspectRatio = aspectRatios[seed % aspectRatios.length]
+    const seed = Math.abs(chunkX * 1000 + chunkY * 100 + i)
+    const aspectRatio = aspectRatios[seed % aspectRatios.length]!
     const width = COLUMN_WIDTH
-    const height = Math.max(100, Math.round(width / aspectRatio)) // Ensure minimum height
+    const height = Math.max(100, Math.round(width / aspectRatio))
 
     return {
-      id: `img-${chunkX}-${chunkY}-${i}`,
-      // Use picsum photos to avoid broken image icons and ensure coverage
-      src: `https://picsum.photos/seed/${seed}/${Math.max(1, width)}/${Math.max(1, height)}`,
+      id: `placeholder-${chunkX}-${chunkY}-${i}`,
+      src: `https://picsum.photos/seed/${seed}/${width}/${height}`,
       width,
       height,
       aspectRatio,
@@ -73,6 +123,15 @@ export function DraggableImageGrid() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 })
+
+  // Get random artworks for generating content
+  const { data: artworkData, isLoading: artworkLoading } = api.artwork.getRandomArtworks.useQuery(
+    { count: 200 }, // Get a pool of artworks to use across chunks
+    { 
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    }
+  )
 
   // Performance tracking
   const containerRef = useRef<HTMLDivElement>(null)
@@ -101,14 +160,44 @@ export function DraggableImageGrid() {
 
   // Create a chunk as a discrete grid cell
   const createChunk = useCallback((chunkX: number, chunkY: number): Chunk => {
-    // Tile horizontally by repeating content every HORIZONTAL_TILE_CHUNKS
-    // Handle negative coordinates properly
-    const tileX = ((chunkX % HORIZONTAL_TILE_CHUNKS) + HORIZONTAL_TILE_CHUNKS) % HORIZONTAL_TILE_CHUNKS
-    const baseImages = generateChunkImages(tileX, chunkY)
-    // Ensure React keys remain unique while image content repeats horizontally
-    const images = baseImages.map((img, i) => ({
+    // Get artwork data for this chunk
+    let images: ImageItem[] = []
+    
+    if (artworkData && artworkData.length > 0) {
+      // Use deterministic selection from artwork pool
+      const seed = Math.abs(chunkX * 1000 + chunkY * 100)
+      const startIndex = seed % Math.max(1, artworkData.length - CHUNK_SIZE)
+      
+      // Get a larger pool to account for filtering
+      const poolSize = Math.min(CHUNK_SIZE * 2, artworkData.length)
+      const chunkArtworks = artworkData.slice(startIndex, startIndex + poolSize)
+      
+      // If we don't have enough, wrap around to the beginning
+      if (chunkArtworks.length < poolSize) {
+        const remainingSlots = poolSize - chunkArtworks.length
+        const fillArtworks = artworkData.slice(0, remainingSlots)
+        chunkArtworks.push(...fillArtworks)
+      }
+      
+      images = generateChunkImagesFromArtworks(chunkX, chunkY, chunkArtworks)
+      
+      // If we still don't have enough images after filtering, try to get more
+      if (images.length < CHUNK_SIZE) {
+        const additionalArtworks = artworkData.slice(0, CHUNK_SIZE - images.length)
+        const additionalImages = generateChunkImagesFromArtworks(chunkX, chunkY, additionalArtworks)
+        images.push(...additionalImages)
+      }
+    }
+    
+    // Only use placeholders if we have absolutely no artwork data
+    if (images.length === 0) {
+      images = generatePlaceholderImages(chunkX, chunkY)
+    }
+
+    // Ensure React keys remain unique
+    images = images.map((img, i) => ({
       ...img,
-      id: `img-${chunkX}-${chunkY}-${i}`,
+      id: `${img.objectId ? 'artwork' : 'placeholder'}-${chunkX}-${chunkY}-${i}`,
       chunkX,
       chunkY,
     }))
@@ -127,17 +216,16 @@ export function DraggableImageGrid() {
       const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights))
       
       // Calculate position with different logic for negative X chunks
-      let localX, localY
+      let localX: number, localY: number
       
       if (chunkX < 0) {
         // For negative X chunks, position from right edge to create space toward Y-axis
-        //localX = CHUNK_WIDTH - AXIS_MARGIN - ((COLUMNS_PER_CHUNK - 1 - shortestColumnIndex) * (COLUMN_WIDTH + GAP)) - COLUMN_WIDTH
         localX = CHUNK_WIDTH - AXIS_MARGIN - (shortestColumnIndex + 1) * (COLUMN_WIDTH + GAP)
-        localY = columnHeights[shortestColumnIndex]
+        localY = columnHeights[shortestColumnIndex]!
       } else {
         // For positive X chunks, position from left edge
         localX = AXIS_MARGIN + shortestColumnIndex * (COLUMN_WIDTH + GAP)
-        localY = columnHeights[shortestColumnIndex]
+        localY = columnHeights[shortestColumnIndex]!
       }
       
       // Final position
@@ -175,8 +263,8 @@ export function DraggableImageGrid() {
       positions.push({ x, y, height: constrainedHeight })
       
       // Update column heights - always building downward within each chunk
-      const oldHeight = columnHeights[shortestColumnIndex]
-      columnHeights[shortestColumnIndex] += constrainedHeight + GAP
+      const oldHeight = columnHeights[shortestColumnIndex]!
+      columnHeights[shortestColumnIndex] = oldHeight + constrainedHeight + GAP
       
 
 
@@ -196,7 +284,7 @@ export function DraggableImageGrid() {
       bounds: { minX, maxX, minY, maxY },
       actualHeight: CHUNK_HEIGHT // Fixed grid cell height
     }
-  }, [initializeChunkColumnHeights])
+  }, [artworkData, initializeChunkColumnHeights])
 
   // Get visible chunk coordinates for quadrant-based grid
   const getVisibleChunkCoords = useCallback(() => {
@@ -431,6 +519,7 @@ export function DraggableImageGrid() {
   // Touch drag handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0]
+    if (!touch) return
     setIsDragging(true)
     setDragStart({ x: touch.clientX - translate.x, y: touch.clientY - translate.y })
   }
@@ -441,6 +530,7 @@ export function DraggableImageGrid() {
       e.preventDefault()
 
       const touch = e.touches[0]
+      if (!touch) return
       const newTranslate = {
         x: touch.clientX - dragStart.x,
         y: touch.clientY - dragStart.y,
@@ -545,7 +635,7 @@ export function DraggableImageGrid() {
                 return (
                   <div
                     key={image.id}
-                    className="absolute bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200"
+                    className="absolute bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200 group"
                     style={{
                       left: position.x - (GRID_ORIGIN_X + (chunk.x * CHUNK_WIDTH)),
                       top: position.y - (GRID_ORIGIN_Y + (chunk.y * CHUNK_HEIGHT)),
@@ -555,11 +645,46 @@ export function DraggableImageGrid() {
                   >
                     <img
                       src={image.src}
-                      alt={`Artwork ${image.id}`}
+                      alt={image.title || `Artwork ${image.id}`}
                       className="w-full h-full object-cover pointer-events-none select-none"
                       draggable={false}
                       loading="lazy"
+                      onError={(e) => {
+                        // Hide the image if it fails to load
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        // Optionally show a simple error placeholder
+                        const parent = target.parentElement
+                        if (parent && !parent.querySelector('.error-placeholder')) {
+                          const errorDiv = document.createElement('div')
+                          errorDiv.className = 'error-placeholder flex items-center justify-center w-full h-full bg-gray-100 text-gray-400 text-sm'
+                          errorDiv.textContent = 'Image unavailable'
+                          parent.appendChild(errorDiv)
+                        }
+                      }}
                     />
+                    {/* Metadata overlay on hover */}
+                    {(image.title || image.artist) && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div className="p-2 text-white text-xs">
+                          {image.title && (
+                            <div className="font-medium truncate" title={image.title}>
+                              {image.title}
+                            </div>
+                          )}
+                          {image.artist && (
+                            <div className="text-white/80 truncate" title={image.artist}>
+                              {image.artist}
+                            </div>
+                          )}
+                          {image.date && (
+                            <div className="text-white/60 text-xs truncate">
+                              {image.date}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -569,7 +694,7 @@ export function DraggableImageGrid() {
 
 
 
-        {loading && (
+        {(loading || artworkLoading) && (
           <div
             className="fixed top-4 right-4 z-10"
             style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
@@ -577,7 +702,7 @@ export function DraggableImageGrid() {
             <div className="bg-white rounded-full px-4 py-2 shadow-lg border border-neutral-200">
               <div className="flex items-center gap-2 text-sm text-neutral-600">
                 <div className="w-4 h-4 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
-                Loading chunks... ({chunks.size} loaded)
+                {artworkLoading ? 'Loading artworks...' : `Loading chunks... (${chunks.size} loaded)`}
               </div>
             </div>
           </div>
@@ -590,6 +715,7 @@ export function DraggableImageGrid() {
         >
           <div>Chunks: {chunks.size}</div>
           <div>Images: {Array.from(chunks.values()).reduce((total, chunk) => total + chunk.positions.length, 0)}</div>
+          <div>Artworks: {artworkData?.length || 0}</div>
           <div>Pos: ({Math.round(-translate.x)}, {Math.round(-translate.y)})</div>
           <div>Grid: ({Math.floor((-translate.x - GRID_ORIGIN_X) / CHUNK_WIDTH)}, {Math.floor((-translate.y - GRID_ORIGIN_Y) / CHUNK_HEIGHT)})</div>
         </div>
