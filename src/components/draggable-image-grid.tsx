@@ -2,8 +2,9 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { api } from "@/trpc/react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useRandomArtworks } from "@/hooks/use-artworks"
+import type { Artwork } from "@/types/api"
 
 interface ImageItem {
   id: string
@@ -44,22 +45,22 @@ const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
 const CHUNK_HEIGHT = 1600 // Height of each grid cell
 const VIEWPORT_BUFFER = 800 // Buffer zone around viewport
 const MAX_CHUNKS = 25 // Maximum chunks to keep in memory
-const HORIZONTAL_TILE_CHUNKS = 2 // Repeat content every N horizontal chunks
+// const HORIZONTAL_TILE_CHUNKS = 2 // Repeat content every N horizontal chunks
 
 // Grid origin - chunks are positioned relative to this center point
 const GRID_ORIGIN_X = 0
 const GRID_ORIGIN_Y = 0
 
-// Store artwork data for chunks
-const artworkCache = new Map<string, any[]>()
+// Store artwork data for chunks (unused for now)
+// const artworkCache = new Map<string, Artwork[]>()
 
 // Generate image items from artwork data
-const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artworks: any[]): ImageItem[] => {
+const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artworks: Artwork[]): ImageItem[] => {
   const defaultAspectRatios = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6]
   
   return artworks
     .slice(0, CHUNK_SIZE)
-    .filter((artwork) => artwork.primaryImageSmall || artwork.primaryImage) // Only include artworks with images
+    .filter((artwork) => Boolean(artwork.primaryImageSmall ?? artwork.primaryImage)) // Only include artworks with images
     .map((artwork, i) => {
       const seed = Math.abs(chunkX * 1000 + chunkY * 100 + i)
       const fallbackAspectRatio = defaultAspectRatios[seed % defaultAspectRatios.length]!
@@ -68,11 +69,11 @@ const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artwork
       const height = Math.max(100, Math.round(width / aspectRatio))
 
       // Use primaryImageSmall if available, fallback to primaryImage
-      const imageUrl = artwork.primaryImageSmall || artwork.primaryImage
+      const imageUrl = artwork.primaryImageSmall ?? artwork.primaryImage
       const src = imageUrl!
 
       return {
-        id: `artwork-${artwork.objectId || seed}-${chunkX}-${chunkY}-${i}`,
+        id: `artwork-${artwork.objectId ?? seed}-${chunkX}-${chunkY}-${i}`,
         src,
         width,
         height,
@@ -81,7 +82,7 @@ const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artwork
         chunkY,
         localIndex: i,
         // Database fields
-        objectId: artwork.objectId,
+        objectId: artwork.objectId ?? 0,
         title: artwork.title,
         artist: artwork.artist,
         date: artwork.date,
@@ -125,13 +126,9 @@ export function DraggableImageGrid() {
   const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 })
 
   // Get random artworks for generating content
-  const { data: artworkData, isLoading: artworkLoading } = api.artwork.getRandomArtworks.useQuery(
-    { count: 200 }, // Get a pool of artworks to use across chunks
-    { 
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
-    }
-  )
+  const { data: artworkData, isLoading: artworkLoading } = useRandomArtworks({
+    count: 200, // Get a pool of artworks to use across chunks
+  })
 
   // Performance tracking
   const containerRef = useRef<HTMLDivElement>(null)
@@ -170,12 +167,12 @@ export function DraggableImageGrid() {
       
       // Get a larger pool to account for filtering
       const poolSize = Math.min(CHUNK_SIZE * 2, artworkData.length)
-      const chunkArtworks = artworkData.slice(startIndex, startIndex + poolSize)
+      const chunkArtworks: Artwork[] = artworkData.slice(startIndex, startIndex + poolSize)
       
       // If we don't have enough, wrap around to the beginning
       if (chunkArtworks.length < poolSize) {
         const remainingSlots = poolSize - chunkArtworks.length
-        const fillArtworks = artworkData.slice(0, remainingSlots)
+        const fillArtworks: Artwork[] = artworkData.slice(0, remainingSlots)
         chunkArtworks.push(...fillArtworks)
       }
       
@@ -183,7 +180,7 @@ export function DraggableImageGrid() {
       
       // If we still don't have enough images after filtering, try to get more
       if (images.length < CHUNK_SIZE) {
-        const additionalArtworks = artworkData.slice(0, CHUNK_SIZE - images.length)
+        const additionalArtworks: Artwork[] = artworkData.slice(0, CHUNK_SIZE - images.length)
         const additionalImages = generateChunkImagesFromArtworks(chunkX, chunkY, additionalArtworks)
         images.push(...additionalImages)
       }
@@ -212,7 +209,7 @@ export function DraggableImageGrid() {
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
 
-    images.forEach((image, imageIndex) => {
+    images.forEach((image, _imageIndex) => {
       const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights))
       
       // Calculate position with different logic for negative X chunks
@@ -388,7 +385,7 @@ export function DraggableImageGrid() {
       setTranslate({ x: centerX, y: centerY })
       
       // Load the 4 chunks around origin
-      loadChunks([
+      void loadChunks([
         { x: -1, y: -1 }, // top-left
         { x: 0, y: -1 },  // top-right  
         { x: -1, y: 0 },  // bottom-left
@@ -432,7 +429,7 @@ export function DraggableImageGrid() {
     lastViewport.current = currentViewport
     
     const visibleCoords = getVisibleChunkCoords()
-    loadChunks(visibleCoords)
+    void loadChunks(visibleCoords)
     
     // Cleanup after loading
     cleanupDistantChunks()
@@ -455,7 +452,8 @@ export function DraggableImageGrid() {
     }
   }, [updateVisibleChunks])
 
-  // Get all visible images from loaded chunks
+  // Get all visible images from loaded chunks (unused for now)
+  /*
   const visibleImages = useMemo(() => {
     const images: Array<{ image: ImageItem; position: { x: number; y: number; height: number } }> = []
     
@@ -491,6 +489,7 @@ export function DraggableImageGrid() {
     
     return images
   }, [chunks, translate, viewportDimensions])
+  */
 
   // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -630,7 +629,7 @@ export function DraggableImageGrid() {
             >
               {chunk.images.map((image, index) => {
                 const position = chunk.positions[index]
-                if (!position || !position.height || position.height <= 0 || !isFinite(position.height)) return null
+                if (!position?.height || position.height <= 0 || !isFinite(position.height)) return null
                 
                 return (
                   <div
@@ -645,7 +644,7 @@ export function DraggableImageGrid() {
                   >
                     <img
                       src={image.src}
-                      alt={image.title || `Artwork ${image.id}`}
+                      alt={image.title ?? `Artwork ${image.id}`}
                       className="w-full h-full object-cover pointer-events-none select-none"
                       draggable={false}
                       loading="lazy"
@@ -664,7 +663,7 @@ export function DraggableImageGrid() {
                       }}
                     />
                     {/* Metadata overlay on hover */}
-                    {(image.title || image.artist) && (
+                    {(image.title ?? image.artist) && (
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <div className="p-2 text-white text-xs">
                           {image.title && (
@@ -715,7 +714,7 @@ export function DraggableImageGrid() {
         >
           <div>Chunks: {chunks.size}</div>
           <div>Images: {Array.from(chunks.values()).reduce((total, chunk) => total + chunk.positions.length, 0)}</div>
-          <div>Artworks: {artworkData?.length || 0}</div>
+          <div>Artworks: {artworkData?.length ?? 0}</div>
           <div>Pos: ({Math.round(-translate.x)}, {Math.round(-translate.y)})</div>
           <div>Grid: ({Math.floor((-translate.x - GRID_ORIGIN_X) / CHUNK_WIDTH)}, {Math.floor((-translate.y - GRID_ORIGIN_Y) / CHUNK_HEIGHT)})</div>
         </div>

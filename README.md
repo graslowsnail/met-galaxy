@@ -1,29 +1,88 @@
-# Create T3 App
+# Met Galaxy - Frontend
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+A Next.js frontend application for browsing and exploring artwork in an infinite grid layout.
 
-## What's next? How do I make an app with this?
+## Features
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+- Infinite draggable grid layout
+- Virtual scrolling for performance
+- Responsive design
+- Artwork metadata display
+- Fallback placeholder images
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Tech Stack
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+- [Next.js 15](https://nextjs.org) - React framework
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Tailwind CSS](https://tailwindcss.com) - Styling
+- [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) - HTTP requests
 
-## Learn More
+## Getting Started
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+### Prerequisites
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+- Node.js 18+ or Bun
+- Backend API running (see API_SPEC.md for endpoint requirements)
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+### Installation
 
-## How do I deploy this?
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   bun install
+   ```
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+3. Create a `.env.local` file:
+   ```bash
+   NEXT_PUBLIC_API_URL=http://localhost:3001/api
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   bun run dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## API Integration
+
+This frontend expects a REST API backend. See `API_SPEC.md` for the complete API specification.
+
+### Required Endpoints
+
+- `GET /api/artworks/random` - Get random artworks
+- `GET /api/artworks/chunk` - Get artworks for specific grid chunk
+- `GET /api/artworks/count` - Get total artwork count
+
+## Project Structure
+
+```
+src/
+├── app/                 # Next.js app router
+├── components/          # React components
+├── hooks/              # Custom React hooks
+├── lib/                # Utility libraries
+├── types/              # TypeScript type definitions
+└── config/             # Configuration files
+```
+
+## Development
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run typecheck` - Run TypeScript checks
+
+## Deployment
+
+This is a standard Next.js application that can be deployed to:
+
+- [Vercel](https://vercel.com)
+- [Netlify](https://netlify.com)
+- Any platform supporting Next.js
+
+Make sure to set the `NEXT_PUBLIC_API_URL` environment variable to point to your backend API.
