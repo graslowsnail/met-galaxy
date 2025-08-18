@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -121,5 +121,29 @@ export const apiClient = {
     })
     
     return handleResponse<ArtworkCountResponse>(response)
+  },
+
+  async getSimilarArtworks(artworkId: number): Promise<SimilarityResponse> {
+    const url = new URL(`${API_CONFIG.endpoints.similarArtworks}/${artworkId}`, API_CONFIG.baseUrl)
+    
+    console.log('Fetching similar artworks for ID:', artworkId, 'URL:', url.toString())
+    
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    console.log('Similar artworks API response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+    })
+    
+    const result = await handleResponse<SimilarityResponse>(response)
+    console.log('Similar artworks result:', result)
+    
+    return result
   },
 }

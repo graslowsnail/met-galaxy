@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRandomArtworks } from "@/hooks/use-artworks"
+import { SimilarityGrid } from "./similarity-grid"
 import type { Artwork } from "@/types/api"
 
 interface ImageItem {
@@ -16,7 +17,8 @@ interface ImageItem {
   chunkY: number
   localIndex: number // Index within the chunk
   // Database fields
-  objectId?: number
+  databaseId?: number // The actual database ID used for similarity API
+  objectId?: number // Met Museum's object ID
   title?: string | null
   artist?: string | null
   date?: string | null
@@ -73,7 +75,7 @@ const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artwork
       const src = imageUrl!
 
       return {
-        id: `artwork-${artwork.objectId ?? seed}-${chunkX}-${chunkY}-${i}`,
+        id: `artwork-${artwork.id}-${chunkX}-${chunkY}-${i}`, // Use database ID instead of objectId
         src,
         width,
         height,
@@ -81,7 +83,8 @@ const generateChunkImagesFromArtworks = (chunkX: number, chunkY: number, artwork
         chunkX,
         chunkY,
         localIndex: i,
-        // Database fields
+        // Database fields - store both database ID and Met objectId
+        databaseId: artwork.id, // Add explicit database ID field
         objectId: artwork.objectId ?? 0,
         title: artwork.title,
         artist: artwork.artist,
@@ -124,6 +127,10 @@ export function DraggableImageGrid() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 })
+  
+  // Similarity view state
+  const [selectedArtworkId, setSelectedArtworkId] = useState<number | null>(null)
+  const [showSimilarity, setShowSimilarity] = useState(false)
 
   // Get random artworks for generating content
   const { data: artworkData, isLoading: artworkLoading, error: artworkError } = useRandomArtworks({
@@ -583,6 +590,43 @@ export function DraggableImageGrid() {
     setIsDragging(false)
   }, [])
 
+  // Handle artwork click for similarity view
+  const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
+    // Prevent click during dragging
+    if (isDragging) return
+    
+    // Stop event propagation to prevent triggering drag
+    event.stopPropagation()
+    
+    console.log('Artwork clicked:', {
+      imageId: image.id,
+      databaseId: image.databaseId,
+      objectId: image.objectId,
+      title: image.title,
+      artist: image.artist,
+      src: image.src
+    })
+    
+    // Use the database ID for similarity search (this is what the backend expects)
+    const artworkId = image.databaseId
+    
+    console.log('Using database ID for similarity search:', artworkId)
+    
+    if (artworkId) {
+      setSelectedArtworkId(artworkId)
+      setShowSimilarity(true)
+    } else {
+      console.error('No database ID found for artwork:', image)
+      alert('This artwork is not available for similarity search')
+    }
+  }, [isDragging])
+
+  // Close similarity view
+  const closeSimilarityView = useCallback(() => {
+    setShowSimilarity(false)
+    setSelectedArtworkId(null)
+  }, [])
+
 
 
   useEffect(() => {
@@ -673,13 +717,14 @@ export function DraggableImageGrid() {
                 return (
                   <div
                     key={image.id}
-                    className="absolute bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200 group"
+                    className="absolute bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200 group cursor-pointer"
                     style={{
                       left: position.x - (GRID_ORIGIN_X + (chunk.x * CHUNK_WIDTH)),
                       top: position.y - (GRID_ORIGIN_Y + (chunk.y * CHUNK_HEIGHT)),
                       width: image.width,
                       height: position.height,
                     }}
+                    onClick={(e) => handleArtworkClick(image, e)}
                   >
                     <img
                       src={image.src}
@@ -773,6 +818,14 @@ export function DraggableImageGrid() {
           <div>Grid: ({Math.floor((-translate.x - GRID_ORIGIN_X) / CHUNK_WIDTH)}, {Math.floor((-translate.y - GRID_ORIGIN_Y) / CHUNK_HEIGHT)})</div>
         </div>
       </div>
+
+      {/* Similarity view overlay */}
+      {showSimilarity && selectedArtworkId && (
+        <SimilarityGrid 
+          artworkId={selectedArtworkId}
+          onClose={closeSimilarityView}
+        />
+      )}
     </div>
   )
 }
