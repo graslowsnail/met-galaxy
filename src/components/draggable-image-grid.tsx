@@ -126,9 +126,24 @@ export function DraggableImageGrid() {
   const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 })
 
   // Get random artworks for generating content
-  const { data: artworkData, isLoading: artworkLoading } = useRandomArtworks({
+  const { data: artworkData, isLoading: artworkLoading, error: artworkError } = useRandomArtworks({
     count: 200, // Get a pool of artworks to use across chunks
   })
+
+  // Debug artwork data
+  useEffect(() => {
+    console.log('Artwork data:', {
+      loading: artworkLoading,
+      error: artworkError,
+      count: artworkData?.length ?? 0,
+      sample: artworkData?.slice(0, 3).map(a => ({
+        id: a.id,
+        title: a.title,
+        primaryImage: a.primaryImage,
+        primaryImageSmall: a.primaryImageSmall
+      }))
+    })
+  }, [artworkData, artworkLoading, artworkError])
 
   // Performance tracking
   const containerRef = useRef<HTMLDivElement>(null)
@@ -160,6 +175,11 @@ export function DraggableImageGrid() {
     // Get artwork data for this chunk
     let images: ImageItem[] = []
     
+    console.log(`Creating chunk ${chunkX},${chunkY}:`, {
+      artworkDataLength: artworkData?.length ?? 0,
+      hasArtworkData: Boolean(artworkData && artworkData.length > 0)
+    })
+    
     if (artworkData && artworkData.length > 0) {
       // Use deterministic selection from artwork pool
       const seed = Math.abs(chunkX * 1000 + chunkY * 100)
@@ -176,20 +196,23 @@ export function DraggableImageGrid() {
         chunkArtworks.push(...fillArtworks)
       }
       
+      console.log(`Chunk ${chunkX},${chunkY} - artworks before filtering:`, chunkArtworks.length)
       images = generateChunkImagesFromArtworks(chunkX, chunkY, chunkArtworks)
+      console.log(`Chunk ${chunkX},${chunkY} - images after filtering:`, images.length)
       
       // If we still don't have enough images after filtering, try to get more
       if (images.length < CHUNK_SIZE) {
         const additionalArtworks: Artwork[] = artworkData.slice(0, CHUNK_SIZE - images.length)
         const additionalImages = generateChunkImagesFromArtworks(chunkX, chunkY, additionalArtworks)
         images.push(...additionalImages)
+        console.log(`Chunk ${chunkX},${chunkY} - added ${additionalImages.length} more images`)
       }
     }
     
-    // Only use placeholders if we have absolutely no artwork data
-    if (images.length === 0) {
-      images = generatePlaceholderImages(chunkX, chunkY)
-    }
+    // Disable placeholders - only show real artwork images
+    // if (images.length === 0) {
+    //   images = generatePlaceholderImages(chunkX, chunkY)
+    // }
 
     // Ensure React keys remain unique
     images = images.map((img, i) => ({
@@ -375,8 +398,18 @@ export function DraggableImageGrid() {
 
   // Initialize with 4 chunks centered around origin (only once)
   useEffect(() => {
-    // Only run once when viewport dimensions are first available
-    if (viewportDimensions.width && viewportDimensions.height && translate.x === 0 && translate.y === 0) {
+    // Only run once when viewport dimensions are first available AND artwork data is loaded
+    if (
+      viewportDimensions.width && 
+      viewportDimensions.height && 
+      translate.x === 0 && 
+      translate.y === 0 && 
+      artworkData && 
+      artworkData.length > 0 && 
+      !artworkLoading
+    ) {
+      console.log('Initializing grid with artwork data:', artworkData.length, 'artworks')
+      
       // Calculate center position
       const centerX = viewportDimensions.width / 2
       const centerY = viewportDimensions.height / 2
@@ -392,7 +425,7 @@ export function DraggableImageGrid() {
         { x: 0, y: 0 }    // bottom-right
       ])
     }
-  }, [viewportDimensions, translate.x, translate.y, loadChunks])
+  }, [viewportDimensions, translate.x, translate.y, loadChunks, artworkData, artworkLoading])
 
   // Handle window resize and recalculate viewport
   useEffect(() => {
@@ -411,6 +444,12 @@ export function DraggableImageGrid() {
   // Optimized viewport-based chunk loading with RAF
   const updateVisibleChunks = useCallback(() => {
     if (!viewportDimensions.width || !viewportDimensions.height) return
+    
+    // Don't load chunks until we have artwork data
+    if (!artworkData || artworkData.length === 0 || artworkLoading) {
+      console.log('Skipping chunk load - waiting for artwork data')
+      return
+    }
     
     const currentViewport = {
       x: -translate.x,
@@ -433,7 +472,7 @@ export function DraggableImageGrid() {
     
     // Cleanup after loading
     cleanupDistantChunks()
-  }, [translate, viewportDimensions, getVisibleChunkCoords, loadChunks, cleanupDistantChunks])
+  }, [translate, viewportDimensions, getVisibleChunkCoords, loadChunks, cleanupDistantChunks, artworkData, artworkLoading])
 
   // Throttled viewport updates using RAF
   useEffect(() => {
@@ -701,7 +740,22 @@ export function DraggableImageGrid() {
             <div className="bg-white rounded-full px-4 py-2 shadow-lg border border-neutral-200">
               <div className="flex items-center gap-2 text-sm text-neutral-600">
                 <div className="w-4 h-4 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
-                {artworkLoading ? 'Loading artworks...' : `Loading chunks... (${chunks.size} loaded)`}
+                {artworkLoading ? 'Loading artworks from S3...' : `Loading chunks... (${chunks.size} loaded)`}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Show message if no artworks loaded yet */}
+        {!artworkLoading && (!artworkData || artworkData.length === 0) && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-10"
+            style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
+          >
+            <div className="bg-white rounded-lg px-6 py-4 shadow-lg border border-neutral-200">
+              <div className="text-center text-neutral-600">
+                <div className="text-lg font-medium mb-2">No Artworks Available</div>
+                <div className="text-sm">Check your backend connection and S3 configuration.</div>
               </div>
             </div>
           </div>

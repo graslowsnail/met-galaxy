@@ -1,16 +1,25 @@
 // API Types for frontend
 
 export interface Artwork {
-  id: string
+  id: number
   objectId: number
   title: string | null
   artist: string | null
   date: string | null
-  primaryImage: string | null
-  primaryImageSmall: string | null
+  imageUrl: string | null
+  originalImageUrl: string | null
+  imageSource: string | null
   department: string | null
   culture: string | null
   medium: string | null
+  // For backward compatibility
+  primaryImage?: string | null
+  primaryImageSmall?: string | null
+}
+
+export interface BackendResponse {
+  success: boolean
+  data: Artwork[]
 }
 
 export interface RandomArtworksResponse {
@@ -30,10 +39,10 @@ export interface ErrorResponse {
 
 // API Configuration
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080',
   endpoints: {
-    randomArtworks: '/artworks/random',
-    chunkArtworks: '/artworks/chunk',
-    artworkCount: '/artworks/count',
+    randomArtworks: '/api/artworks/random',
+    chunkArtworks: '/api/artworks/chunk',
+    artworkCount: '/api/artworks/count',
   }
 } as const

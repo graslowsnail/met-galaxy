@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -41,6 +41,9 @@ export const apiClient = {
       url.searchParams.set('seed', params.seed.toString())
     }
     
+    console.log('API Request URL:', url.toString())
+    console.log('Base URL:', API_CONFIG.baseUrl)
+    
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -48,7 +51,30 @@ export const apiClient = {
       },
     })
     
-    return handleResponse<RandomArtworksResponse>(response)
+    console.log('API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      url: response.url
+    })
+    
+    const backendResult = await handleResponse<BackendResponse>(response)
+    console.log('Backend Result:', backendResult)
+    
+    // Transform backend response to expected frontend format
+    const result: RandomArtworksResponse = {
+      artworks: backendResult.data.map(artwork => ({
+        ...artwork,
+        // Map imageUrl to primaryImage for backward compatibility
+        primaryImage: artwork.imageUrl,
+        primaryImageSmall: artwork.imageUrl, // Use same image for both
+      })),
+      total: backendResult.data.length
+    }
+    
+    console.log('Transformed Result:', result)
+    
+    return result
   },
 
   async getChunkArtworks(params: { chunkX: number; chunkY: number; count?: number }): Promise<RandomArtworksResponse> {
@@ -68,7 +94,20 @@ export const apiClient = {
       },
     })
     
-    return handleResponse<RandomArtworksResponse>(response)
+    const backendResult = await handleResponse<BackendResponse>(response)
+    
+    // Transform backend response to expected frontend format
+    const result: RandomArtworksResponse = {
+      artworks: backendResult.data.map(artwork => ({
+        ...artwork,
+        // Map imageUrl to primaryImage for backward compatibility
+        primaryImage: artwork.imageUrl,
+        primaryImageSmall: artwork.imageUrl, // Use same image for both
+      })),
+      total: backendResult.data.length
+    }
+    
+    return result
   },
 
   async getArtworkCount(): Promise<ArtworkCountResponse> {
