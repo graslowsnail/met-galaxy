@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useRandomArtworks } from "@/hooks/use-artworks"
 import { SimilarityGrid } from "./similarity-grid"
+import { apiClient } from "@/lib/api-client"
 import type { Artwork } from "@/types/api"
 
 interface ImageItem {
@@ -45,8 +45,9 @@ const COLUMNS_PER_CHUNK = 4
 const AXIS_MARGIN = 15 // Space around the axis lines
 const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN) // Width includes margins
 const CHUNK_HEIGHT = 1600 // Height of each grid cell
-const VIEWPORT_BUFFER = 800 // Buffer zone around viewport
-const MAX_CHUNKS = 25 // Maximum chunks to keep in memory
+const VIEWPORT_BUFFER = 50 // Very small buffer to minimize chunks
+const MAX_RENDERED_CHUNKS = 12 // Maximum chunks to render (keep this small!)
+const MAX_DATA_CACHE = 100 // Maximum chunk data to cache (can be larger)
 // const HORIZONTAL_TILE_CHUNKS = 2 // Repeat content every N horizontal chunks
 
 // Grid origin - chunks are positioned relative to this center point
@@ -131,26 +132,81 @@ export function DraggableImageGrid() {
   // Similarity view state
   const [selectedArtworkId, setSelectedArtworkId] = useState<number | null>(null)
   const [showSimilarity, setShowSimilarity] = useState(false)
+  
+  // Initialization flag to prevent excessive updates during startup
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  // Get random artworks for generating content
-  const { data: artworkData, isLoading: artworkLoading, error: artworkError } = useRandomArtworks({
-    count: 200, // Get a pool of artworks to use across chunks
-  })
+  // Chunk data management - each chunk fetches its own data
+  const [chunkDataMap, setChunkDataMap] = useState<Map<string, { 
+    artworks: Artwork[] | null, 
+    loading: boolean, 
+    error: Error | null 
+  }>>(new Map())
 
-  // Debug artwork data
-  useEffect(() => {
-    console.log('Artwork data:', {
-      loading: artworkLoading,
-      error: artworkError,
-      count: artworkData?.length ?? 0,
-      sample: artworkData?.slice(0, 3).map(a => ({
-        id: a.id,
-        title: a.title,
-        primaryImage: a.primaryImage,
-        primaryImageSmall: a.primaryImageSmall
+  // Track which chunks are currently being fetched to prevent duplicates
+  const fetchingChunks = useRef<Set<string>>(new Set())
+
+  // Fetch artwork data for a specific chunk
+  const fetchChunkData = useCallback(async (chunkX: number, chunkY: number) => {
+    const chunkKey = `${chunkX},${chunkY}`
+    
+    // Skip if already loading or loaded
+    const existingData = chunkDataMap.get(chunkKey)
+    if (existingData && (existingData.loading || existingData.artworks)) {
+      console.log(`Chunk ${chunkKey} already has data, skipping fetch`)
+      return existingData.artworks
+    }
+
+    // Skip if already being fetched
+    if (fetchingChunks.current.has(chunkKey)) {
+      console.log(`Chunk ${chunkKey} already being fetched, skipping duplicate`)
+      return null
+    }
+
+    // Mark as being fetched
+    fetchingChunks.current.add(chunkKey)
+
+    // Set loading state
+    setChunkDataMap(prev => new Map(prev).set(chunkKey, {
+      artworks: null,
+      loading: true,
+      error: null
+    }))
+
+    try {
+      console.log(`🔍 Fetching data for chunk ${chunkX},${chunkY}`)
+      const response = await apiClient.getChunkArtworks({ 
+        chunkX, 
+        chunkY, 
+        count: CHUNK_SIZE 
+      })
+      
+      // Update with successful data
+      setChunkDataMap(prev => new Map(prev).set(chunkKey, {
+        artworks: response.artworks,
+        loading: false,
+        error: null
       }))
-    })
-  }, [artworkData, artworkLoading, artworkError])
+      
+      console.log(`✅ Loaded ${response.artworks.length} artworks for chunk ${chunkX},${chunkY}`)
+      return response.artworks
+      
+    } catch (error) {
+      console.error(`❌ Error fetching chunk ${chunkX},${chunkY}:`, error)
+      
+      // Update with error state
+      setChunkDataMap(prev => new Map(prev).set(chunkKey, {
+        artworks: null,
+        loading: false,
+        error: error instanceof Error ? error : new Error('Failed to fetch chunk data')
+      }))
+      
+      return null
+    } finally {
+      // Remove from fetching set
+      fetchingChunks.current.delete(chunkKey)
+    }
+  }, [chunkDataMap])
 
   // Performance tracking
   const containerRef = useRef<HTMLDivElement>(null)
@@ -179,41 +235,23 @@ export function DraggableImageGrid() {
 
   // Create a chunk as a discrete grid cell
   const createChunk = useCallback((chunkX: number, chunkY: number): Chunk => {
+    const chunkKey = `${chunkX},${chunkY}`
+    const chunkData = chunkDataMap.get(chunkKey)
+    
     // Get artwork data for this chunk
     let images: ImageItem[] = []
     
     console.log(`Creating chunk ${chunkX},${chunkY}:`, {
-      artworkDataLength: artworkData?.length ?? 0,
-      hasArtworkData: Boolean(artworkData && artworkData.length > 0)
+      hasChunkData: Boolean(chunkData?.artworks),
+      artworkCount: chunkData?.artworks?.length ?? 0,
+      loading: chunkData?.loading ?? false,
+      error: chunkData?.error
     })
     
-    if (artworkData && artworkData.length > 0) {
-      // Use deterministic selection from artwork pool
-      const seed = Math.abs(chunkX * 1000 + chunkY * 100)
-      const startIndex = seed % Math.max(1, artworkData.length - CHUNK_SIZE)
-      
-      // Get a larger pool to account for filtering
-      const poolSize = Math.min(CHUNK_SIZE * 2, artworkData.length)
-      const chunkArtworks: Artwork[] = artworkData.slice(startIndex, startIndex + poolSize)
-      
-      // If we don't have enough, wrap around to the beginning
-      if (chunkArtworks.length < poolSize) {
-        const remainingSlots = poolSize - chunkArtworks.length
-        const fillArtworks: Artwork[] = artworkData.slice(0, remainingSlots)
-        chunkArtworks.push(...fillArtworks)
-      }
-      
-      console.log(`Chunk ${chunkX},${chunkY} - artworks before filtering:`, chunkArtworks.length)
-      images = generateChunkImagesFromArtworks(chunkX, chunkY, chunkArtworks)
-      console.log(`Chunk ${chunkX},${chunkY} - images after filtering:`, images.length)
-      
-      // If we still don't have enough images after filtering, try to get more
-      if (images.length < CHUNK_SIZE) {
-        const additionalArtworks: Artwork[] = artworkData.slice(0, CHUNK_SIZE - images.length)
-        const additionalImages = generateChunkImagesFromArtworks(chunkX, chunkY, additionalArtworks)
-        images.push(...additionalImages)
-        console.log(`Chunk ${chunkX},${chunkY} - added ${additionalImages.length} more images`)
-      }
+    if (chunkData?.artworks && chunkData.artworks.length > 0) {
+      console.log(`Chunk ${chunkX},${chunkY} - using ${chunkData.artworks.length} artworks`)
+      images = generateChunkImagesFromArtworks(chunkX, chunkY, chunkData.artworks)
+      console.log(`Chunk ${chunkX},${chunkY} - generated ${images.length} images`)
     }
     
     // Disable placeholders - only show real artwork images
@@ -311,9 +349,9 @@ export function DraggableImageGrid() {
       bounds: { minX, maxX, minY, maxY },
       actualHeight: CHUNK_HEIGHT // Fixed grid cell height
     }
-  }, [artworkData, initializeChunkColumnHeights])
+  }, [chunkDataMap, initializeChunkColumnHeights])
 
-  // Get visible chunk coordinates for quadrant-based grid
+  // Get visible chunk coordinates for quadrant-based grid (strict viewport only)
   const getVisibleChunkCoords = useCallback(() => {
     const viewLeft = -translate.x - VIEWPORT_BUFFER
     const viewRight = -translate.x + viewportDimensions.width + VIEWPORT_BUFFER
@@ -333,36 +371,130 @@ export function DraggableImageGrid() {
       }
     }
     
+    console.log(`🔍 VIEWPORT CALCULATION:`)
+    console.log(`  Translate: (${translate.x}, ${translate.y})`)
+    console.log(`  Viewport: ${viewportDimensions.width}x${viewportDimensions.height}`)
+    console.log(`  View bounds: L=${viewLeft} R=${viewRight} T=${viewTop} B=${viewBottom}`)
+    console.log(`  Chunk bounds: X=${startChunkX} to ${endChunkX}, Y=${startChunkY} to ${endChunkY}`)
+    console.log(`  Total chunks: ${(endChunkX - startChunkX + 1)} × ${(endChunkY - startChunkY + 1)} = ${coords.length}`)
+    console.log(`  Chunks:`, coords.map(c => `(${c.x},${c.y})`).join(', '))
+    
     return coords
   }, [translate, viewportDimensions])
 
-  // Cleanup distant chunks to prevent memory leaks
+  // Get chunks that are actually visible (no buffer, strict viewport)
+  const getStrictlyVisibleChunkCoords = useCallback(() => {
+    const viewLeft = -translate.x
+    const viewRight = -translate.x + viewportDimensions.width
+    const viewTop = -translate.y
+    const viewBottom = -translate.y + viewportDimensions.height
+    
+    // Calculate grid coordinates (supporting negative values for quadrants)
+    const startChunkX = Math.floor((viewLeft - GRID_ORIGIN_X) / CHUNK_WIDTH)
+    const endChunkX = Math.ceil((viewRight - GRID_ORIGIN_X) / CHUNK_WIDTH)
+    const startChunkY = Math.floor((viewTop - GRID_ORIGIN_Y) / CHUNK_HEIGHT)
+    const endChunkY = Math.ceil((viewBottom - GRID_ORIGIN_Y) / CHUNK_HEIGHT)
+    
+    const coords: Array<{ x: number; y: number }> = []
+    for (let x = startChunkX; x <= endChunkX; x++) {
+      for (let y = startChunkY; y <= endChunkY; y++) {
+        coords.push({ x, y })
+      }
+    }
+    
+    return coords
+  }, [translate, viewportDimensions])
+
+  // Aggressive cleanup for true virtualization - immediately drop chunks outside viewport
   const cleanupDistantChunks = useCallback(() => {
     const visibleCoords = getVisibleChunkCoords()
     const visibleSet = new Set(visibleCoords.map(coord => `${coord.x},${coord.y}`))
     
     setChunks(prevChunks => {
       const newChunks = new Map(prevChunks)
-      const chunkKeys = Array.from(newChunks.keys())
+      let removedCount = 0
       
-      // Only keep chunks that are visible or recently visible
-      const chunksToRemove = chunkKeys.filter(key => !visibleSet.has(key))
+      // Immediately remove ALL chunks that are not in viewport (aggressive virtualization)
+      for (const [chunkKey] of newChunks) {
+        if (!visibleSet.has(chunkKey)) {
+          newChunks.delete(chunkKey)
+          removedCount++
+        }
+      }
       
-      if (newChunks.size - chunksToRemove.length > MAX_CHUNKS) {
-        // Remove oldest chunks first
-        chunksToRemove.slice(0, chunksToRemove.length - (MAX_CHUNKS - visibleSet.size))
-          .forEach(key => newChunks.delete(key))
+      if (removedCount > 0) {
+        console.log(`🧹 Virtualization cleanup: removed ${removedCount} chunks, keeping ${newChunks.size}`)
       }
       
       return newChunks
     })
+    
+    // Clean up data cache more conservatively (keep data longer than rendered chunks)
+    cleanupDataCache()
   }, [getVisibleChunkCoords])
+
+  // Separate data cache cleanup with LRU strategy
+  const cleanupDataCache = useCallback(() => {
+    setChunkDataMap(prevData => {
+      if (prevData.size <= MAX_DATA_CACHE) return prevData
+      
+      const newData = new Map(prevData)
+      const dataKeys = Array.from(newData.keys())
+      const excessCount = newData.size - MAX_DATA_CACHE
+      
+      // Remove oldest entries (LRU - assuming Map maintains insertion order)
+      const keysToRemove = dataKeys.slice(0, excessCount)
+      keysToRemove.forEach(key => newData.delete(key))
+      
+      console.log(`💾 Data cache cleanup: removed ${keysToRemove.length} entries, keeping ${newData.size}`)
+      return newData
+    })
+  }, [])
 
   // Load chunks efficiently with async batching
   const loadChunks = useCallback(async (coords: Array<{ x: number; y: number }>) => {
-    const newChunks: Array<Chunk> = []
+    console.log(`📦 loadChunks called with ${coords.length} coordinates:`, coords.map(c => `(${c.x},${c.y})`).join(', '))
     
+    const chunksToFetch: Array<{ x: number; y: number }> = []
+    const chunksToCreate: Array<{ x: number; y: number }> = []
+    
+    // Separate chunks that need data fetching vs chunk creation
     for (const coord of coords) {
+      const chunkKey = `${coord.x},${coord.y}`
+      const chunkData = chunkDataMap.get(chunkKey)
+      const chunkExists = chunks.has(chunkKey)
+      const chunkLoading = loadingChunks.current.has(chunkKey)
+      
+      if (!chunkExists && !chunkLoading) {
+        if (!chunkData || (!chunkData.artworks && !chunkData.loading)) {
+          // Need to fetch data first
+          chunksToFetch.push(coord)
+          console.log(`🔄 Chunk ${chunkKey} needs data fetch`)
+        } else if (chunkData.artworks) {
+          // Data is ready, can create chunk
+          chunksToCreate.push(coord)
+          console.log(`🏗️ Chunk ${chunkKey} ready for creation`)
+        }
+      } else {
+        console.log(`⏭️ Chunk ${chunkKey} skipped - exists: ${chunkExists}, loading: ${chunkLoading}`)
+      }
+    }
+    
+    // Fetch data for chunks that need it
+    if (chunksToFetch.length > 0) {
+      setLoading(true)
+      await Promise.all(
+        chunksToFetch.map(coord => fetchChunkData(coord.x, coord.y))
+      )
+      setLoading(false)
+      
+      // After fetching, these chunks can now be created
+      chunksToCreate.push(...chunksToFetch)
+    }
+    
+    // Create chunks that have data ready
+    const newChunks: Array<Chunk> = []
+    for (const coord of chunksToCreate) {
       const chunkKey = `${coord.x},${coord.y}`
       
       if (!chunks.has(chunkKey) && !loadingChunks.current.has(chunkKey)) {
@@ -375,64 +507,48 @@ export function DraggableImageGrid() {
         } catch (error) {
           console.error(`Error creating chunk ${coord.x},${coord.y}:`, error)
         }
+        loadingChunks.current.delete(chunkKey)
       }
     }
     
+    // Update chunks state
     if (newChunks.length > 0) {
-      setLoading(true)
-      
-      // Simulate async loading with batch processing
-      await new Promise(resolve => setTimeout(resolve, 50))
-      
       setChunks(prev => {
         const updated = new Map(prev)
         newChunks.forEach(chunk => {
           updated.set(`${chunk.x},${chunk.y}`, chunk)
-          loadingChunks.current.delete(`${chunk.x},${chunk.y}`)
         })
         return updated
       })
-      
-      setLoading(false)
-    } else {
-      // Clean up loading state for failed chunks
-      coords.forEach(coord => {
-        const chunkKey = `${coord.x},${coord.y}`
-        loadingChunks.current.delete(chunkKey)
-      })
     }
-  }, [chunks, createChunk])
+    
+    return Promise.resolve() // Return a promise for initialization to wait on
+  }, [chunks, createChunk, chunkDataMap, fetchChunkData])
 
-  // Initialize with 4 chunks centered around origin (only once)
+  // Initialize with minimal chunks at startup
   useEffect(() => {
-    // Only run once when viewport dimensions are first available AND artwork data is loaded
+    // Only run once when viewport dimensions are first available and not already initialized
     if (
       viewportDimensions.width && 
       viewportDimensions.height && 
-      translate.x === 0 && 
-      translate.y === 0 && 
-      artworkData && 
-      artworkData.length > 0 && 
-      !artworkLoading
+      !isInitialized
     ) {
-      console.log('Initializing grid with artwork data:', artworkData.length, 'artworks')
+      console.log('🚀 Initializing grid - starting at center')
       
       // Calculate center position
       const centerX = viewportDimensions.width / 2
       const centerY = viewportDimensions.height / 2
       
-      // Set initial translate to center (0,0) chunk in viewport - ONLY ONCE
+      // Set initial translate to center (0,0) chunk in viewport
       setTranslate({ x: centerX, y: centerY })
       
-      // Load the 4 chunks around origin
-      void loadChunks([
-        { x: -1, y: -1 }, // top-left
-        { x: 0, y: -1 },  // top-right  
-        { x: -1, y: 0 },  // bottom-left
-        { x: 0, y: 0 }    // bottom-right
-      ])
+      // Mark as initialized immediately to prevent race conditions
+      setIsInitialized(true)
+      
+      // Let the normal viewport logic handle loading chunks
+      console.log('✅ Initialization complete - viewport will handle chunk loading')
     }
-  }, [viewportDimensions, translate.x, translate.y, loadChunks, artworkData, artworkLoading])
+  }, [viewportDimensions, isInitialized])
 
   // Handle window resize and recalculate viewport
   useEffect(() => {
@@ -450,13 +566,8 @@ export function DraggableImageGrid() {
 
   // Optimized viewport-based chunk loading with RAF
   const updateVisibleChunks = useCallback(() => {
-    if (!viewportDimensions.width || !viewportDimensions.height) return
-    
-    // Don't load chunks until we have artwork data
-    if (!artworkData || artworkData.length === 0 || artworkLoading) {
-      console.log('Skipping chunk load - waiting for artwork data')
-      return
-    }
+    // Don't update chunks until we're properly initialized
+    if (!viewportDimensions.width || !viewportDimensions.height || !isInitialized) return
     
     const currentViewport = {
       x: -translate.x,
@@ -465,8 +576,8 @@ export function DraggableImageGrid() {
       height: viewportDimensions.height
     }
     
-    // Only update if viewport changed significantly
-    const threshold = 100
+    // For true virtualization, update more frequently (smaller threshold)
+    const threshold = 50 // Smaller threshold for more responsive virtualization
     if (
       Math.abs(currentViewport.x - lastViewport.current.x) < threshold &&
       Math.abs(currentViewport.y - lastViewport.current.y) < threshold
@@ -474,12 +585,15 @@ export function DraggableImageGrid() {
     
     lastViewport.current = currentViewport
     
+    console.log('🎯 Viewport changed, updating virtualization')
+    
+    // Always cleanup first for immediate virtualization
+    cleanupDistantChunks()
+    
+    // Then load new chunks if needed
     const visibleCoords = getVisibleChunkCoords()
     void loadChunks(visibleCoords)
-    
-    // Cleanup after loading
-    cleanupDistantChunks()
-  }, [translate, viewportDimensions, getVisibleChunkCoords, loadChunks, cleanupDistantChunks, artworkData, artworkLoading])
+  }, [translate, viewportDimensions, getVisibleChunkCoords, loadChunks, cleanupDistantChunks, isInitialized])
 
   // Throttled viewport updates using RAF
   useEffect(() => {
@@ -650,7 +764,8 @@ export function DraggableImageGrid() {
   return (
     <div
       ref={containerRef}
-      className="w-full h-screen overflow-hidden bg-neutral-50 cursor-grab active:cursor-grabbing"
+      className="w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing"
+      style={{ backgroundColor: '#EDE9E5' }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
@@ -777,7 +892,7 @@ export function DraggableImageGrid() {
 
 
 
-        {(loading || artworkLoading) && (
+        {loading && (
           <div
             className="fixed top-4 right-4 z-10"
             style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
@@ -785,47 +900,26 @@ export function DraggableImageGrid() {
             <div className="bg-white rounded-full px-4 py-2 shadow-lg border border-neutral-200">
               <div className="flex items-center gap-2 text-sm text-neutral-600">
                 <div className="w-4 h-4 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
-                {artworkLoading ? 'Loading artworks from S3...' : `Loading chunks... (${chunks.size} loaded)`}
+                Loading chunks... ({chunks.size} loaded)
               </div>
             </div>
           </div>
         )}
 
-        {/* Show message if no artworks loaded yet */}
-        {!artworkLoading && (!artworkData || artworkData.length === 0) && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-10"
-            style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
-          >
-            <div className="bg-white rounded-lg px-6 py-4 shadow-lg border border-neutral-200">
-              <div className="text-center text-neutral-600">
-                <div className="text-lg font-medium mb-2">No Artworks Available</div>
-                <div className="text-sm">Check your backend connection and S3 configuration.</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Debug info - remove in production */}
+        {/* Debug info - virtualization metrics */}
         <div
           className="fixed top-4 left-4 z-10 bg-black/75 text-white px-3 py-2 rounded text-xs font-mono space-y-1"
           style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
         >
-          <div>Chunks: {chunks.size}</div>
+          <div className="text-green-400">🎮 VIRTUALIZED</div>
+          <div>Rendered: {chunks.size}/{MAX_RENDERED_CHUNKS}</div>
           <div>Images: {Array.from(chunks.values()).reduce((total, chunk) => total + chunk.positions.length, 0)}</div>
-          <div>Artworks: {artworkData?.length ?? 0}</div>
+          <div>Data Cache: {chunkDataMap.size}/{MAX_DATA_CACHE}</div>
+          <div>Loading: {Array.from(chunkDataMap.values()).filter(data => data.loading).length}</div>
+          <div>Viewport: {getStrictlyVisibleChunkCoords().length} chunks</div>
           <div>Pos: ({Math.round(-translate.x)}, {Math.round(-translate.y)})</div>
-          <div>Grid: ({Math.floor((-translate.x - GRID_ORIGIN_X) / CHUNK_WIDTH)}, {Math.floor((-translate.y - GRID_ORIGIN_Y) / CHUNK_HEIGHT)})</div>
         </div>
       </div>
-
-      {/* Similarity view overlay */}
-      {showSimilarity && selectedArtworkId && (
-        <SimilarityGrid 
-          artworkId={selectedArtworkId}
-          onClose={closeSimilarityView}
-        />
-      )}
     </div>
   )
 }

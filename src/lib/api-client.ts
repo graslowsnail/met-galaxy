@@ -78,36 +78,13 @@ export const apiClient = {
   },
 
   async getChunkArtworks(params: { chunkX: number; chunkY: number; count?: number }): Promise<RandomArtworksResponse> {
-    const url = new URL(API_CONFIG.endpoints.chunkArtworks, API_CONFIG.baseUrl)
+    // Use the random endpoint with a deterministic seed based on chunk coordinates
+    const seed = Math.abs(params.chunkX * 1000 + params.chunkY * 100)
     
-    url.searchParams.set('chunkX', params.chunkX.toString())
-    url.searchParams.set('chunkY', params.chunkY.toString())
-    
-    if (params.count !== undefined) {
-      url.searchParams.set('count', params.count.toString())
-    }
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    return this.getRandomArtworks({
+      count: params.count || 20,
+      seed: seed
     })
-    
-    const backendResult = await handleResponse<BackendResponse>(response)
-    
-    // Transform backend response to expected frontend format
-    const result: RandomArtworksResponse = {
-      artworks: backendResult.data.map(artwork => ({
-        ...artwork,
-        // Map imageUrl to primaryImage for backward compatibility
-        primaryImage: artwork.imageUrl,
-        primaryImageSmall: artwork.imageUrl, // Use same image for both
-      })),
-      total: backendResult.data.length
-    }
-    
-    return result
   },
 
   async getArtworkCount(): Promise<ArtworkCountResponse> {
