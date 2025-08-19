@@ -145,6 +145,6 @@ export const API_TIMEOUT = 10000
 export const DEBUG_LOGGING = process.env.NODE_ENV === 'development'
 
 /** Whether to show chunk boundaries by default */
-export const SHOW_CHUNK_BOUNDARIES = process.env.NODE_ENV === 'development'
+export const SHOW_CHUNK_BOUNDARIES = false
 
 

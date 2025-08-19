@@ -13,6 +13,7 @@ import {
   GRID_ORIGIN_Y, 
   CHUNK_WIDTH, 
   CHUNK_HEIGHT,
+  COLUMN_WIDTH,
   Z_INDEX_CHUNK_OUTLINE,
   Z_INDEX_IMAGES,
   CHUNK_BORDER_COLOR,
@@ -86,6 +87,10 @@ const ImageItem = memo(function ImageItem({
         src={image.src}
         alt={image.title ?? `Artwork ${image.id}`}
         className="w-full h-full object-cover pointer-events-none select-none"
+        style={{
+          objectFit: 'cover',
+          objectPosition: 'center',
+        }}
         draggable={false}
         loading="lazy"
         onError={handleError}

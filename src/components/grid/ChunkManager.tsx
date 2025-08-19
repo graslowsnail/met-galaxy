@@ -55,10 +55,23 @@ interface ChunkManagerProps {
  * Generate image items from artwork data
  */
 function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artworks: Artwork[]): ImageItem[] {
-  return artworks
+  // Filter artworks that have valid images
+  const validArtworks = artworks
     .slice(0, CHUNK_SIZE)
-    .filter((artwork) => Boolean(artwork.primaryImageSmall ?? artwork.primaryImage)) // Only include artworks with images
-    .map((artwork, i) => {
+    .filter((artwork) => Boolean(artwork.primaryImageSmall ?? artwork.primaryImage))
+  
+  // If we don't have enough valid artworks, duplicate some to fill the chunk
+  const filledArtworks: Artwork[] = []
+  for (let i = 0; i < CHUNK_SIZE; i++) {
+    if (validArtworks.length > 0) {
+      filledArtworks.push(validArtworks[i % validArtworks.length]!)
+    } else {
+      // If no valid artworks, we'll handle this below
+      break
+    }
+  }
+  
+  return filledArtworks.map((artwork, i) => {
       const aspectRatio = generateAspectRatio(chunkX, chunkY, i)
       const { width, height } = calculateImageDimensions(aspectRatio)
 
