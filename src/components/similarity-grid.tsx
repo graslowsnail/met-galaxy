@@ -87,7 +87,7 @@ export function SimilarityGrid({ artworkId, onClose }: SimilarityGridProps) {
                 </h2>
                 {data.meta && (
                   <p className="text-neutral-600">
-                    Found {data.meta.count} similar artworks to "{data.meta.targetTitle}" by {data.meta.targetArtist}
+                    Found {data.meta.count} similar artworks to &ldquo;{data.meta.targetTitle}&rdquo; by {data.meta.targetArtist}
                   </p>
                 )}
               </div>

@@ -82,7 +82,7 @@ export const apiClient = {
     const seed = Math.abs(params.chunkX * 1000 + params.chunkY * 100)
     
     return this.getRandomArtworks({
-      count: params.count || 20,
+      count: params.count ?? 20,
       seed: seed
     })
   },
