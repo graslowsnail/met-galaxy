@@ -168,7 +168,7 @@ const GridRenderer = memo(function GridRenderer({
   return (
     <div className="relative w-full h-full">
       {/* Axis lines for coordinate system */}
-      <AxisLines />
+      {/* <AxisLines /> */}
       
       {/* Loading indicators for chunks being fetched */}
       <LoadingIndicators 
