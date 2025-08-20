@@ -1,14 +1,12 @@
 /**
- * Constants for the DraggableImageGrid component system
+ * Constants for the DraggableImageGridV2 component system (Column Carry-Over)
  * 
- * This file contains all configuration constants used across the grid components.
- * Centralizing constants here makes them easier to maintain and adjust.
+ * Based on the Infinite-Plane Masonry Grid specification.
+ * These constants define the core layout and performance parameters.
  */
 
-
-
 // ============================================================================
-// GRID LAYOUT CONSTANTS
+// CORE LAYOUT CONSTANTS (from spec)
 // ============================================================================
 
 /** Width of each column in pixels */
@@ -17,134 +15,89 @@ export const COLUMN_WIDTH = 280
 /** Gap between items in pixels */
 export const GAP = 16
 
+/** Number of columns per chunk (strip width) */
+export const COLUMNS_PER_CHUNK = 4
+
 /** Number of images per chunk */
 export const CHUNK_SIZE = 20
 
-/** Number of columns per chunk */
-export const COLUMNS_PER_CHUNK = 4
+/** Width of each chunk/strip */
+export const CHUNK_WIDTH = 
+  COLUMNS_PER_CHUNK * COLUMN_WIDTH + (COLUMNS_PER_CHUNK - 1) * GAP
 
-/** Space around the axis lines in pixels */
-export const AXIS_MARGIN = 15
-
-/** Width includes margins - total width of each chunk */
-export const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
-
-/** Height of each grid cell in pixels */
+/** Approximate chunk height (only used for coarse virtualization) */
 export const CHUNK_HEIGHT = 1600
+
+// ============================================================================
+// VIRTUALIZATION CONSTANTS (from spec)
+// ============================================================================
+
+/** Buffer around viewport for preloading - increased for infinite scrolling */
+export const VIEWPORT_BUFFER_PX = 800
+
+// Removed: MAX_RENDERED_CHUNKS - now using distance-based culling instead
+
+/** Click vs drag movement threshold in pixels */
+export const CLICK_MOVE_THRESHOLD = 6
 
 // ============================================================================
 // PERFORMANCE CONSTANTS
 // ============================================================================
 
-/** Buffer around viewport for smooth scrolling experience */
-export const VIEWPORT_BUFFER = 100
-
-/** Maximum chunks to render simultaneously (keep this small for performance!) */
-export const MAX_RENDERED_CHUNKS = 12
-
-/** Maximum chunk data to cache (can be larger than rendered chunks) */
+/** Maximum chunk data to cache (LRU) */
 export const MAX_DATA_CACHE = 100
 
-// ============================================================================
-// GRID POSITIONING CONSTANTS
-// ============================================================================
+/** RAF throttle delay for viewport updates */
+export const RAF_THROTTLE_MS = 16
 
-/** Grid origin X coordinate - chunks are positioned relative to this center point */
-export const GRID_ORIGIN_X = 0
-
-/** Grid origin Y coordinate - chunks are positioned relative to this center point */
-export const GRID_ORIGIN_Y = 0
+/** Debounce delay for expensive operations */
+export const DEBOUNCE_DELAY_MS = 150
 
 // ============================================================================
-// ASPECT RATIO CONSTANTS
+// VISUAL CONSTANTS
 // ============================================================================
 
-/** Default aspect ratios used for layout calculations when image dimensions are unknown */
-export const DEFAULT_ASPECT_RATIOS = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6] as const
+/** Background color for the world plane */
+export const WORLD_BACKGROUND_COLOR = '#EDE9E5'
 
-/** Minimum image height in pixels */
-export const MIN_IMAGE_HEIGHT = 100
+/** Image border radius */
+export const IMAGE_BORDER_RADIUS = 8
 
-// ============================================================================
-// ANIMATION & INTERACTION CONSTANTS
-// ============================================================================
-
-/** Transition duration for smooth animations in milliseconds */
-export const TRANSITION_DURATION = 200
-
-/** Delay after drag ends before updating virtualization (for smooth UX) */
-export const POST_DRAG_UPDATE_DELAY = 100
-
-/** Threshold for viewport change detection (prevents excessive updates) */
-export const VIEWPORT_CHANGE_THRESHOLD = 150
-
-
-
-// ============================================================================
-// CSS STYLING CONSTANTS
-// ============================================================================
-
-/** Background color for the grid container */
-export const GRID_BACKGROUND_COLOR = '#EDE9E5'
-
-/** Axis line color and opacity */
-export const AXIS_LINE_COLOR = 'rgba(0, 0, 0, 0.3)'
-
-/** Axis line thickness in pixels */
-export const AXIS_LINE_THICKNESS = 2
-
-/** Chunk border color for debug visualization */
-export const CHUNK_BORDER_COLOR = 'rgb(212 212 212)' // neutral-300
-
-/** Image border radius in pixels */
-export const IMAGE_BORDER_RADIUS = 8 // lg
-
-/** Shadow configuration for images */
+/** Image shadow styles */
 export const IMAGE_SHADOW = {
-  default: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)', // shadow-sm
-  hover: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', // shadow-md
+  default: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+  hover: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
 }
-
-// ============================================================================
-// Z-INDEX CONSTANTS
-// ============================================================================
-
-/** Z-index for chunk boundary outlines */
-export const Z_INDEX_CHUNK_OUTLINE = 0
-
-/** Z-index for image containers */
-export const Z_INDEX_IMAGES = 1
-
-/** Z-index for axis lines */
-export const Z_INDEX_AXIS_LINES = 1
-
-/** Z-index for loading indicator */
-export const Z_INDEX_LOADING = 10
-
-/** Z-index for debug info */
-export const Z_INDEX_DEBUG = 10
-
-// ============================================================================
-// ERROR HANDLING CONSTANTS
-// ============================================================================
-
-/** Default error message for image loading failures */
-export const IMAGE_ERROR_MESSAGE = 'Image unavailable'
-
-/** Default error message for chunk loading failures */
-export const CHUNK_ERROR_MESSAGE = 'Failed to load artwork data'
-
-/** Timeout for API requests in milliseconds */
-export const API_TIMEOUT = 10000
 
 // ============================================================================
 // DEBUGGING CONSTANTS
 // ============================================================================
 
-/** Whether to enable verbose console logging */
+/** Enable debug logging */
 export const DEBUG_LOGGING = process.env.NODE_ENV === 'development'
 
-/** Whether to show chunk boundaries by default */
-export const SHOW_CHUNK_BOUNDARIES = false
+/** Show performance overlay by default */
+export const SHOW_PERFORMANCE_OVERLAY = true
 
+/** Show loading indicators */
+export const SHOW_LOADING_INDICATORS = true
 
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+
+/** Default error message for failed image loads */
+export const IMAGE_ERROR_MESSAGE = 'Image unavailable'
+
+/** API request timeout */
+export const API_TIMEOUT_MS = 10000
+
+// ============================================================================
+// ACCESSIBILITY
+// ============================================================================
+
+/** Default aria-label for image tiles */
+export const DEFAULT_ARIA_LABEL = 'Artwork image'
+
+/** Focus ring color */
+export const FOCUS_RING_COLOR = 'rgb(59 130 246)' // blue-500

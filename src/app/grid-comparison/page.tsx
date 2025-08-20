@@ -8,8 +8,8 @@
 "use client"
 
 import React, { useState } from 'react'
-import { DraggableImageGrid } from '@/components/draggable-image-grid'
-import { DraggableImageGridV2 } from '@/components/draggable-image-grid-v2'
+import { DraggableImageGrid } from '@/components/grid-legacy/draggable-image-grid-legacy'
+import { DraggableImageGrid as DraggableImageGridNew } from '@/components/draggable-image-grid'
 
 type GridVersion = 'v1' | 'v2'
 
@@ -25,7 +25,7 @@ export default function GridComparisonPage() {
             Grid Implementation Comparison
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Compare the original chunked grid vs the new column carry-over implementation
+            Compare the legacy chunked grid vs the new column carry-over implementation (now main)
           </p>
         </div>
         
@@ -39,7 +39,7 @@ export default function GridComparisonPage() {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Original (Fixed Chunks)
+              Legacy (Fixed Chunks)
             </button>
             <button
               onClick={() => setActiveVersion('v2')}
@@ -49,13 +49,13 @@ export default function GridComparisonPage() {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              V2 (Column Carry-Over)
+              New (Column Carry-Over)
             </button>
           </div>
           
           <div className="text-sm text-gray-500">
             Current: <span className="font-medium">
-              {activeVersion === 'v1' ? 'Original Grid' : 'Column Carry-Over Grid'}
+              {activeVersion === 'v1' ? 'Legacy Grid' : 'New Grid (Main)'}
             </span>
           </div>
         </div>
@@ -66,15 +66,15 @@ export default function GridComparisonPage() {
         <div className="max-w-4xl">
           {activeVersion === 'v1' ? (
             <div className="text-sm text-gray-700">
-              <span className="font-medium text-red-600">⚠️ Original Implementation:</span>{' '}
-              Uses fixed-height chunk containers ({1600}px). May show horizontal gaps between chunks when content height varies.
-              Each chunk calculates its own masonry layout independently.
+              <span className="font-medium text-amber-600">📜 Legacy Implementation:</span>{' '}
+              Uses fixed-height chunk containers (1600px). May show horizontal gaps between chunks when content height varies.
+              Each chunk calculates its own masonry layout independently. (Archived for comparison)
             </div>
           ) : (
             <div className="text-sm text-gray-700">
-              <span className="font-medium text-green-600">✨ Column Carry-Over Implementation:</span>{' '}
+              <span className="font-medium text-green-600">✨ New Main Implementation:</span>{' '}
               Treats the world as a continuous plane with column heights that carry over between chunks per vertical strip.
-              Eliminates horizontal gaps by positioning tiles at absolute world coordinates.
+              Eliminates horizontal gaps by positioning tiles at absolute world coordinates. True infinite scrolling in all directions.
             </div>
           )}
         </div>
@@ -85,9 +85,9 @@ export default function GridComparisonPage() {
         {activeVersion === 'v1' ? (
           <DraggableImageGrid />
         ) : (
-          <DraggableImageGridV2
+          <DraggableImageGridNew
             onArtworkClick={(image) => {
-              console.log('Artwork clicked in V2:', image)
+              console.log('Artwork clicked in New Grid:', image)
               // You can implement similarity view or other actions here
             }}
             showPerformanceOverlay={true}

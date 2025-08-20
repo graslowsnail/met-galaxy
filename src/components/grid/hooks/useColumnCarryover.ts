@@ -18,6 +18,7 @@ import {
   GAP, 
   COLUMNS_PER_CHUNK, 
   CHUNK_WIDTH, 
+  CHUNK_HEIGHT,
   DEBUG_LOGGING 
 } from '../utils/constants'
 
@@ -105,6 +106,7 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     
     // Calculate world coordinates
     const worldX = stripX * CHUNK_WIDTH + columnIndex * (COLUMN_WIDTH + GAP)
+    // Use the running column bottom - this will be offset correctly by reflowStrip
     const worldY = columnBottom
     
     const positioned: PositionedImage = {
@@ -139,11 +141,17 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       console.log(`🔄 Reflowing strip ${stripX} with chunks:`, chunkYs)
     }
     
-    // Start with clean column bottoms
-    let bottoms: ColumnHeights = [0, 0, 0, 0]
-    
     // Process chunks in ascending Y order
     const sortedYs = [...chunkYs].sort((a, b) => a - b)
+    
+    // Start column bottoms at the correct Y offset for the first chunk
+    const firstChunkY = sortedYs[0] ?? 0
+    const initialOffset = firstChunkY * CHUNK_HEIGHT
+    let bottoms: ColumnHeights = [initialOffset, initialOffset, initialOffset, initialOffset]
+    
+    if (DEBUG_LOGGING) {
+      console.log(`🔄 Strip ${stripX}: Starting with Y offset ${initialOffset} (firstChunkY: ${firstChunkY})`)
+    }
     
     for (const chunkY of sortedYs) {
       const chunkKey: ChunkKey = `${stripX}:${chunkY}`

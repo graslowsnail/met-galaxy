@@ -1,398 +1,242 @@
 /**
- * Type definitions for the DraggableImageGrid component system
+ * Type definitions for the Column Carry-Over Grid system
  * 
- * This file contains all interfaces and types used across the grid components,
- * providing a centralized location for type definitions and ensuring consistency.
+ * Based on the Infinite-Plane Masonry Grid specification.
  */
 
-import type { Artwork } from "@/types/api"
-
 // ============================================================================
-// CORE GRID TYPES
+// CORE DATA TYPES
 // ============================================================================
 
-/**
- * Represents an individual image item within the grid
- * Contains both visual properties and database metadata
- */
+/** Image item with positioning and metadata */
 export interface ImageItem {
-  /** Unique identifier for the image within the grid */
   id: string
-  /** Image source URL */
   src: string
-  /** Image width in pixels */
-  width: number
-  /** Image height in pixels */
-  height: number
-  /** Calculated aspect ratio (width/height) */
-  aspectRatio: number
-  /** X coordinate of the chunk this image belongs to */
-  chunkX: number
-  /** Y coordinate of the chunk this image belongs to */
-  chunkY: number
-  /** Index of this image within its chunk */
-  localIndex: number
-  
-  // Database fields from artwork data
-  /** The database ID used for similarity API calls */
+  width?: number
+  height?: number
+  aspectRatio?: number // preferred for stable layout
   databaseId?: number
   objectId?: number
-  title?: string | null
-  artist?: string | null
-  date?: string | null
-  department?: string | null
-  culture?: string | null
-  medium?: string | null
+  title?: string
+  artist?: string
+  chunkX: number // chunk grid coordinates
+  chunkY: number
+  localIndex: number // index within chunk
 }
 
-/**
- * Represents a positioned image with its calculated layout coordinates
- */
+/** Image positioned in world coordinates */
 export interface PositionedImage {
-  /** X coordinate in pixels */
-  x: number
-  /** Y coordinate in pixels */
-  y: number
-  /** Height in pixels (may be constrained by chunk bounds) */
+  image: ImageItem
+  worldX: number
+  worldY: number
+  width: number
   height: number
 }
 
-/**
- * Bounding box for spatial calculations
- */
-export interface BoundingBox {
-  /** Minimum X coordinate */
+// ============================================================================
+// CAMERA AND VIEWPORT TYPES
+// ============================================================================
+
+/** Camera/viewport translation state */
+export interface CameraState {
+  translate: { x: number; y: number }
+  isDragging: boolean
+}
+
+/** Viewport dimensions */
+export interface ViewportSize {
+  width: number
+  height: number
+}
+
+/** Viewport bounds in world coordinates */
+export interface ViewportBounds {
   minX: number
-  /** Maximum X coordinate */
   maxX: number
-  /** Minimum Y coordinate */
   minY: number
-  /** Maximum Y coordinate */
   maxY: number
 }
 
-/**
- * Represents a chunk - a discrete grid cell containing multiple images
- * Each chunk is positioned in a grid layout and manages its own masonry layout internally
- */
-export interface Chunk {
-  /** Unique identifier for the chunk */
-  id: string
-  /** Grid X coordinate of the chunk */
-  x: number
-  /** Grid Y coordinate of the chunk */
-  y: number
-  /** Array of images contained in this chunk */
-  images: ImageItem[]
-  /** Calculated positions for each image */
-  positions: PositionedImage[]
-  /** Bounding box containing all images in this chunk */
-  bounds: BoundingBox
-  /** The actual height this chunk occupies in pixels */
-  actualHeight: number
-}
-
 // ============================================================================
-// DATA MANAGEMENT TYPES
+// CHUNK AND VIRTUALIZATION TYPES
 // ============================================================================
 
-/**
- * Represents the data state for a chunk
- */
-export interface ChunkData {
-  /** Artwork data for the chunk, null if not loaded */
-  artworks: Artwork[] | null
-  /** Whether data is currently being fetched */
-  loading: boolean
-  /** Any error that occurred during data fetching */
-  error: Error | null
-}
-
-/**
- * Chunk coordinates in the grid system
- */
+/** Chunk coordinates */
 export interface ChunkCoordinates {
-  /** X coordinate in the grid */
   x: number
-  /** Y coordinate in the grid */
   y: number
 }
 
-/**
- * Parameters for chunk data fetching
- */
-export interface ChunkDataParams extends ChunkCoordinates {
-  /** Number of artworks to fetch for the chunk */
-  count: number
-}
-
-// ============================================================================
-// VIEWPORT & INTERACTION TYPES
-// ============================================================================
-
-/**
- * Current viewport state and dimensions
- */
-export interface ViewportState {
-  /** Viewport width in pixels */
-  width: number
-  /** Viewport height in pixels */
-  height: number
-  /** Current translation X offset */
-  translateX: number
-  /** Current translation Y offset */
-  translateY: number
-}
-
-/**
- * Drag interaction state
- */
-export interface DragState {
-  /** Whether dragging is currently active */
-  isDragging: boolean
-  /** Starting coordinates when drag began */
-  startX: number
-  /** Starting coordinates when drag began */
-  startY: number
-}
-
-/**
- * Touch/mouse position
- */
-export interface Position {
-  /** X coordinate */
+/** Chunk data from API */
+export interface ChunkData {
+  id: string
   x: number
-  /** Y coordinate */
   y: number
+  images: ImageItem[]
 }
 
-/**
- * Viewport bounds for visibility calculations
- */
-export interface ViewportBounds {
-  /** Left edge of viewport */
-  left: number
-  /** Right edge of viewport */
-  right: number
-  /** Top edge of viewport */
-  top: number
-  /** Bottom edge of viewport */
-  bottom: number
+/** LRU cache entry */
+export interface CacheEntry<T> {
+  value: T
+  timestamp: number
 }
 
 // ============================================================================
-// COMPONENT PROP TYPES
+// COLUMN CARRY-OVER TYPES
 // ============================================================================
 
-/**
- * Props for individual chunk components
- */
-export interface ChunkComponentProps {
-  /** The chunk data to render */
-  chunk: Chunk
-  /** Whether the chunk is currently loading */
-  isLoading?: boolean
-  /** Callback when an image is clicked */
-  onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
-  /** Whether dragging is currently active (to prevent clicks) */
-  isDragging?: boolean
-  /** Whether to show chunk boundary for debugging */
-  showBoundary?: boolean
-}
+/** Column heights for a strip */
+export type ColumnHeights = [number, number, number, number]
 
-/**
- * Props for the chunk skeleton/loading component
- */
-export interface ChunkSkeletonProps {
-  /** X coordinate of the chunk being loaded */
-  chunkX: number
-  /** Y coordinate of the chunk being loaded */
-  chunkY: number
-  /** Whether to show chunk boundary for debugging */
-  showBoundary?: boolean
-}
+/** Chunk key (x:y format) */
+export type ChunkKey = string
 
-/**
- * Props for the grid renderer component
- */
-export interface GridRendererProps {
-  /** Map of chunks to render */
-  chunks: Map<string, Chunk>
-  /** Current translation state */
-  translate: Position
-  /** Whether dragging is active */
-  isDragging: boolean
-  /** Callback when an image is clicked */
-  onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
-  /** Set of chunk keys that are currently loading */
-  loadingChunks?: Set<string>
-  /** Number of visible chunks for debug display */
-  visibleChunks?: number
-  /** Chunk data map for performance display */
-  chunkDataMap?: Map<string, ChunkData>
-  /** Whether to show performance overlay */
-  showPerformanceOverlay?: boolean
-  /** Whether to show axis lines */
-  showAxisLines?: boolean
-  /** Whether to show loading indicators */
-  showLoadingIndicators?: boolean
-}
-
-/**
- * Props for the main infinite artwork grid component
- */
-export interface InfiniteArtworkGridProps {
-  /** Callback when an artwork is selected for similarity view */
-  onArtworkSelect?: (artworkId: number) => void
-  /** Optional initial viewport position */
-  initialPosition?: Position
-  /** Whether to show debug information */
-  showDebugInfo?: boolean
+/** Strip state for column carry-over */
+export interface StripState {
+  x: number // strip X coordinate
+  columnBottoms: ColumnHeights
+  chunkKeys: Set<ChunkKey> // chunks that belong to this strip
 }
 
 // ============================================================================
 // HOOK RETURN TYPES
 // ============================================================================
 
-/**
- * Return type for useChunkData hook
- */
-export interface UseChunkDataReturn {
-  /** Map of chunk keys to their data state */
-  chunkDataMap: Map<string, ChunkData>
-  /** Function to fetch data for specific chunk coordinates */
-  fetchChunkData: (chunkX: number, chunkY: number) => Promise<Artwork[] | null>
-  /** Whether any chunks are currently loading */
-  isLoading: boolean
-  /** Function to clear data cache (for memory management) */
-  clearCache: () => void
-  /** Function to fetch multiple chunks in parallel */
-  fetchMultipleChunks: (coordinates: ChunkCoordinates[]) => Promise<void>
-  /** Function to get data for a specific chunk (synchronous cache access) */
-  getChunkData: (chunkX: number, chunkY: number) => ChunkData | undefined
-  /** Function to check if a chunk has loaded artwork data */
-  hasChunkData: (chunkX: number, chunkY: number) => boolean
-  /** Function to check if a chunk is currently loading */
-  isChunkLoading: (chunkX: number, chunkY: number) => boolean
-  /** Function to get cache statistics for monitoring */
-  getCacheStats: () => {
-    totalEntries: number
-    loadedEntries: number
-    loadingEntries: number
-    errorEntries: number
-    fetchingEntries: number
-  }
-}
-
-/**
- * Return type for useViewport hook
- */
-export interface UseViewportReturn {
-  /** Current viewport state */
-  viewport: ViewportState
-  /** Current translation position */
-  translate: Position
-  /** Viewport dimensions */
-  viewportDimensions: { width: number; height: number }
-  /** Whether viewport is initialized */
-  isInitialized: boolean
-  /** Current drag state */
-  dragState: DragState
-  /** Whether dragging is currently active */
+/** usePointerPan hook return type */
+export interface UsePointerPanReturn {
+  translate: { x: number; y: number }
   isDragging: boolean
-  /** Function to handle mouse down events */
-  handleMouseDown: (event: React.MouseEvent) => void
-  /** Function to handle touch start events */
-  handleTouchStart: (event: React.TouchEvent) => void
-  /** Function to get viewport bounds */
-  getViewportBounds: (includeBuffer?: boolean) => ViewportBounds
-  /** Function to check if viewport has changed significantly */
-  hasSignificantViewportChange: (threshold?: number) => boolean
-  /** Function to register post-drag callbacks */
-  onPostDrag: (callback: () => void) => () => void
-  /** Function to set viewport position programmatically */
-  setViewportPosition: (position: Position) => void
-  /** Function to reset viewport to center */
-  resetViewport: () => void
-  /** Container ref for dimension tracking */
-  containerRef: React.RefObject<HTMLDivElement | null>
+  dragDistance: number
+  onPointerDown: (e: React.PointerEvent) => void
+  onPointerMove: (e: PointerEvent) => void
+  onPointerUp: () => void
+  resetPosition: () => void
 }
 
-/**
- * Return type for useVirtualization hook
- */
-export interface UseVirtualizationReturn {
-  /** Currently visible chunk coordinates */
-  visibleChunks: ChunkCoordinates[]
-  /** Chunk coordinates that should be loaded (including buffer) */
-  chunksToLoad: ChunkCoordinates[]
-  /** Function to trigger virtualization update */
-  updateVirtualization: () => void
-  /** Function to force immediate virtualization update */
-  forceUpdate: () => void
-  /** Function to cleanup distant chunks */
-  cleanup: () => void
-  /** Function to check if a specific chunk is visible */
-  isChunkVisible: (chunkX: number, chunkY: number) => boolean
-  /** Function to check if a specific chunk should be loaded */
-  shouldLoadChunk: (chunkX: number, chunkY: number) => boolean
-  /** Function to get viewport bounds */
-  getViewportBounds: (includeBuffer?: boolean) => ViewportBounds
-  /** Function to get virtualization statistics */
-  getVirtualizationStats: () => {
-    visibleChunks: number
-    chunksToLoad: number
-    renderedChunks: number
-    maxRenderedChunks: number
-    needsCleanup: boolean
-    isActive: boolean
+/** useViewportSize hook return type */
+export interface UseViewportSizeReturn {
+  size: ViewportSize
+  containerRef: React.RefObject<HTMLDivElement>
+  isInitialized: boolean
+}
+
+/** useGridVirtualizer hook return type */
+export interface UseGridVirtualizerReturn {
+  visible: ChunkCoordinates[]
+  isInViewport: (x: number, y: number) => boolean
+  getViewportBounds: () => ViewportBounds
+}
+
+/** useChunkLoader hook return type */
+export interface UseChunkLoaderReturn {
+  chunks: Map<ChunkKey, ChunkData>
+  isLoading: (key: ChunkKey) => boolean
+  loadChunk: (x: number, y: number) => Promise<ChunkData | null>
+  getCacheStats: () => { size: number; hits: number; misses: number }
+  clearCache: () => void
+}
+
+/** useColumnCarryover hook return type */
+export interface UseColumnCarryoverReturn {
+  upsertChunk: (x: number, y: number, images: ImageItem[]) => PositionedImage[]
+  getPlaced: (x: number, y: number) => PositionedImage[] | undefined
+  reflowStrip: (x: number) => void
+  pruneTo: (keepKeys: Set<ChunkKey>) => void
+  snapshotPlaced: () => PositionedImage[]
+  getStats: () => {
+    totalTiles: number
+    strips: number
+    chunks: number
   }
-  /** Function to register cleanup callbacks */
-  onCleanup: (callback: () => void) => () => void
-  /** Function to check if chunk cleanup is needed */
-  needsChunkCleanup: () => boolean
-  /** Function to get chunks that should be removed */
-  getChunksToRemove: (maxToKeep: number) => string[]
+}
+
+// ============================================================================
+// COMPONENT PROP TYPES
+// ============================================================================
+
+/** Props for DraggableImageGrid */
+export interface DraggableImageGridProps {
+  onArtworkClick?: (img: ImageItem) => void
+  initialTranslate?: { x: number; y: number }
+  showPerformanceOverlay?: boolean
+  showLoadingIndicators?: boolean
+}
+
+/** Props for WorldPlane component */
+export interface WorldPlaneProps {
+  tiles: PositionedImage[]
+  translate: { x: number; y: number }
+  onTileClick?: (image: ImageItem, event: React.MouseEvent) => void
+  isDragging: boolean
+}
+
+/** Props for PerformanceOverlay component */
+export interface PerformanceOverlayProps {
+  visible: boolean
+  stats: {
+    visibleChunks: number
+    totalTiles: number
+    cacheSize: number
+    strips: number
+    position: { x: number; y: number }
+  }
+  translate: { x: number; y: number }
+}
+
+/** Props for LoadingIndicator component */
+export interface LoadingIndicatorProps {
+  chunkX: number
+  chunkY: number
+  isVisible: boolean
 }
 
 // ============================================================================
 // UTILITY TYPES
 // ============================================================================
 
-/**
- * Return type for useViewport hook
- */
-export interface UseViewportReturn {
-  /** Current viewport state */
-  viewport: ViewportState
-  /** Current translation position */
-  translate: Position
-  /** Viewport dimensions */
-  viewportDimensions: { width: number; height: number }
-  /** Whether viewport is initialized */
-  isInitialized: boolean
-  /** Current drag state */
-  dragState: DragState
-  /** Whether dragging is currently active */
-  isDragging: boolean
-  /** Function to handle mouse down events */
-  handleMouseDown: (event: React.MouseEvent) => void
-  /** Function to handle touch start events */
-  handleTouchStart: (event: React.TouchEvent) => void
-  /** Function to get viewport bounds */
-  getViewportBounds: (includeBuffer?: boolean) => ViewportBounds
-  /** Function to check if viewport has changed significantly */
-  hasSignificantViewportChange: (threshold?: number) => boolean
-  /** Function to register post-drag callbacks */
-  onPostDrag: (callback: () => void) => () => void
-  /** Function to set viewport position programmatically */
-  setViewportPosition: (position: Position) => void
-  /** Function to reset viewport to center */
-  resetViewport: () => void
-  /** Container ref for dimension tracking */
-  containerRef: React.RefObject<HTMLDivElement | null>
+/** Generic position type */
+export interface Position {
+  x: number
+  y: number
 }
 
+/** Generic size type */
+export interface Size {
+  width: number
+  height: number
+}
 
+/** Generic bounds type */
+export interface Bounds {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
 
+// ============================================================================
+// API INTEGRATION TYPES
+// ============================================================================
 
+/** API response for chunk data (matches existing API) */
+export interface ChunkApiResponse {
+  artworks: Array<{
+    id: number
+    objectId?: number
+    title?: string
+    artist?: string
+    primaryImage?: string
+    primaryImageSmall?: string
+    date?: string
+    department?: string
+    culture?: string
+    medium?: string
+  }>
+}
+
+/** Error types for API failures */
+export interface ApiError {
+  message: string
+  status?: number
+  code?: string
+}
