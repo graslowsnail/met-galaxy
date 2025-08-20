@@ -164,41 +164,69 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     // Process chunks in ascending Y order
     const sortedYs = [...chunkYs].sort((a, b) => a - b)
     
-    // Start column bottoms at the correct Y offset for the first chunk
-    const firstChunkY = sortedYs[0] ?? 0
-    const initialOffset = firstChunkY * CHUNK_HEIGHT
-    let bottoms: ColumnHeights = [initialOffset, initialOffset, initialOffset, initialOffset]
+    // FIX: Use stable strip baseline - don't recalculate from new first chunk
+    // This prevents existing chunks from moving when new chunks are added above them
+    const existingBottoms = stripBottomsRef.current.get(stripX)
+    let bottoms: ColumnHeights
     
-    if (DEBUG_LOGGING) {
-      console.log(`🔄 Strip ${stripX}: Starting with Y offset ${initialOffset} (firstChunkY: ${firstChunkY})`)
+    if (existingBottoms && existingBottoms.some(h => h !== 0)) {
+      // Strip has existing content - preserve the established baseline
+      bottoms = [...existingBottoms] as ColumnHeights
+    } else {
+      // New strip - establish initial baseline from first chunk
+      const firstChunkY = sortedYs[0] ?? 0
+      const initialOffset = firstChunkY * CHUNK_HEIGHT
+      bottoms = [initialOffset, initialOffset, initialOffset, initialOffset]
     }
     
+    
+    // Process chunks - handle existing chunks vs new chunks differently
     for (const chunkY of sortedYs) {
       const chunkKey: ChunkKey = `${stripX}:${chunkY}`
       const images = originalsByKey.get(chunkKey)
       
       if (!images || images.length === 0) {
-        // if (DEBUG_LOGGING) {
-        //   console.log(`⚠️ Strip ${stripX}: No images for chunk Y=${chunkY}`)
-        // }
         continue
+      }
+      
+      // Check if chunk already positioned
+      const existingPlaced = placedByKey.get(chunkKey)
+      if (existingPlaced && existingPlaced.length === images.length) {
+        // Skip existing chunks to avoid repositioning
+        continue
+      }
+      
+      // This is a new chunk - place it appropriately
+      let chunkBottoms: ColumnHeights
+      const chunkStartY = chunkY * CHUNK_HEIGHT
+      
+      if (existingBottoms && chunkStartY < Math.min(...existingBottoms)) {
+        // New chunk is ABOVE existing content - place at chunk boundary
+        chunkBottoms = [chunkStartY, chunkStartY, chunkStartY, chunkStartY]
+      } else {
+        // New chunk is BELOW existing content - continue from current bottoms  
+        chunkBottoms = bottoms.map(bottom => Math.max(bottom, chunkStartY)) as ColumnHeights
       }
       
       // Place all images in this chunk
       const positionedImages: PositionedImage[] = []
       
       for (const image of images) {
-        const { positioned, newBottoms } = placeImageInStrip(image, stripX, bottoms)
+        const { positioned, newBottoms } = placeImageInStrip(image, stripX, chunkBottoms)
         positionedImages.push(positioned)
-        bottoms = newBottoms
+        chunkBottoms = newBottoms
       }
       
       // Store placed tiles for this chunk
       placedByKey.set(chunkKey, positionedImages)
       
-      // if (DEBUG_LOGGING) {
-      //   console.log(`✅ Strip ${stripX}, Chunk Y=${chunkY}: Placed ${positionedImages.length} images`)
-      // }
+      // Update bottoms appropriately
+      if (chunkStartY < Math.min(...bottoms)) {
+        // Chunk was above - don't update bottoms (it doesn't extend downward)
+      } else {
+        // Chunk was below - update bottoms
+        bottoms = chunkBottoms
+      }
     }
     
     // Update strip bottoms
@@ -216,23 +244,34 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
   const upsertChunk = useCallback((x: number, y: number, images: ImageItem[]): PositionedImage[] => {
     const chunkKey: ChunkKey = `${x}:${y}`
     
-    // if (DEBUG_LOGGING) {
-    //   console.log(`📦 Upserting chunk ${chunkKey} with ${images.length} images`)
-    // }
+    // Check if this chunk is already placed with the same images
+    const existingPlaced = placedByKey.get(chunkKey)
+    const existingImages = originalsByKey.get(chunkKey)
+    
+    // If chunk already exists with identical content, return existing placement
+    if (existingPlaced && existingImages && 
+        existingImages.length === images.length &&
+        existingImages.every((img, i) => img.id === images[i]?.id)) {
+      return existingPlaced
+    }
     
     // Store original images
     originalsByKey.set(chunkKey, images)
     
     // Add chunk Y to strip's sorted list
     const existingYs = keysByX.get(x) || []
-    if (!existingYs.includes(y)) {
+    const wasNewChunk = !existingYs.includes(y)
+    if (wasNewChunk) {
       existingYs.push(y)
       existingYs.sort((a, b) => a - b)
       keysByX.set(x, existingYs)
     }
     
-    // Reflow the entire strip to maintain consistency
-    reflowStrip(x)
+    // Only reflow if this is truly a new chunk or changed chunk
+    // Don't reflow just because viewport changed and chunks became visible again
+    if (wasNewChunk || !existingPlaced) {
+      reflowStrip(x)
+    }
     
     // Return placed tiles for this specific chunk
     return placedByKey.get(chunkKey) || []

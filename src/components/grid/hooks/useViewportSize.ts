@@ -21,8 +21,8 @@ export function useViewportSize(): UseViewportSizeReturn {
   // REFS
   // ============================================================================
   
-  const containerRef = useRef<HTMLDivElement>(null)
-  const debounceTimeoutRef = useRef<NodeJS.Timeout>()
+  const containerRef = useRef<HTMLDivElement>(null!)
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>(undefined)
   
   // ============================================================================
   // SIZE MEASUREMENT

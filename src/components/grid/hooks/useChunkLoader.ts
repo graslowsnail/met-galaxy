@@ -105,7 +105,7 @@ export function useChunkLoader(): UseChunkLoaderReturn {
     // In production, you'd want actual image dimensions from the API
     const hash = artwork.id % 7
     const ratios = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6]
-    const aspectRatio = ratios[hash]
+    const aspectRatio = ratios[hash] || 1.0
     
     // Use the image URL fields - the API client maps these to primaryImage/primaryImageSmall
     const imageUrl = artwork.primaryImageSmall ?? artwork.primaryImage ?? artwork.imageUrl ?? ''

@@ -300,6 +300,7 @@ export function DraggableImageGrid({
     const carryoverStats = getStats()
     const cacheStats = getCacheStats()
     
+    
     return {
       visibleChunks: visible.length,
       totalTiles: carryoverStats.totalTiles,
@@ -309,7 +310,7 @@ export function DraggableImageGrid({
       strips: carryoverStats.strips,
       position: { x: -translate.x, y: -translate.y }
     }
-  }, [visible.length, getStats, getCacheStats, translate])
+  }, [visible.length, getStats, getCacheStats, translate, visible])
   
   const loadingChunks = useMemo(() => {
     // For now, show loading for chunks we're trying to load

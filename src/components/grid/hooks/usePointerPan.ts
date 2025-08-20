@@ -35,7 +35,7 @@ export function usePointerPan(options: UsePointerPanOptions = {}): UsePointerPan
   
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const pointerStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  const rafIdRef = useRef<number | undefined>()
+  const rafIdRef = useRef<number | undefined>(undefined)
   const dragDistanceRef = useRef(0)
   
   // ============================================================================
