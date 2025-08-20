@@ -79,11 +79,33 @@ export const apiClient = {
 
   async getChunkArtworks(params: { chunkX: number; chunkY: number; count?: number }): Promise<RandomArtworksResponse> {
     // Use the random endpoint with a deterministic seed based on chunk coordinates
-    const seed = Math.abs(params.chunkX * 1000 + params.chunkY * 100)
+    // Create unique seeds for negative coordinates by using a proper hash function
+    const x = params.chunkX
+    const y = params.chunkY
+    
+    // Create a unique seed that works with negative coordinates
+    // Mix the coordinates with prime numbers to avoid collisions
+    let hash = ((x + 1000) * 73856093) ^ ((y + 1000) * 19349663)
+    
+    // Ensure positive hash
+    hash = Math.abs(hash)
+    
+    // Add some variation based on coordinate sign to differentiate quadrants
+    if (x < 0) hash += 1000000
+    if (y < 0) hash += 2000000
+    
+    // Convert to seed between 0 and 1 for PostgreSQL setseed() compatibility
+    // Use modulo to keep it reasonable, then normalize to 0-1 range
+    const normalizedSeed = (hash % 1000000) / 1000000
+    
+    // Debug logging for negative coordinates
+    if (process.env.NODE_ENV === 'development' && (x < 0 || y < 0)) {
+      console.log(`📡 Loading chunk (${x}, ${y}) with hash: ${hash}, seed: ${normalizedSeed}`)
+    }
     
     return this.getRandomArtworks({
       count: params.count ?? 20,
-      seed: seed
+      seed: normalizedSeed
     })
   },
 
