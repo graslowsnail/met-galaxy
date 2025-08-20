@@ -147,6 +147,13 @@ export function usePointerPan(options: UsePointerPanOptions = {}): UsePointerPan
     }
   }, [initialTranslate])
   
+  const updatePosition = useCallback((deltaX: number, deltaY: number) => {
+    setTranslate(prev => ({
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }))
+  }, [])
+  
   // ============================================================================
   // RETURN INTERFACE
   // ============================================================================
@@ -159,5 +166,6 @@ export function usePointerPan(options: UsePointerPanOptions = {}): UsePointerPan
     onPointerMove,
     onPointerUp,
     resetPosition,
+    updatePosition,
   }
 }

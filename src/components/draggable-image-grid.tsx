@@ -22,6 +22,7 @@ import { useColumnCarryover } from './grid/hooks/useColumnCarryover'
 import { 
   WORLD_BACKGROUND_COLOR,
   CLICK_MOVE_THRESHOLD,
+  TRACKPAD_SPEED,
   IMAGE_BORDER_RADIUS,
   IMAGE_SHADOW,
   DEBUG_LOGGING,
@@ -204,7 +205,8 @@ export function DraggableImageGrid({
     translate, 
     isDragging, 
     dragDistance,
-    onPointerDown 
+    onPointerDown,
+    updatePosition
   } = usePointerPan({ 
     initialTranslate,
     onDragStart: () => {
@@ -325,12 +327,91 @@ export function DraggableImageGrid({
     })
   }
   
+
+  
+  // Handle trackpad navigation vs blocking mouse wheel
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    
+    const handleWheelEvent = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // Detect trackpad vs mouse wheel
+      const isTrackpadGesture = (
+        // Trackpad usually has both X and Y movement
+        Math.abs(e.deltaX) > 0 ||
+        // Trackpad has smaller, smoother deltas
+        (Math.abs(e.deltaY) < 50 && Math.abs(e.deltaX) < 50)
+      )
+      
+      if (isTrackpadGesture) {
+        // Enable trackpad navigation with inverted direction and increased speed
+        const speed = TRACKPAD_SPEED
+        const deltaX = e.deltaX * speed
+        const deltaY = e.deltaY * speed
+        
+        // Update translate position (inverted to match natural scrolling)
+        updatePosition(deltaX, deltaY) // Right finger movement = positive X, Down = positive Y
+        
+        if (DEBUG_LOGGING) {
+          console.log('🎯 Trackpad navigation:', { 
+            deltaX: e.deltaX, 
+            deltaY: e.deltaY, 
+            scaledX: deltaX, 
+            scaledY: deltaY 
+          })
+        }
+      }
+      // Mouse wheel events are blocked (no movement)
+    }
+    
+    // Add wheel event listeners
+    container.addEventListener('wheel', handleWheelEvent, { passive: false })
+    document.addEventListener('wheel', handleWheelEvent, { passive: false })
+    
+    // Prevent body scrolling and hide scrollbars completely
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    
+    // Apply CSS classes to hide scrollbars
+    document.documentElement.classList.add('no-scroll')
+    document.body.classList.add('no-scroll')
+    
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheelEvent)
+      document.removeEventListener('wheel', handleWheelEvent)
+      
+      // Remove CSS classes
+      document.documentElement.classList.remove('no-scroll')
+      document.body.classList.remove('no-scroll')
+      
+      // Restore original overflow styles
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+    }
+  }, [containerRef])
+
   return (
     <div
       ref={containerRef}
-      className="w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing"
-      style={{ backgroundColor: WORLD_BACKGROUND_COLOR }}
+      className="w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing hide-scrollbars"
+      style={{ 
+        backgroundColor: WORLD_BACKGROUND_COLOR,
+        overscrollBehavior: 'none', // Prevent overscroll
+        touchAction: 'none', // Prevent touch scrolling
+        msOverflowStyle: 'none', // IE and Edge
+        scrollbarWidth: 'none' // Firefox
+      }}
       onPointerDown={onPointerDown}
+      onWheel={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
     >
       {/* World Plane with positioned tiles */}
       <WorldPlane

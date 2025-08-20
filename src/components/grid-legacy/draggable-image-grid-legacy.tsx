@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useCallback } from "react"
-import { SimilarityGrid } from "./similarity-grid"
+import { SimilarityGrid } from "../similarity-grid"
 
 
 // Import refactored grid components and hooks

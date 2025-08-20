@@ -40,6 +40,9 @@ export const VIEWPORT_BUFFER_PX = 800
 /** Click vs drag movement threshold in pixels */
 export const CLICK_MOVE_THRESHOLD = 6
 
+/** Trackpad navigation speed multiplier */
+export const TRACKPAD_SPEED = 2.0
+
 // ============================================================================
 // PERFORMANCE CONSTANTS
 // ============================================================================

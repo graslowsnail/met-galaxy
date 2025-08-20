@@ -111,6 +111,7 @@ export interface UsePointerPanReturn {
   onPointerMove: (e: PointerEvent) => void
   onPointerUp: () => void
   resetPosition: () => void
+  updatePosition: (deltaX: number, deltaY: number) => void
 }
 
 /** useViewportSize hook return type */
