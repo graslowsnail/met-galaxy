@@ -77,7 +77,7 @@ export const IMAGE_SHADOW = {
 // ============================================================================
 
 /** Enable debug logging */
-export const DEBUG_LOGGING = process.env.NODE_ENV === 'development'
+export const DEBUG_LOGGING = false
 
 /** Show performance overlay by default */
 export const SHOW_PERFORMANCE_OVERLAY = true

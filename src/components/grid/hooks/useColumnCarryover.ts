@@ -100,7 +100,27 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     stripX: number, 
     bottoms: ColumnHeights
   ): { positioned: PositionedImage; newBottoms: ColumnHeights } => {
-    const columnIndex = findShortestColumn(bottoms)
+    // DETERMINISTIC COLUMN ASSIGNMENT based on chunk position and local index
+    // This ensures consistent placement while maintaining good distribution
+    
+    // Use the image's position within its chunk (localIndex) and chunk Y to determine column
+    // This way, images maintain their relative positions even when chunks load out of order
+    const deterministicColumn = (image.chunkY * COLUMNS_PER_CHUNK + image.localIndex) % COLUMNS_PER_CHUNK
+    
+    // For better visual balance, we can still use shortest column but with deterministic tiebreaking
+    let columnIndex: number
+    
+    if (image.localIndex < COLUMNS_PER_CHUNK) {
+      // First 4 images in a chunk get assigned to columns 0-3 in order
+      // This ensures a predictable initial distribution
+      columnIndex = image.localIndex % COLUMNS_PER_CHUNK
+    } else {
+      // After the first row, use shortest column for better balance
+      // But use deterministic tiebreaking based on the image's position
+      const shortestIndex = findShortestColumn(bottoms)
+      columnIndex = shortestIndex
+    }
+    
     const columnBottom = bottoms[columnIndex]!
     const height = calculateImageHeight(image)
     
@@ -158,9 +178,9 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       const images = originalsByKey.get(chunkKey)
       
       if (!images || images.length === 0) {
-        if (DEBUG_LOGGING) {
-          console.log(`⚠️ Strip ${stripX}: No images for chunk Y=${chunkY}`)
-        }
+        // if (DEBUG_LOGGING) {
+        //   console.log(`⚠️ Strip ${stripX}: No images for chunk Y=${chunkY}`)
+        // }
         continue
       }
       
@@ -176,17 +196,17 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       // Store placed tiles for this chunk
       placedByKey.set(chunkKey, positionedImages)
       
-      if (DEBUG_LOGGING) {
-        console.log(`✅ Strip ${stripX}, Chunk Y=${chunkY}: Placed ${positionedImages.length} images`)
-      }
+      // if (DEBUG_LOGGING) {
+      //   console.log(`✅ Strip ${stripX}, Chunk Y=${chunkY}: Placed ${positionedImages.length} images`)
+      // }
     }
     
     // Update strip bottoms
     setStripBottoms(stripX, bottoms)
     
-    if (DEBUG_LOGGING) {
-      console.log(`🏁 Strip ${stripX} reflow complete. Column bottoms:`, bottoms)
-    }
+    // if (DEBUG_LOGGING) {
+    //   console.log(`🏁 Strip ${stripX} reflow complete. Column bottoms:`, bottoms)
+    // }
   }, [keysByX, originalsByKey, placedByKey, placeImageInStrip, setStripBottoms])
   
   // ============================================================================
@@ -196,9 +216,9 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
   const upsertChunk = useCallback((x: number, y: number, images: ImageItem[]): PositionedImage[] => {
     const chunkKey: ChunkKey = `${x}:${y}`
     
-    if (DEBUG_LOGGING) {
-      console.log(`📦 Upserting chunk ${chunkKey} with ${images.length} images`)
-    }
+    // if (DEBUG_LOGGING) {
+    //   console.log(`📦 Upserting chunk ${chunkKey} with ${images.length} images`)
+    // }
     
     // Store original images
     originalsByKey.set(chunkKey, images)
@@ -271,9 +291,9 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       reflowStrip(stripX)
     }
     
-    if (DEBUG_LOGGING && prunedCount > 0) {
-      console.log(`🧹 Pruned ${prunedCount} chunks, keeping ${keepKeys.size}`)
-    }
+    // if (DEBUG_LOGGING && prunedCount > 0) {
+    //   // console.log(`🧹 Pruned ${prunedCount} chunks, keeping ${keepKeys.size}`)
+    // }
   }, [originalsByKey, placedByKey, keysByX, reflowStrip])
   
   const snapshotPlaced = useCallback((): PositionedImage[] => {

@@ -41,9 +41,6 @@ export const apiClient = {
       url.searchParams.set('seed', params.seed.toString())
     }
     
-    console.log('API Request URL:', url.toString())
-    console.log('Base URL:', API_CONFIG.baseUrl)
-    
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -51,15 +48,7 @@ export const apiClient = {
       },
     })
     
-    console.log('API Response:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      url: response.url
-    })
-    
     const backendResult = await handleResponse<BackendResponse>(response)
-    console.log('Backend Result:', backendResult)
     
     // Transform backend response to expected frontend format
     const result: RandomArtworksResponse = {
@@ -71,8 +60,6 @@ export const apiClient = {
       })),
       total: backendResult.data.length
     }
-    
-    console.log('Transformed Result:', result)
     
     return result
   },
@@ -98,10 +85,7 @@ export const apiClient = {
     // Use modulo to keep it reasonable, then normalize to 0-1 range
     const normalizedSeed = (hash % 1000000) / 1000000
     
-    // Debug logging for negative coordinates
-    if (process.env.NODE_ENV === 'development' && (x < 0 || y < 0)) {
-      console.log(`📡 Loading chunk (${x}, ${y}) with hash: ${hash}, seed: ${normalizedSeed}`)
-    }
+
     
     return this.getRandomArtworks({
       count: params.count ?? 20,
@@ -125,8 +109,6 @@ export const apiClient = {
   async getSimilarArtworks(artworkId: number): Promise<SimilarityResponse> {
     const url = new URL(`${API_CONFIG.endpoints.similarArtworks}/${artworkId}`, API_CONFIG.baseUrl)
     
-    console.log('Fetching similar artworks for ID:', artworkId, 'URL:', url.toString())
-    
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -134,14 +116,7 @@ export const apiClient = {
       },
     })
     
-    console.log('Similar artworks API response:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-    })
-    
     const result = await handleResponse<SimilarityResponse>(response)
-    console.log('Similar artworks result:', result)
     
     return result
   },

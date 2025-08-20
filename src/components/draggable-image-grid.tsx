@@ -8,7 +8,7 @@
 
 "use client"
 
-import React, { useEffect, useCallback, useMemo } from 'react'
+import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react'
 import type { DraggableImageGridProps, ImageItem, PositionedImage } from './grid/types/grid'
 
 // Import all the hooks
@@ -136,7 +136,6 @@ const PerformanceOverlay = React.memo(function PerformanceOverlay({
   return (
     <div
       className="fixed top-4 left-4 z-50 bg-black/75 text-white px-3 py-2 rounded text-xs font-mono space-y-1"
-      style={{ transform: `translate(${-translate.x}px, ${-translate.y}px)` }}
     >
       <div className="text-green-400">🚀 COLUMN CARRY-OVER</div>
       <div>Chunks: {stats.visibleChunks}</div>
@@ -223,6 +222,13 @@ export function DraggableImageGrid({
   
   const { upsertChunk, snapshotPlaced, getStats, pruneTo } = useColumnCarryover()
   
+  // Track when chunks are loaded to trigger re-renders
+  const [loadedChunks, setLoadedChunks] = useState(new Set<string>())
+  
+  // Use a ref to avoid creating new Set objects in dependencies
+  const loadedChunksRef = useRef(loadedChunks)
+  loadedChunksRef.current = loadedChunks
+  
   // ============================================================================
   // CHUNK LOADING AND PLACEMENT
   // ============================================================================
@@ -237,6 +243,10 @@ export function DraggableImageGrid({
         if (chunkData && chunkData.images.length > 0) {
           // Place chunk in the column carry-over system
           upsertChunk(coord.x, coord.y, chunkData.images)
+          
+          // Track loaded chunk to trigger re-render
+          const chunkKey = `${coord.x}:${coord.y}`
+          setLoadedChunks(prev => new Set([...prev, chunkKey]))
           
           if (DEBUG_LOGGING) {
             console.log(`✅ Placed chunk (${coord.x}, ${coord.y}) with ${chunkData.images.length} images`)
@@ -265,6 +275,13 @@ export function DraggableImageGrid({
     
     // Prune non-visible chunks from column carry-over system
     pruneTo(visibleKeys)
+    
+    // Also clean up loaded chunks tracking
+    const currentLoaded = loadedChunksRef.current
+    const stillVisible = [...currentLoaded].filter(key => visibleKeys.has(key))
+    if (stillVisible.length !== currentLoaded.size) {
+      setLoadedChunks(new Set(stillVisible))
+    }
   }, [visible, pruneTo])
   
   // ============================================================================
@@ -272,8 +289,12 @@ export function DraggableImageGrid({
   // ============================================================================
   
   const tiles = useMemo(() => {
-    return snapshotPlaced()
-  }, [snapshotPlaced, visible]) // Re-snapshot when visible chunks change
+    const allTiles = snapshotPlaced()
+    if (DEBUG_LOGGING) {
+      console.log(`🎨 Tiles memo update: ${allTiles.length} tiles from ${visible.length} visible chunks, ${loadedChunks.size} loaded`)
+    }
+    return allTiles
+  }, [snapshotPlaced, visible, loadedChunks]) // Re-snapshot when visible chunks change OR when chunks are loaded
   
   const performanceStats = useMemo(() => {
     const carryoverStats = getStats()

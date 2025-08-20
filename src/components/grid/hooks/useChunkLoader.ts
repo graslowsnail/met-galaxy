@@ -171,9 +171,11 @@ export function useChunkLoader(): UseChunkLoaderReturn {
       
       const artworks = response.artworks
       
-      // Transform artworks to ImageItems
+      // Transform artworks to ImageItems with additional stability sorting
       const images: ImageItem[] = artworks
         .slice(0, CHUNK_SIZE)
+        // Sort by database ID to ensure consistent ordering as a backup
+        .sort((a, b) => a.id - b.id)
         .map((artwork, index) => 
           transformArtworkToImageItem(artwork, x, y, index)
         )
