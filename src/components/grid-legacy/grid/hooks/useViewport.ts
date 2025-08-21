@@ -49,6 +49,8 @@ export function useViewport(): UseViewportReturn {
   /** Drag interaction state */
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 })
+  const [dragDistance, setDragDistance] = useState(0)
+  const [initialMousePos, setInitialMousePos] = useState<Position>({ x: 0, y: 0 })
   
   /** Initialization flag */
   const [isInitialized, setIsInitialized] = useState(false)
@@ -118,6 +120,8 @@ export function useViewport(): UseViewportReturn {
       x: e.clientX - translate.x, 
       y: e.clientY - translate.y 
     })
+    setInitialMousePos({ x: e.clientX, y: e.clientY })
+    setDragDistance(0)
     
     if (DEBUG_LOGGING) {
       console.log(`🖱️ Mouse drag started at (${e.clientX}, ${e.clientY})`)
@@ -130,13 +134,20 @@ export function useViewport(): UseViewportReturn {
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return
     
+    // Calculate distance from initial mouse position
+    const distance = Math.sqrt(
+      Math.pow(e.clientX - initialMousePos.x, 2) + 
+      Math.pow(e.clientY - initialMousePos.y, 2)
+    )
+    setDragDistance(distance)
+    
     const newTranslate = {
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y,
     }
     
     setTranslate(newTranslate)
-  }, [isDragging, dragStart])
+  }, [isDragging, dragStart, initialMousePos])
   
   /**
    * Handle mouse up to end dragging
@@ -172,6 +183,8 @@ export function useViewport(): UseViewportReturn {
       x: touch.clientX - translate.x, 
       y: touch.clientY - translate.y 
     })
+    setInitialMousePos({ x: touch.clientX, y: touch.clientY })
+    setDragDistance(0)
     
     if (DEBUG_LOGGING) {
       console.log(`👆 Touch drag started at (${touch.clientX}, ${touch.clientY})`)
@@ -188,13 +201,20 @@ export function useViewport(): UseViewportReturn {
     const touch = e.touches[0]
     if (!touch) return
     
+    // Calculate distance from initial touch position
+    const distance = Math.sqrt(
+      Math.pow(touch.clientX - initialMousePos.x, 2) + 
+      Math.pow(touch.clientY - initialMousePos.y, 2)
+    )
+    setDragDistance(distance)
+    
     const newTranslate = {
       x: touch.clientX - dragStart.x,
       y: touch.clientY - dragStart.y,
     }
     
     setTranslate(newTranslate)
-  }, [isDragging, dragStart])
+  }, [isDragging, dragStart, initialMousePos])
   
   /**
    * Handle touch end to end dragging
@@ -343,8 +363,10 @@ export function useViewport(): UseViewportReturn {
       isDragging,
       startX: dragStart.x,
       startY: dragStart.y,
+      distance: dragDistance,
     },
     isDragging,
+    dragDistance,
     
     // Event handlers
     handleMouseDown,

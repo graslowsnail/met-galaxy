@@ -154,6 +154,8 @@ export interface DragState {
   startX: number
   /** Starting coordinates when drag began */
   startY: number
+  /** Distance moved from initial position */
+  distance: number
 }
 
 /**
@@ -300,6 +302,8 @@ export interface UseViewportReturn {
   dragState: DragState
   /** Whether dragging is currently active */
   isDragging: boolean
+  /** Distance moved during current drag operation */
+  dragDistance: number
   /** Function to handle mouse down events */
   handleMouseDown: (event: React.MouseEvent) => void
   /** Function to handle touch start events */
@@ -375,6 +379,8 @@ export interface UseViewportReturn {
   dragState: DragState
   /** Whether dragging is currently active */
   isDragging: boolean
+  /** Distance moved during current drag operation */
+  dragDistance: number
   /** Function to handle mouse down events */
   handleMouseDown: (event: React.MouseEvent) => void
   /** Function to handle touch start events */

@@ -78,6 +78,9 @@ export const POST_DRAG_UPDATE_DELAY = 100
 /** Threshold for viewport change detection (prevents excessive updates) */
 export const VIEWPORT_CHANGE_THRESHOLD = 150
 
+/** Distance threshold in pixels - clicks are blocked if mouse moved more than this */
+export const CLICK_MOVE_THRESHOLD = 5
+
 
 
 // ============================================================================

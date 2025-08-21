@@ -10,7 +10,7 @@ import { SimilarityGrid } from "./similarity-grid"
 import { useViewport } from "./grid-legacy/grid/hooks/useViewport"
 import ChunkManager from "./grid-legacy/grid/ChunkManager"
 import type { ImageItem } from "./grid-legacy/grid/types/grid"
-import { GRID_BACKGROUND_COLOR } from "./grid-legacy/grid/utils/constants"
+import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD } from "./grid-legacy/grid/utils/constants"
 
 // Note: Image generation functions now handled by ChunkManager
 
@@ -30,6 +30,7 @@ export function DraggableImageGrid({
     translate, 
     isInitialized, 
     isDragging, 
+    dragDistance,
     handleMouseDown, 
     handleTouchStart,
     containerRef,
@@ -51,8 +52,11 @@ export function DraggableImageGrid({
 
   // Handle artwork click for similarity view
   const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
-    // Prevent click during dragging
-    if (isDragging) return
+    // Prevent click during dragging OR if mouse moved significantly
+    if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD) {
+      console.log('🚫 Click prevented:', { isDragging, dragDistance, threshold: CLICK_MOVE_THRESHOLD })
+      return
+    }
     
     // Stop event propagation to prevent triggering drag
     event.stopPropagation()
@@ -84,7 +88,7 @@ export function DraggableImageGrid({
       console.error('No database ID found for artwork:', image)
       alert('This artwork is not available for similarity search')
     }
-  }, [isDragging, externalOnArtworkClick])
+  }, [isDragging, dragDistance, externalOnArtworkClick])
 
   // Close similarity view
   const closeSimilarityView = useCallback(() => {
