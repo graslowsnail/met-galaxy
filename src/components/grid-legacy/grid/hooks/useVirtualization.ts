@@ -260,6 +260,18 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
       return
     }
 
+    // Only update if viewport has changed significantly to prevent excessive calls
+    const currentViewport = { 
+      x: viewport.translateX, 
+      y: viewport.translateY, 
+      width: viewport.width, 
+      height: viewport.height 
+    }
+    
+    if (!isSignificantViewportChange(lastViewport.current, currentViewport, VIEWPORT_CHANGE_THRESHOLD)) {
+      return
+    }
+
     // Throttle updates to prevent excessive calls
     if (rafId.current) {
       cancelAnimationFrame(rafId.current)
@@ -267,6 +279,7 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
     
     rafId.current = requestAnimationFrame(() => {
       updateVirtualization()
+      lastViewport.current = currentViewport
     })
     
     return () => {
@@ -274,7 +287,7 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
         cancelAnimationFrame(rafId.current)
       }
     }
-  }, [isInitialized])
+  }, [isInitialized, viewport.translateX, viewport.translateY, viewport.width, viewport.height, isDragging, updateVirtualization])
   
   // ============================================================================
   // EXTERNAL INTEGRATION
