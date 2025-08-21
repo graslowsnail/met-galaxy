@@ -1,99 +1,59 @@
 /**
  * Grid Comparison Page
  * 
- * This page allows you to compare the original DraggableImageGrid 
- * with the new DraggableImageGridV2 (column carry-over) implementation.
+ * This page shows the current DraggableImageGrid implementation.
+ * Legacy grid has been removed for codebase cleanup.
  */
 
 "use client"
 
-import React, { useState } from 'react'
-import { DraggableImageGrid } from '@/components/grid-legacy/draggable-image-grid-legacy'
-import { DraggableImageGrid as DraggableImageGridNew } from '@/components/draggable-image-grid'
-
-type GridVersion = 'v1' | 'v2'
+import React from 'react'
+import { DraggableImageGrid } from '@/components/draggable-image-grid'
 
 export default function GridComparisonPage() {
-  const [activeVersion, setActiveVersion] = useState<GridVersion>('v2')
-  
   return (
     <div className="w-full h-screen flex flex-col">
-      {/* Header with version switcher */}
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
-            Grid Implementation Comparison
+            Current Grid Implementation
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Compare the legacy chunked grid vs the new column carry-over implementation (now main)
+            Column carry-over implementation with infinite scrolling
           </p>
         </div>
         
-        <div className="flex items-center space-x-4">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setActiveVersion('v1')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeVersion === 'v1'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Legacy (Fixed Chunks)
-            </button>
-            <button
-              onClick={() => setActiveVersion('v2')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeVersion === 'v2'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              New (Column Carry-Over)
-            </button>
-          </div>
-          
-          <div className="text-sm text-gray-500">
-            Current: <span className="font-medium">
-              {activeVersion === 'v1' ? 'Legacy Grid' : 'New Grid (Main)'}
-            </span>
-          </div>
+        <div className="text-sm text-gray-500">
+          <span className="font-medium text-green-600">✨ Current Implementation</span>
         </div>
       </div>
       
       {/* Implementation details */}
       <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
         <div className="max-w-4xl">
-          {activeVersion === 'v1' ? (
-            <div className="text-sm text-gray-700">
-              <span className="font-medium text-amber-600">📜 Legacy Implementation:</span>{' '}
-              Uses fixed-height chunk containers (1600px). May show horizontal gaps between chunks when content height varies.
-              Each chunk calculates its own masonry layout independently. (Archived for comparison)
-            </div>
-          ) : (
-            <div className="text-sm text-gray-700">
-              <span className="font-medium text-green-600">✨ New Main Implementation:</span>{' '}
-              Treats the world as a continuous plane with column heights that carry over between chunks per vertical strip.
-              Eliminates horizontal gaps by positioning tiles at absolute world coordinates. True infinite scrolling in all directions.
-            </div>
-          )}
+          <div className="text-sm text-gray-700">
+            <span className="font-medium text-green-600">✨ Current Implementation:</span>{' '}
+            Treats the world as a continuous plane with column heights that carry over between chunks per vertical strip.
+            Eliminates horizontal gaps by positioning tiles at absolute world coordinates. True infinite scrolling in all directions.
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            <span className="font-medium text-blue-600">🧹 Codebase Cleanup:</span>{' '}
+            Legacy grid implementation has been removed to simplify the codebase and reduce maintenance overhead.
+          </div>
         </div>
       </div>
       
       {/* Grid container */}
       <div className="flex-1 relative">
-        {activeVersion === 'v1' ? (
-          <DraggableImageGrid />
-        ) : (
-          <DraggableImageGridNew
-            onArtworkClick={(image) => {
-              console.log('Artwork clicked in New Grid:', image)
-              // You can implement similarity view or other actions here
-            }}
-            showPerformanceOverlay={true}
-            showLoadingIndicators={true}
-          />
-        )}
+        <DraggableImageGrid
+          onArtworkClick={(image) => {
+            console.log('Artwork clicked in Grid:', image)
+            // You can implement similarity view or other actions here
+          }}
+          showPerformanceOverlay={true}
+          showLoadingIndicators={true}
+        />
       </div>
       
       {/* Instructions overlay */}
@@ -101,10 +61,10 @@ export default function GridComparisonPage() {
         <h3 className="font-medium mb-2">How to Test:</h3>
         <ul className="space-y-1 text-xs">
           <li>• Drag to pan around the infinite canvas</li>
-          <li>• Look for horizontal gaps between chunks (V1 issue)</li>
-          <li>• Notice performance overlay differences</li>
-          <li>• Switch between versions to compare</li>
-          <li>• Check smooth panning and loading behavior</li>
+          <li>• Notice smooth panning and loading behavior</li>
+          <li>• Check performance overlay</li>
+          <li>• Click on images to trigger similarity search</li>
+          <li>• Explore the infinite scrolling experience</li>
         </ul>
       </div>
     </div>

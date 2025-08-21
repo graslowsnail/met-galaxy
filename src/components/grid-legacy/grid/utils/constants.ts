@@ -148,7 +148,7 @@ export const API_TIMEOUT = 10000
 // ============================================================================
 
 /** Whether to enable verbose console logging */
-export const DEBUG_LOGGING = process.env.NODE_ENV === 'development'
+export const DEBUG_LOGGING = false
 
 /** Whether to show chunk boundaries by default */
 export const SHOW_CHUNK_BOUNDARIES = false

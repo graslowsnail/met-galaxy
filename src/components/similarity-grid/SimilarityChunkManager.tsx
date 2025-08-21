@@ -12,7 +12,7 @@ import type {
   Chunk, 
   ChunkCoordinates, 
   ImageItem, 
-  Position,
+  PositionedImage,
   ViewportState
 } from '../grid-legacy/grid/types/grid'
 import {
@@ -28,8 +28,6 @@ import {
   CHUNK_SIZE,
   CHUNK_HEIGHT,
   DEBUG_LOGGING,
-  GRID_ORIGIN_X,
-  GRID_ORIGIN_Y,
   CHUNK_WIDTH
 } from '../grid-legacy/grid/utils/constants'
 import type { SimilarityResponse, SimilarArtwork } from '@/types/api'
@@ -62,7 +60,7 @@ function convertSimilarArtworkToImageItem(
   const { width, height } = calculateImageDimensions(aspectRatio)
 
   return {
-    id: generateImageId('similarity', chunkX, chunkY, localIndex, artwork.id),
+    id: generateImageId('artwork', chunkX, chunkY, localIndex, artwork.id),
     src: artwork.imageUrl,
     width,
     height,
@@ -89,11 +87,11 @@ function createCenterChunk(originalArtwork: SimilarArtwork, topSimilarArtworks: 
   const chunkY = 0
   
   const images: ImageItem[] = []
-  const positions: any[] = []
+  const positions: PositionedImage[] = []
   
   // 1. Create large center image (original)
   const centerImage: ImageItem = {
-    id: generateImageId('center', chunkX, chunkY, 0, originalArtwork.id),
+    id: generateImageId('artwork', chunkX, chunkY, 0, originalArtwork.id),
     src: originalArtwork.imageUrl,
     width: 350, // Large but not too large to leave room for others
     height: 350,
@@ -124,7 +122,7 @@ function createCenterChunk(originalArtwork: SimilarArtwork, topSimilarArtworks: 
   
   // 2. Add the most similar images around the center image
   // We'll place them in strategic positions around the center
-  const surroundingPositions = [
+  const surroundingPositions: Array<{ x: number; y: number; width: number; height: number }> = [
     // Top row
     { x: -550, y: -400, width: 200, height: 250 },
     { x: -300, y: -450, width: 180, height: 200 },
@@ -158,7 +156,7 @@ function createCenterChunk(originalArtwork: SimilarArtwork, topSimilarArtworks: 
     const pos = surroundingPositions[i]!
     
     const similarImage: ImageItem = {
-      id: generateImageId('similar', chunkX, chunkY, i + 1, artwork.id),
+      id: generateImageId('artwork', chunkX, chunkY, i + 1, artwork.id),
       src: artwork.imageUrl,
       width: pos.width,
       height: pos.height,
@@ -376,7 +374,7 @@ const SimilarityChunkManager = memo(function SimilarityChunkManager({
   }, [])
 
   // Calculate current translation position for rendering
-  const translate: Position = {
+  const translate = {
     x: viewport.translateX,
     y: viewport.translateY
   }

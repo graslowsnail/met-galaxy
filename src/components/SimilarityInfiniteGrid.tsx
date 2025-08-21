@@ -9,7 +9,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import { useSimilarArtworks } from '@/hooks/use-similar-artworks'
 
 // Import the same grid system components
@@ -204,7 +204,7 @@ export function SimilarityInfiniteGrid({
       <div className="fixed top-4 left-4 z-10 bg-white/90 rounded-lg p-4 shadow-lg max-w-sm">
         <h2 className="font-semibold text-lg mb-2">Similarity Explorer</h2>
         <p className="text-sm text-neutral-600 mb-3">
-          Exploring artworks similar to "{data.meta?.targetTitle}" by {data.meta?.targetArtist}
+          Exploring artworks similar to &ldquo;{data.meta?.targetTitle}&rdquo; by {data.meta?.targetArtist}
         </p>
         <div className="text-xs text-neutral-500">
           <div>• Center: Original artwork (large)</div>

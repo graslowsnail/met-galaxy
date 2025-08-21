@@ -1,25 +1,26 @@
-# Legacy Grid Implementation
+# Grid Legacy Components
 
-This directory contains the original chunk-based grid implementation that was replaced by the new column carry-over system.
+This directory contains shared utilities, hooks, and types that are used by the current grid implementation.
 
-## Why it was replaced:
+## Components
 
-- **Horizontal gaps**: Fixed-height chunks caused visible gaps between chunks
-- **Limited scrolling**: Hard chunk limits created artificial boundaries  
-- **Layout shifts**: Late-arriving data could cause chunks to change height
-- **Complex virtualization**: Chunk-based cleanup was less efficient
+- `grid/` - Shared grid utilities, hooks, and types
+  - `hooks/` - Viewport, virtualization, and other grid hooks
+  - `types/` - TypeScript type definitions for grid components
+  - `utils/` - Constants, calculations, and utility functions
+  - `ChunkManager.tsx` - Chunk management for infinite scrolling
+  - `GridRenderer.tsx` - Grid rendering component
+  - `ChunkComponent.tsx` - Individual chunk component
+  - `ChunkSkeleton.tsx` - Loading skeleton for chunks
 
-## Files:
+## Note
 
-- `draggable-image-grid-legacy.tsx` - Main legacy grid component
-- `grid/` - Legacy grid hooks and utilities
+The legacy `draggable-image-grid-legacy.tsx` component has been removed for codebase cleanup. 
+The current implementation uses `src/components/draggable-image-grid.tsx` which leverages these shared utilities.
 
-## New Implementation:
+## Usage
 
-The new grid system (now in `/components/grid/`) uses:
-- Column carry-over between chunks per vertical strip
-- Absolute world positioning (no gaps)
-- Distance-based culling (true infinite scrolling)  
-- Seamless masonry layout
-
-This legacy implementation is preserved for comparison purposes only.
+These components are used by:
+- `src/components/draggable-image-grid.tsx` - Main grid component
+- `src/components/SimilarityInfiniteGrid.tsx` - Similarity grid component
+- `src/components/similarity-grid/SimilarityChunkManager.tsx` - Similarity chunk manager
