@@ -220,7 +220,7 @@ export function DraggableImageGrid({
   
   const { loadChunk, getCacheStats } = useChunkLoader()
   
-  const { upsertChunk, snapshotPlaced, getStats, pruneTo } = useColumnCarryover()
+  const { upsertChunk, snapshotPlaced, getStats, pruneTo, getPlaced } = useColumnCarryover()
   
   // Track when chunks are loaded to trigger re-renders
   const [loadedChunks, setLoadedChunks] = useState(new Set<string>())
@@ -239,18 +239,23 @@ export function DraggableImageGrid({
     // Load all visible chunks
     const loadPromises = visible.map(async (coord) => {
       try {
+        // Check if chunk is already placed before attempting to load/place it
+        const chunkKey = `${coord.x}:${coord.y}`
+        const existingPlaced = getPlaced(coord.x, coord.y)
+        
+        if (existingPlaced && existingPlaced.length > 0) {
+          // Chunk already placed, just ensure it's tracked for rendering
+          setLoadedChunks(prev => new Set([...prev, chunkKey]))
+          return
+        }
+        
         const chunkData = await loadChunk(coord.x, coord.y)
         if (chunkData && chunkData.images.length > 0) {
-          // Place chunk in the column carry-over system
+          // Place chunk in the column carry-over system (only if not already placed)
           upsertChunk(coord.x, coord.y, chunkData.images)
           
           // Track loaded chunk to trigger re-render
-          const chunkKey = `${coord.x}:${coord.y}`
           setLoadedChunks(prev => new Set([...prev, chunkKey]))
-          
-          if (DEBUG_LOGGING) {
-            console.log(`✅ Placed chunk (${coord.x}, ${coord.y}) with ${chunkData.images.length} images`)
-          }
         }
       } catch (error) {
         console.error(`❌ Failed to load/place chunk (${coord.x}, ${coord.y}):`, error)
@@ -261,7 +266,7 @@ export function DraggableImageGrid({
     Promise.all(loadPromises).catch((error) => {
       console.error('❌ Error loading chunks:', error)
     })
-  }, [visible, isInitialized, loadChunk, upsertChunk])
+  }, [visible, isInitialized, loadChunk, upsertChunk, getPlaced])
   
   // ============================================================================
   // MEMORY MANAGEMENT
@@ -416,7 +421,7 @@ export function DraggableImageGrid({
       document.body.style.overflow = originalBodyOverflow
       document.documentElement.style.overflow = originalHtmlOverflow
     }
-  }, [containerRef])
+  }, [containerRef, updatePosition])
 
   return (
     <div

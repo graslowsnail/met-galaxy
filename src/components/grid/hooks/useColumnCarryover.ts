@@ -40,8 +40,10 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
   // STRIP STATE MANAGEMENT
   // ============================================================================
   
-  // Column bottoms per strip - this is where the magic happens!
+  // Bidirectional column carry-over - bottoms grow down, tops grow up!
   const stripBottomsRef = useRef<Map<number, ColumnHeights>>(new Map())
+  const stripTopsRef = useRef<Map<number, ColumnHeights>>(new Map())
+  const stripBaselineRef = useRef<Map<number, number>>(new Map()) // Track original Y baseline
   
   const getStripBottoms = useCallback((stripX: number): ColumnHeights => {
     const existing = stripBottomsRef.current.get(stripX)
@@ -52,9 +54,23 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     stripBottomsRef.current.set(stripX, newBottoms)
     return newBottoms
   }, [])
+
+  const getStripTops = useCallback((stripX: number): ColumnHeights => {
+    const existing = stripTopsRef.current.get(stripX)
+    if (existing) return existing
+    
+    // Initialize new strip with zero column heights (will be set to baseline when first used)
+    const newTops: ColumnHeights = [0, 0, 0, 0]
+    stripTopsRef.current.set(stripX, newTops)
+    return newTops
+  }, [])
   
   const setStripBottoms = useCallback((stripX: number, bottoms: ColumnHeights) => {
     stripBottomsRef.current.set(stripX, [...bottoms] as ColumnHeights)
+  }, [])
+
+  const setStripTops = useCallback((stripX: number, tops: ColumnHeights) => {
+    stripTopsRef.current.set(stripX, [...tops] as ColumnHeights)
   }, [])
   
   // ============================================================================
@@ -143,6 +159,43 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     
     return { positioned, newBottoms }
   }, [findShortestColumn, calculateImageHeight])
+
+  const placeImageInStripUpward = useCallback((
+    image: ImageItem, 
+    stripX: number, 
+    tops: ColumnHeights
+  ): { positioned: PositionedImage; newTops: ColumnHeights } => {
+    // Same column assignment logic as downward placement
+    let columnIndex: number
+    
+    if (image.localIndex < COLUMNS_PER_CHUNK) {
+      columnIndex = image.localIndex % COLUMNS_PER_CHUNK
+    } else {
+      const shortestIndex = findShortestColumn(tops.map(t => -t) as ColumnHeights) // Find tallest upward column
+      columnIndex = shortestIndex
+    }
+    
+    const columnTop = tops[columnIndex]!
+    const height = calculateImageHeight(image)
+    
+    // Calculate world coordinates - place ABOVE the current top
+    const worldX = stripX * CHUNK_WIDTH + columnIndex * (COLUMN_WIDTH + GAP)
+    const worldY = columnTop - height - GAP // Subtract height and gap to go upward
+    
+    const positioned: PositionedImage = {
+      image,
+      worldX,
+      worldY,
+      width: COLUMN_WIDTH,
+      height
+    }
+    
+    // Update column top (moving upward means smaller Y values)
+    const newTops = [...tops] as ColumnHeights
+    newTops[columnIndex] = worldY // New top is at the start of this image
+    
+    return { positioned, newTops }
+  }, [findShortestColumn, calculateImageHeight])
   
   // ============================================================================
   // STRIP REFLOW LOGIC
@@ -151,91 +204,79 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
   const reflowStrip = useCallback((stripX: number) => {
     const chunkYs = keysByX.get(stripX)
     if (!chunkYs || chunkYs.length === 0) {
-      if (DEBUG_LOGGING) {
-        console.log(`🔄 Strip ${stripX}: No chunks to reflow`)
-      }
       return
     }
     
-    if (DEBUG_LOGGING) {
-      console.log(`🔄 Reflowing strip ${stripX} with chunks:`, chunkYs)
+    // Get or establish baseline for this strip
+    let baseline = stripBaselineRef.current.get(stripX)
+    if (baseline === undefined) {
+      // First time - use the middle chunk as baseline (or first chunk if only one)
+      const sortedYs = [...chunkYs].sort((a, b) => a - b)
+      baseline = sortedYs[Math.floor(sortedYs.length / 2)] ?? 0
+      stripBaselineRef.current.set(stripX, baseline)
     }
     
-    // Process chunks in ascending Y order
-    const sortedYs = [...chunkYs].sort((a, b) => a - b)
+    const baselineOffset = baseline * CHUNK_HEIGHT
     
-    // FIX: Use stable strip baseline - don't recalculate from new first chunk
-    // This prevents existing chunks from moving when new chunks are added above them
-    const existingBottoms = stripBottomsRef.current.get(stripX)
-    let bottoms: ColumnHeights
+    // Separate chunks into above and below baseline
+    const aboveChunks: number[] = []
+    const belowChunks: number[] = []
     
-    if (existingBottoms && existingBottoms.some(h => h !== 0)) {
-      // Strip has existing content - preserve the established baseline
-      bottoms = [...existingBottoms] as ColumnHeights
-    } else {
-      // New strip - establish initial baseline from first chunk
-      const firstChunkY = sortedYs[0] ?? 0
-      const initialOffset = firstChunkY * CHUNK_HEIGHT
-      bottoms = [initialOffset, initialOffset, initialOffset, initialOffset]
+    for (const chunkY of chunkYs) {
+      if (chunkY < baseline) {
+        aboveChunks.push(chunkY)
+      } else {
+        belowChunks.push(chunkY)
+      }
     }
     
+    // Process below chunks (downward growth) - these start at baseline
+    belowChunks.sort((a, b) => a - b) // Process from baseline downward
+    let bottoms: ColumnHeights = [baselineOffset, baselineOffset, baselineOffset, baselineOffset]
     
-    // Process chunks - handle existing chunks vs new chunks differently
-    for (const chunkY of sortedYs) {
+    for (const chunkY of belowChunks) {
       const chunkKey: ChunkKey = `${stripX}:${chunkY}`
       const images = originalsByKey.get(chunkKey)
       
-      if (!images || images.length === 0) {
-        continue
-      }
+      if (!images || images.length === 0) continue
       
-      // Check if chunk already positioned
-      const existingPlaced = placedByKey.get(chunkKey)
-      if (existingPlaced && existingPlaced.length === images.length) {
-        // Skip existing chunks to avoid repositioning
-        continue
-      }
-      
-      // This is a new chunk - place it appropriately
-      let chunkBottoms: ColumnHeights
-      const chunkStartY = chunkY * CHUNK_HEIGHT
-      
-      if (existingBottoms && chunkStartY < Math.min(...existingBottoms)) {
-        // New chunk is ABOVE existing content - place at chunk boundary
-        chunkBottoms = [chunkStartY, chunkStartY, chunkStartY, chunkStartY]
-      } else {
-        // New chunk is BELOW existing content - continue from current bottoms  
-        chunkBottoms = bottoms.map(bottom => Math.max(bottom, chunkStartY)) as ColumnHeights
-      }
-      
-      // Place all images in this chunk
       const positionedImages: PositionedImage[] = []
       
       for (const image of images) {
-        const { positioned, newBottoms } = placeImageInStrip(image, stripX, chunkBottoms)
+        const { positioned, newBottoms } = placeImageInStrip(image, stripX, bottoms)
         positionedImages.push(positioned)
-        chunkBottoms = newBottoms
+        bottoms = newBottoms
       }
       
-      // Store placed tiles for this chunk
       placedByKey.set(chunkKey, positionedImages)
-      
-      // Update bottoms appropriately
-      if (chunkStartY < Math.min(...bottoms)) {
-        // Chunk was above - don't update bottoms (it doesn't extend downward)
-      } else {
-        // Chunk was below - update bottoms
-        bottoms = chunkBottoms
-      }
     }
     
-    // Update strip bottoms
-    setStripBottoms(stripX, bottoms)
+    // Process above chunks (upward growth) - these start at baseline and grow up
+    aboveChunks.sort((a, b) => b - a) // Process from baseline upward (descending order)
+    let tops: ColumnHeights = [baselineOffset, baselineOffset, baselineOffset, baselineOffset]
     
-    // if (DEBUG_LOGGING) {
-    //   console.log(`🏁 Strip ${stripX} reflow complete. Column bottoms:`, bottoms)
-    // }
-  }, [keysByX, originalsByKey, placedByKey, placeImageInStrip, setStripBottoms])
+    for (const chunkY of aboveChunks) {
+      const chunkKey: ChunkKey = `${stripX}:${chunkY}`
+      const images = originalsByKey.get(chunkKey)
+      
+      if (!images || images.length === 0) continue
+      
+      const positionedImages: PositionedImage[] = []
+      
+      for (const image of images) {
+        const { positioned, newTops } = placeImageInStripUpward(image, stripX, tops)
+        positionedImages.push(positioned)
+        tops = newTops
+      }
+      
+      placedByKey.set(chunkKey, positionedImages)
+    }
+    
+    // Update strip state
+    setStripBottoms(stripX, bottoms)
+    setStripTops(stripX, tops)
+    
+  }, [keysByX, originalsByKey, placedByKey, placeImageInStrip, placeImageInStripUpward, setStripBottoms, setStripTops])
   
   // ============================================================================
   // PUBLIC API
@@ -294,6 +335,33 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       }
     }
     
+    // Check which strips are completely empty and clean up their state
+    const remainingStrips = new Set<number>()
+    for (const key of keepKeys) {
+      const [xStr] = key.split(':')
+      if (xStr) {
+        const x = parseInt(xStr, 10)
+        if (!isNaN(x)) {
+          remainingStrips.add(x)
+        }
+      }
+    }
+    
+    // Clean up strip state for strips that no longer have any chunks
+    const allStrips = new Set([
+      ...stripBottomsRef.current.keys(),
+      ...stripTopsRef.current.keys(),
+      ...stripBaselineRef.current.keys()
+    ])
+    
+    for (const stripX of allStrips) {
+      if (!remainingStrips.has(stripX)) {
+        stripBottomsRef.current.delete(stripX)
+        stripTopsRef.current.delete(stripX)
+        stripBaselineRef.current.delete(stripX)
+      }
+    }
+    
     // Rebuild keysByX from remaining chunks
     keysByX.clear()
     
@@ -315,24 +383,10 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     }
     
     // Reflow affected strips
-    const affectedStrips = new Set<number>()
-    for (const key of keepKeys) {
-      const [xStr] = key.split(':')
-      if (xStr) {
-        const x = parseInt(xStr, 10)
-        if (!isNaN(x)) {
-          affectedStrips.add(x)
-        }
-      }
-    }
-    
-    for (const stripX of affectedStrips) {
+    for (const stripX of remainingStrips) {
       reflowStrip(stripX)
     }
     
-    // if (DEBUG_LOGGING && prunedCount > 0) {
-    //   // console.log(`🧹 Pruned ${prunedCount} chunks, keeping ${keepKeys.size}`)
-    // }
   }, [originalsByKey, placedByKey, keysByX, reflowStrip])
   
   const snapshotPlaced = useCallback((): PositionedImage[] => {
@@ -351,7 +405,7 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     
     return {
       totalTiles,
-      strips: stripBottomsRef.current.size,
+      strips: stripBaselineRef.current.size,
       chunks: placedByKey.size
     }
   }, [placedByKey])
