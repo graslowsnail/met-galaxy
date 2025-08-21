@@ -81,6 +81,9 @@ export const VIEWPORT_CHANGE_THRESHOLD = 150
 /** Distance threshold in pixels - clicks are blocked if mouse moved more than this */
 export const CLICK_MOVE_THRESHOLD = 5
 
+/** Trackpad scroll sensitivity multiplier */
+export const TRACKPAD_SPEED = 1.0
+
 
 
 // ============================================================================

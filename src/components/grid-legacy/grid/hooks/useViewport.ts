@@ -346,6 +346,20 @@ export function useViewport(): UseViewportReturn {
       setViewportPosition({ x: centerX, y: centerY })
     }
   }, [viewportDimensions, setViewportPosition])
+
+  /**
+   * Update position by delta amount (for trackpad/wheel navigation)
+   */
+  const updatePosition = useCallback((deltaX: number, deltaY: number) => {
+    setTranslate(prev => ({
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }))
+    
+    if (DEBUG_LOGGING) {
+      console.log(`🖱️ Position updated by delta (${deltaX}, ${deltaY})`)
+    }
+  }, [])
   
   // ============================================================================
   // RETURN INTERFACE
@@ -378,6 +392,7 @@ export function useViewport(): UseViewportReturn {
     onPostDrag,
     setViewportPosition,
     resetViewport,
+    updatePosition,
     
     // Refs for components that need them
     containerRef,

@@ -318,6 +318,8 @@ export interface UseViewportReturn {
   setViewportPosition: (position: Position) => void
   /** Function to reset viewport to center */
   resetViewport: () => void
+  /** Function to update position by delta amount (for trackpad/wheel) */
+  updatePosition: (deltaX: number, deltaY: number) => void
   /** Container ref for dimension tracking */
   containerRef: React.RefObject<HTMLDivElement | null>
 }
@@ -395,6 +397,8 @@ export interface UseViewportReturn {
   setViewportPosition: (position: Position) => void
   /** Function to reset viewport to center */
   resetViewport: () => void
+  /** Function to update position by delta amount (for trackpad/wheel) */
+  updatePosition: (deltaX: number, deltaY: number) => void
   /** Container ref for dimension tracking */
   containerRef: React.RefObject<HTMLDivElement | null>
 }
