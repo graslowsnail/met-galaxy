@@ -143,13 +143,14 @@ export function calculateOptimalChunkLayout(
   const baseY = GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)
   const maxY = baseY + CHUNK_HEIGHT - AXIS_MARGIN
   
-  // First pass: Sort by height for better initial packing
-  const sortedImages = images
-    .map((img, index) => ({ ...img, originalIndex: index }))
-    .sort((a, b) => b.height - a.height)
+  // Track which images are in which columns
+  const columnImages: Map<number, number[]> = new Map()
+  for (let i = 0; i < COLUMNS_PER_CHUNK; i++) {
+    columnImages.set(i, [])
+  }
   
-  // Place all images initially
-  for (const img of sortedImages) {
+  // First pass: Place all images normally
+  images.forEach((img, index) => {
     const result = calculateImagePosition(
       columnHeights,
       img.width,
@@ -159,35 +160,37 @@ export function calculateOptimalChunkLayout(
     )
     
     if (result) {
-      positions[img.originalIndex] = result.position
+      positions[index] = result.position
       columnHeights[result.columnIndex] = columnHeights[result.columnIndex]! + result.position.height + GAP
+      
+      // Track which column this image is in
+      const columnImagesList = columnImages.get(result.columnIndex) || []
+      columnImagesList.push(index)
+      columnImages.set(result.columnIndex, columnImagesList)
     }
-  }
+  })
   
-  // Second pass: Try to fill remaining space at the bottom
-  const finalMaxHeight = Math.max(...columnHeights)
-  const remainingSpace = maxY - (baseY + finalMaxHeight)
-  
-  // If we have significant remaining space, try to expand some images
-  if (remainingSpace > MIN_IMAGE_HEIGHT * 2) {
-    // Find columns with the most remaining space
-    const columnSpaces = columnHeights.map(height => maxY - (baseY + height))
+  // Second pass: Stretch the last images in each column to fill gaps
+  for (let colIndex = 0; colIndex < COLUMNS_PER_CHUNK; colIndex++) {
+    const imagesInColumn = columnImages.get(colIndex) || []
     
-    // Try to extend images in columns with space
-    positions.forEach((pos) => {
-      if (!pos) return
+    if (imagesInColumn.length > 0) {
+      // Find the last image in this column
+      const lastImageIndex = imagesInColumn[imagesInColumn.length - 1]!
+      const lastImagePos = positions[lastImageIndex]
       
-      // Find which column this image is in
-      const colIndex = Math.floor((pos.x - GRID_ORIGIN_X - (chunkX * CHUNK_WIDTH) - AXIS_MARGIN) / (COLUMN_WIDTH + GAP))
-      const availableSpace = columnSpaces[colIndex]
-      
-      // If there's space below this image and it's one of the last in its column
-      if (availableSpace && availableSpace > MIN_IMAGE_HEIGHT) {
-        // Extend the image height by up to 20% if it helps fill space
-        const maxExtension = Math.min(availableSpace * 0.5, pos.height * 0.2)
-        pos.height += Math.floor(maxExtension)
+      if (lastImagePos) {
+        // Calculate actual bottom of the last image
+        const currentBottom = lastImagePos.y + lastImagePos.height
+        const availableSpace = maxY - currentBottom
+        
+        // Only stretch if there's meaningful space to fill (>20px)
+        if (availableSpace > 20) {
+          // Simply extend the last image to fill the remaining space
+          lastImagePos.height += availableSpace
+        }
       }
-    })
+    }
   }
   
   return positions
