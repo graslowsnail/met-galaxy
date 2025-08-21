@@ -86,6 +86,16 @@ export const SHOW_PERFORMANCE_OVERLAY = true
 export const SHOW_LOADING_INDICATORS = true
 
 // ============================================================================
+// COORDINATE SAFETY LIMITS
+// ============================================================================
+
+/** Maximum safe coordinate value for browser rendering (±30M pixels) */
+export const MAX_SAFE_COORDINATE = 30000000
+
+/** Maximum safe chunk coordinate to prevent overflow */
+export const MAX_SAFE_CHUNK_Y = Math.floor(MAX_SAFE_COORDINATE / CHUNK_HEIGHT)
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 

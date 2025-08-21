@@ -19,7 +19,8 @@ import {
   COLUMNS_PER_CHUNK, 
   CHUNK_WIDTH, 
   CHUNK_HEIGHT,
-  DEBUG_LOGGING 
+  DEBUG_LOGGING,
+  MAX_SAFE_COORDINATE 
 } from '../utils/constants'
 
 export function useColumnCarryover(): UseColumnCarryoverReturn {
@@ -142,8 +143,8 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     
     // Calculate world coordinates
     const worldX = stripX * CHUNK_WIDTH + columnIndex * (COLUMN_WIDTH + GAP)
-    // Use the running column bottom - this will be offset correctly by reflowStrip
-    const worldY = columnBottom
+    // Use the running column bottom and clamp to safe coordinate range
+    const worldY = Math.max(-MAX_SAFE_COORDINATE, Math.min(MAX_SAFE_COORDINATE, columnBottom))
     
     const positioned: PositionedImage = {
       image,
@@ -180,7 +181,8 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     
     // Calculate world coordinates - place ABOVE the current top
     const worldX = stripX * CHUNK_WIDTH + columnIndex * (COLUMN_WIDTH + GAP)
-    const worldY = columnTop - height - GAP // Subtract height and gap to go upward
+    const rawWorldY = columnTop - height - GAP // Subtract height and gap to go upward
+    const worldY = Math.max(-MAX_SAFE_COORDINATE, Math.min(MAX_SAFE_COORDINATE, rawWorldY))
     
     const positioned: PositionedImage = {
       image,
@@ -207,16 +209,24 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       return
     }
     
+    // Clear existing placements for this strip to prevent duplicates
+    for (const y of chunkYs) {
+      placedByKey.delete(`${stripX}:${y}`)
+    }
+    
     // Get or establish baseline for this strip
     let baseline = stripBaselineRef.current.get(stripX)
     if (baseline === undefined) {
-      // First time - use the middle chunk as baseline (or first chunk if only one)
+      // First time - use the FIRST chunk loaded as baseline for stability
+      // This ensures baseline never changes as new chunks are added
       const sortedYs = [...chunkYs].sort((a, b) => a - b)
-      baseline = sortedYs[Math.floor(sortedYs.length / 2)] ?? 0
+      baseline = sortedYs[0] ?? 0  // Always use first (smallest Y) chunk as baseline
       stripBaselineRef.current.set(stripX, baseline)
     }
     
-    const baselineOffset = baseline * CHUNK_HEIGHT
+    // Clamp baselineOffset to safe pixel coordinates to prevent browser rendering issues
+    const rawBaselineOffset = baseline * CHUNK_HEIGHT
+    const baselineOffset = Math.max(-MAX_SAFE_COORDINATE, Math.min(MAX_SAFE_COORDINATE, rawBaselineOffset))
     
     // Separate chunks into above and below baseline
     const aboveChunks: number[] = []

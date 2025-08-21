@@ -5,7 +5,7 @@
  * Uses approximate chunk dimensions for coarse virtualization calculations.
  */
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef } from 'react'
 import type { 
   UseGridVirtualizerReturn, 
   ChunkCoordinates, 
@@ -154,19 +154,40 @@ export function useGridVirtualizer(options: UseGridVirtualizerOptions): UseGridV
   }, [calculateVisibleChunks, viewport, translate, getViewportBounds])
   
   // ============================================================================
+  // STABLE VISIBLE CHUNKS - prevent infinite re-renders
+  // ============================================================================
+  
+  const prevVisibleRef = useRef<ChunkCoordinates[]>([])
+  
+  const stableVisible = useMemo(() => {
+    // Create a stable key from the chunk coordinates
+    const currentKey = visible.map(c => `${c.x}:${c.y}`).sort().join('|')
+    const prevKey = prevVisibleRef.current.map(c => `${c.x}:${c.y}`).sort().join('|')
+    
+    // If the set of chunks hasn't actually changed, return the previous array
+    if (currentKey === prevKey) {
+      return prevVisibleRef.current
+    }
+    
+    // Set has changed, update and return new array
+    prevVisibleRef.current = visible
+    return visible
+  }, [visible])
+  
+  // ============================================================================
   // UTILITY FUNCTIONS
   // ============================================================================
   
   const isInViewport = useCallback((x: number, y: number): boolean => {
-    return visible.some(chunk => chunk.x === x && chunk.y === y)
-  }, [visible])
+    return stableVisible.some(chunk => chunk.x === x && chunk.y === y)
+  }, [stableVisible])
   
   // ============================================================================
   // RETURN INTERFACE
   // ============================================================================
   
   return {
-    visible,
+    visible: stableVisible,
     isInViewport,
     getViewportBounds,
   }

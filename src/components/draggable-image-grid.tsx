@@ -355,13 +355,23 @@ export function DraggableImageGrid({
   }
   
 
+  // Use ref to avoid updatePosition in useEffect deps (prevents infinite loop)
+  const updatePositionRef = useRef(updatePosition)
+  useEffect(() => { 
+    updatePositionRef.current = updatePosition 
+  }, [updatePosition])
   
   // Handle trackpad navigation vs blocking mouse wheel
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
     
+    let rafId = 0
+    
     const handleWheelEvent = (e: WheelEvent) => {
+      // Ignore browser pinch-zoom
+      if (e.ctrlKey) return
+      
       e.preventDefault()
       e.stopPropagation()
       
@@ -379,24 +389,22 @@ export function DraggableImageGrid({
         const deltaX = e.deltaX * speed
         const deltaY = e.deltaY * speed
         
-        // Update translate position (inverted to match natural scrolling)
-        updatePosition(deltaX, deltaY) // Right finger movement = positive X, Down = positive Y
+        // Cancel previous RAF to prevent stacking
+        if (rafId) cancelAnimationFrame(rafId)
         
-        if (DEBUG_LOGGING) {
-          console.log('🎯 Trackpad navigation:', { 
-            deltaX: e.deltaX, 
-            deltaY: e.deltaY, 
-            scaledX: deltaX, 
-            scaledY: deltaY 
-          })
-        }
+        // Update translate position with RAF throttling
+        rafId = requestAnimationFrame(() => {
+          // Guard against tiny/noop deltas to avoid extra renders
+          if (deltaX !== 0 || deltaY !== 0) {
+            updatePositionRef.current(deltaX, deltaY)
+          }
+        })
       }
       // Mouse wheel events are blocked (no movement)
     }
     
-    // Add wheel event listeners
+    // Only add listener to container, not document (prevent duplicate handlers)
     container.addEventListener('wheel', handleWheelEvent, { passive: false })
-    document.addEventListener('wheel', handleWheelEvent, { passive: false })
     
     // Prevent body scrolling and hide scrollbars completely
     const originalBodyOverflow = document.body.style.overflow
@@ -411,7 +419,9 @@ export function DraggableImageGrid({
     
     return () => {
       container.removeEventListener('wheel', handleWheelEvent)
-      document.removeEventListener('wheel', handleWheelEvent)
+      
+      // Cancel any pending RAF
+      if (rafId) cancelAnimationFrame(rafId)
       
       // Remove CSS classes
       document.documentElement.classList.remove('no-scroll')
@@ -421,7 +431,7 @@ export function DraggableImageGrid({
       document.body.style.overflow = originalBodyOverflow
       document.documentElement.style.overflow = originalHtmlOverflow
     }
-  }, [containerRef, updatePosition])
+  }, [containerRef])
 
   return (
     <div
@@ -435,10 +445,6 @@ export function DraggableImageGrid({
         scrollbarWidth: 'none' // Firefox
       }}
       onPointerDown={onPointerDown}
-      onWheel={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-      }}
     >
       {/* World Plane with positioned tiles */}
       <WorldPlane
