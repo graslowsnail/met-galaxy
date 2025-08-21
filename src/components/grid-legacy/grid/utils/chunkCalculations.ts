@@ -27,7 +27,6 @@ import {
   GAP,
   COLUMNS_PER_CHUNK,
   MIN_IMAGE_HEIGHT,
-  DEFAULT_ASPECT_RATIOS,
 } from "./constants"
 
 // ============================================================================
@@ -131,7 +130,102 @@ export function initializeColumnHeights(): number[] {
 }
 
 /**
- * Calculate the position for an image within a chunk using masonry layout
+ * Calculate optimal layout for a batch of images within a chunk
+ * This pre-calculates positions for better space utilization
+ */
+export function calculateOptimalChunkLayout(
+  images: { width: number; height: number }[],
+  chunkX: number,
+  chunkY: number
+): PositionedImage[] {
+  const positions: PositionedImage[] = []
+  const columnHeights = initializeColumnHeights()
+  const baseY = GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)
+  const maxY = baseY + CHUNK_HEIGHT - AXIS_MARGIN
+  
+  // First pass: Sort by height for better initial packing
+  const sortedImages = images
+    .map((img, index) => ({ ...img, originalIndex: index }))
+    .sort((a, b) => b.height - a.height)
+  
+  // Place all images initially
+  for (const img of sortedImages) {
+    const result = calculateImagePosition(
+      columnHeights,
+      img.width,
+      img.height,
+      chunkX,
+      chunkY
+    )
+    
+    if (result) {
+      positions[img.originalIndex] = result.position
+      columnHeights[result.columnIndex] = columnHeights[result.columnIndex]! + result.position.height + GAP
+    }
+  }
+  
+  // Second pass: Try to fill remaining space at the bottom
+  const finalMaxHeight = Math.max(...columnHeights)
+  const remainingSpace = maxY - (baseY + finalMaxHeight)
+  
+  // If we have significant remaining space, try to expand some images
+  if (remainingSpace > MIN_IMAGE_HEIGHT * 2) {
+    // Find columns with the most remaining space
+    const columnSpaces = columnHeights.map(height => maxY - (baseY + height))
+    
+    // Try to extend images in columns with space
+    positions.forEach((pos) => {
+      if (!pos) return
+      
+      // Find which column this image is in
+      const colIndex = Math.floor((pos.x - GRID_ORIGIN_X - (chunkX * CHUNK_WIDTH) - AXIS_MARGIN) / (COLUMN_WIDTH + GAP))
+      const availableSpace = columnSpaces[colIndex]
+      
+      // If there's space below this image and it's one of the last in its column
+      if (availableSpace && availableSpace > MIN_IMAGE_HEIGHT) {
+        // Extend the image height by up to 20% if it helps fill space
+        const maxExtension = Math.min(availableSpace * 0.5, pos.height * 0.2)
+        pos.height += Math.floor(maxExtension)
+      }
+    })
+  }
+  
+  return positions
+}
+
+/**
+ * Find the best column for an image considering height and balance
+ */
+function findBestColumn(
+  columnHeights: number[],
+  imageHeight: number,
+  chunkHeight: number
+): number {
+  const baseY = GRID_ORIGIN_Y
+  const maxY = baseY + chunkHeight - AXIS_MARGIN
+  
+  // Calculate available space in each column
+  const availableSpaces = columnHeights.map(height => maxY - (baseY + height))
+  
+  // Filter columns that can fit the image
+  const validColumns = availableSpaces
+    .map((space, index) => ({ index, space, currentHeight: columnHeights[index]! }))
+    .filter(col => col.space >= imageHeight + MIN_IMAGE_HEIGHT)
+  
+  if (validColumns.length === 0) {
+    // Fallback to shortest column if no column can fit the full image
+    return columnHeights.indexOf(Math.min(...columnHeights))
+  }
+  
+  // Sort by current height (shortest first) to maintain balance
+  validColumns.sort((a, b) => a.currentHeight - b.currentHeight)
+  
+  // Return the shortest valid column
+  return validColumns[0]!.index
+}
+
+/**
+ * Calculate the position for an image within a chunk using improved masonry layout
  */
 export function calculateImagePosition(
   columnHeights: number[],
@@ -140,7 +234,7 @@ export function calculateImagePosition(
   chunkX: number,
   chunkY: number
 ): { position: PositionedImage; columnIndex: number } | null {
-  const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights))
+  const columnIndex = findBestColumn(columnHeights, imageHeight, CHUNK_HEIGHT)
   const baseX = GRID_ORIGIN_X + (chunkX * CHUNK_WIDTH)
   const baseY = GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)
   
@@ -149,12 +243,12 @@ export function calculateImagePosition(
   
   if (chunkX < 0) {
     // For negative X chunks, position from right edge
-    localX = CHUNK_WIDTH - AXIS_MARGIN - (shortestColumnIndex + 1) * (COLUMN_WIDTH + GAP)
-    localY = columnHeights[shortestColumnIndex]!
+    localX = CHUNK_WIDTH - AXIS_MARGIN - (columnIndex + 1) * (COLUMN_WIDTH + GAP)
+    localY = columnHeights[columnIndex]!
   } else {
     // For positive X chunks, position from left edge  
-    localX = AXIS_MARGIN + shortestColumnIndex * (COLUMN_WIDTH + GAP)
-    localY = columnHeights[shortestColumnIndex]!
+    localX = AXIS_MARGIN + columnIndex * (COLUMN_WIDTH + GAP)
+    localY = columnHeights[columnIndex]!
   }
   
   // Final absolute position
@@ -182,7 +276,7 @@ export function calculateImagePosition(
   
   return {
     position: { x, y, height: constrainedHeight },
-    columnIndex: shortestColumnIndex,
+    columnIndex: columnIndex,
   }
 }
 
@@ -235,11 +329,33 @@ export function calculateBoundingBox(
 // ============================================================================
 
 /**
- * Generate a deterministic aspect ratio based on position
+ * Generate a deterministic aspect ratio based on position with better variety
  */
 export function generateAspectRatio(chunkX: number, chunkY: number, imageIndex: number): number {
-  const seed = Math.abs(chunkX * 1000 + chunkY * 100 + imageIndex)
-  return DEFAULT_ASPECT_RATIOS[seed % DEFAULT_ASPECT_RATIOS.length]!
+  // Create more variety by using a more complex seed
+  const seed = Math.abs(chunkX * 1337 + chunkY * 271 + imageIndex * 73)
+  
+  // Use a mix of standard and varied ratios for visual interest
+  const extendedRatios = [
+    0.5,   // Very tall
+    0.6,   // Tall
+    0.7,   // Portrait
+    0.75,  // Classic portrait
+    0.8,   // Slight portrait
+    1.0,   // Square
+    1.2,   // Slight landscape
+    1.33,  // Classic landscape
+    1.5,   // Landscape
+    1.6,   // Wide
+    1.78,  // Widescreen
+    2.0    // Very wide
+  ]
+  
+  // Add some controlled randomness within chunks
+  const chunkVariation = (chunkX + chunkY) % 3
+  const adjustedIndex = seed + chunkVariation
+  
+  return extendedRatios[adjustedIndex % extendedRatios.length]!
 }
 
 /**

@@ -1,472 +1,133 @@
-/**
- * DraggableImageGridV2 - Column Carry-Over Implementation
- * 
- * Complete replacement using the infinite-plane masonry approach.
- * Eliminates horizontal gaps by treating the world as a continuous plane
- * with column heights that carry over between chunks per strip.
- */
-
 "use client"
 
-import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react'
-import type { DraggableImageGridProps, ImageItem, PositionedImage } from './grid/types/grid'
+import type React from "react"
 
-// Import all the hooks
-import { usePointerPan } from './grid/hooks/usePointerPan'
-import { useViewportSize } from './grid/hooks/useViewportSize'
-import { useGridVirtualizer } from './grid/hooks/useGridVirtualizer'
-import { useChunkLoader } from './grid/hooks/useChunkLoader'
-import { useColumnCarryover } from './grid/hooks/useColumnCarryover'
+import { useState, useEffect, useCallback } from "react"
+import { SimilarityGrid } from "./similarity-grid"
 
-// Import constants
-import { 
-  WORLD_BACKGROUND_COLOR,
-  CLICK_MOVE_THRESHOLD,
-  TRACKPAD_SPEED,
-  IMAGE_BORDER_RADIUS,
-  IMAGE_SHADOW,
-  DEBUG_LOGGING,
-  SHOW_PERFORMANCE_OVERLAY,
-  SHOW_LOADING_INDICATORS,
-  DEFAULT_ARIA_LABEL
-} from './grid/utils/constants'
 
-// ============================================================================
-// WORLD PLANE COMPONENT
-// ============================================================================
+// Import refactored grid components and hooks  
+import { useViewport } from "./grid-legacy/grid/hooks/useViewport"
+import ChunkManager from "./grid-legacy/grid/ChunkManager"
+import type { ImageItem } from "./grid-legacy/grid/types/grid"
+import { GRID_BACKGROUND_COLOR } from "./grid-legacy/grid/utils/constants"
 
-interface WorldPlaneProps {
-  tiles: PositionedImage[]
-  translate: { x: number; y: number }
-  onTileClick?: (image: ImageItem, event: React.MouseEvent) => void
-  isDragging: boolean
-  dragDistance: number
+// Note: Image generation functions now handled by ChunkManager
+
+interface DraggableImageGridProps {
+  onArtworkClick?: (image: ImageItem) => void
+  showPerformanceOverlay?: boolean
+  showLoadingIndicators?: boolean
 }
 
-const WorldPlane = React.memo(function WorldPlane({ 
-  tiles, 
-  translate, 
-  onTileClick, 
-  isDragging,
-  dragDistance 
-}: WorldPlaneProps) {
-  const handleTileClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
-    // Prevent clicks during drag or if movement was significant
-    if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD) {
-      if (DEBUG_LOGGING) {
-        console.log('🚫 Click prevented:', { isDragging, dragDistance })
-      }
+export function DraggableImageGrid({
+  onArtworkClick: externalOnArtworkClick,
+  showPerformanceOverlay = true,
+  showLoadingIndicators = true
+}: DraggableImageGridProps = {}) {
+  // Use refactored viewport hook
+  const { 
+    translate, 
+    isInitialized, 
+    isDragging, 
+    handleMouseDown, 
+    handleTouchStart,
+    containerRef,
+    viewport,
+    onPostDrag
+  } = useViewport()
+  
+  // Similarity view state
+  const [selectedArtworkId, setSelectedArtworkId] = useState<number | null>(null)
+  const [showSimilarity, setShowSimilarity] = useState(false)
+
+  // Connect post-drag events to trigger updates
+  useEffect(() => {
+    const cleanup = onPostDrag(() => {
+      console.log('🔄 Post-drag update triggered')
+    })
+    return cleanup
+  }, [onPostDrag])
+
+  // Handle artwork click for similarity view
+  const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
+    // Prevent click during dragging
+    if (isDragging) return
+    
+    // Stop event propagation to prevent triggering drag
+    event.stopPropagation()
+    
+    // If external handler provided, use it instead of internal similarity logic
+    if (externalOnArtworkClick) {
+      externalOnArtworkClick(image)
       return
     }
     
-    event.stopPropagation()
-    onTileClick?.(image, event)
-  }, [isDragging, dragDistance, onTileClick])
-  
-  if (DEBUG_LOGGING) {
-    console.log(`🎨 WorldPlane: Rendering ${tiles.length} tiles`)
-  }
-  
-  return (
-    <div
-      className="absolute inset-0"
-      style={{
-        transform: `translate(${translate.x}px, ${translate.y}px)`,
-        willChange: isDragging ? 'transform' : 'auto',
-      }}
-    >
-      {tiles.map((tile) => (
-        <button
-          key={tile.image.id}
-          className="absolute overflow-hidden transition-shadow duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          style={{
-            left: tile.worldX,
-            top: tile.worldY,
-            width: tile.width,
-            height: tile.height,
-            borderRadius: IMAGE_BORDER_RADIUS,
-            boxShadow: IMAGE_SHADOW.default,
-          }}
-          onClick={(e) => handleTileClick(tile.image, e)}
-          aria-label={tile.image.title ? `${tile.image.title} by ${tile.image.artist || 'Unknown'}` : DEFAULT_ARIA_LABEL}
-        >
-          <img
-            src={tile.image.src}
-            alt={tile.image.title || ''}
-            className="w-full h-full object-cover"
-            style={{ borderRadius: IMAGE_BORDER_RADIUS }}
-            loading="lazy"
-            draggable={false}
-          />
-        </button>
-      ))}
-    </div>
-  )
-})
-
-// ============================================================================
-// PERFORMANCE OVERLAY COMPONENT
-// ============================================================================
-
-interface PerformanceOverlayProps {
-  visible: boolean
-  stats: {
-    visibleChunks: number
-    totalTiles: number
-    cacheSize: number
-    cacheHits: number
-    cacheMisses: number
-    strips: number
-    position: { x: number; y: number }
-  }
-  translate: { x: number; y: number }
-}
-
-const PerformanceOverlay = React.memo(function PerformanceOverlay({ 
-  visible, 
-  stats, 
-  translate 
-}: PerformanceOverlayProps) {
-  if (!visible) return null
-  
-  const hitRate = stats.cacheHits + stats.cacheMisses > 0 
-    ? ((stats.cacheHits / (stats.cacheHits + stats.cacheMisses)) * 100).toFixed(1)
-    : '0.0'
-  
-  return (
-    <div
-      className="fixed top-4 left-4 z-50 bg-black/75 text-white px-3 py-2 rounded text-xs font-mono space-y-1"
-    >
-      <div className="text-green-400">🚀 COLUMN CARRY-OVER</div>
-      <div>Chunks: {stats.visibleChunks}</div>
-      <div>Tiles: {stats.totalTiles}</div>
-      <div>Strips: {stats.strips}</div>
-      <div>Cache: {stats.cacheSize}/100</div>
-      <div>Hit Rate: {hitRate}%</div>
-      <div>Pos: ({Math.round(stats.position.x)}, {Math.round(stats.position.y)})</div>
-    </div>
-  )
-})
-
-// ============================================================================
-// LOADING INDICATORS COMPONENT
-// ============================================================================
-
-interface LoadingIndicatorsProps {
-  visible: boolean
-  loadingChunks: Array<{ x: number; y: number }>
-}
-
-const LoadingIndicators = React.memo(function LoadingIndicators({ 
-  visible, 
-  loadingChunks 
-}: LoadingIndicatorsProps) {
-  if (!visible || loadingChunks.length === 0) return null
-  
-  return (
-    <>
-      {loadingChunks.map((chunk) => (
-        <div
-          key={`loading-${chunk.x}-${chunk.y}`}
-          className="absolute bg-gray-200/50 border border-gray-300 rounded flex items-center justify-center"
-          style={{
-            left: chunk.x * 1200, // Approximate chunk width
-            top: chunk.y * 1600,  // Approximate chunk height
-            width: 1200,
-            height: 1600,
-          }}
-        >
-          <div className="text-gray-500 text-sm">Loading...</div>
-        </div>
-      ))}
-    </>
-  )
-})
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
-export function DraggableImageGrid({
-  onArtworkClick,
-  initialTranslate = { x: 0, y: 0 },
-  showPerformanceOverlay = SHOW_PERFORMANCE_OVERLAY,
-  showLoadingIndicators = SHOW_LOADING_INDICATORS
-}: DraggableImageGridProps) {
-  
-  // ============================================================================
-  // HOOKS INITIALIZATION
-  // ============================================================================
-  
-  const { containerRef, size, isInitialized } = useViewportSize()
-  
-  const { 
-    translate, 
-    isDragging, 
-    dragDistance,
-    onPointerDown,
-    updatePosition
-  } = usePointerPan({ 
-    initialTranslate,
-    onDragStart: () => {
-      if (DEBUG_LOGGING) console.log('🎯 Drag started')
-    },
-    onDragEnd: () => {
-      if (DEBUG_LOGGING) console.log('🎯 Drag ended')
-    }
-  })
-  
-  const { visible } = useGridVirtualizer({ translate, viewport: size })
-  
-  const { loadChunk, getCacheStats } = useChunkLoader()
-  
-  const { upsertChunk, snapshotPlaced, getStats, pruneTo, getPlaced } = useColumnCarryover()
-  
-  // Track when chunks are loaded to trigger re-renders
-  const [loadedChunks, setLoadedChunks] = useState(new Set<string>())
-  
-  // Use a ref to avoid creating new Set objects in dependencies
-  const loadedChunksRef = useRef(loadedChunks)
-  loadedChunksRef.current = loadedChunks
-  
-  // ============================================================================
-  // CHUNK LOADING AND PLACEMENT
-  // ============================================================================
-  
-  useEffect(() => {
-    if (!isInitialized || visible.length === 0) return
-    
-    // Load all visible chunks
-    const loadPromises = visible.map(async (coord) => {
-      try {
-        // Check if chunk is already placed before attempting to load/place it
-        const chunkKey = `${coord.x}:${coord.y}`
-        const existingPlaced = getPlaced(coord.x, coord.y)
-        
-        if (existingPlaced && existingPlaced.length > 0) {
-          // Chunk already placed, just ensure it's tracked for rendering
-          setLoadedChunks(prev => new Set([...prev, chunkKey]))
-          return
-        }
-        
-        const chunkData = await loadChunk(coord.x, coord.y)
-        if (chunkData && chunkData.images.length > 0) {
-          // Place chunk in the column carry-over system (only if not already placed)
-          upsertChunk(coord.x, coord.y, chunkData.images)
-          
-          // Track loaded chunk to trigger re-render
-          setLoadedChunks(prev => new Set([...prev, chunkKey]))
-        }
-      } catch (error) {
-        console.error(`❌ Failed to load/place chunk (${coord.x}, ${coord.y}):`, error)
-      }
+    console.log('Artwork clicked:', {
+      imageId: image.id,
+      databaseId: image.databaseId,
+      objectId: image.objectId,
+      title: image.title,
+      artist: image.artist,
+      src: image.src
     })
     
-    // Wait for all chunks to load
-    Promise.all(loadPromises).catch((error) => {
-      console.error('❌ Error loading chunks:', error)
-    })
-  }, [visible, isInitialized, loadChunk, upsertChunk, getPlaced])
-  
-  // ============================================================================
-  // MEMORY MANAGEMENT
-  // ============================================================================
-  
-  useEffect(() => {
-    if (visible.length === 0) return
+    // Use the database ID for similarity search (this is what the backend expects)
+    const artworkId = image.databaseId
     
-    // Create set of visible chunk keys for pruning
-    const visibleKeys = new Set(visible.map(coord => `${coord.x}:${coord.y}`))
+    console.log('Using database ID for similarity search:', artworkId)
     
-    // Prune non-visible chunks from column carry-over system
-    pruneTo(visibleKeys)
-    
-    // Also clean up loaded chunks tracking
-    const currentLoaded = loadedChunksRef.current
-    const stillVisible = [...currentLoaded].filter(key => visibleKeys.has(key))
-    if (stillVisible.length !== currentLoaded.size) {
-      setLoadedChunks(new Set(stillVisible))
+    if (artworkId) {
+      setSelectedArtworkId(artworkId)
+      setShowSimilarity(true)
+    } else {
+      console.error('No database ID found for artwork:', image)
+      alert('This artwork is not available for similarity search')
     }
-  }, [visible, pruneTo])
-  
-  // ============================================================================
-  // RENDER DATA PREPARATION
-  // ============================================================================
-  
-  const tiles = useMemo(() => {
-    const allTiles = snapshotPlaced()
-    if (DEBUG_LOGGING) {
-      console.log(`🎨 Tiles memo update: ${allTiles.length} tiles from ${visible.length} visible chunks, ${loadedChunks.size} loaded`)
-    }
-    return allTiles
-  }, [snapshotPlaced, visible, loadedChunks]) // Re-snapshot when visible chunks change OR when chunks are loaded
-  
-  const performanceStats = useMemo(() => {
-    const carryoverStats = getStats()
-    const cacheStats = getCacheStats()
-    
-    
-    return {
-      visibleChunks: visible.length,
-      totalTiles: carryoverStats.totalTiles,
-      cacheSize: cacheStats.size,
-      cacheHits: cacheStats.hits,
-      cacheMisses: cacheStats.misses,
-      strips: carryoverStats.strips,
-      position: { x: -translate.x, y: -translate.y }
-    }
-  }, [visible.length, getStats, getCacheStats, translate, visible])
-  
-  const loadingChunks = useMemo(() => {
-    // For now, show loading for chunks we're trying to load
-    // In a more sophisticated implementation, you'd track loading state
-    return []
+  }, [isDragging, externalOnArtworkClick])
+
+  // Close similarity view
+  const closeSimilarityView = useCallback(() => {
+    setShowSimilarity(false)
+    setSelectedArtworkId(null)
   }, [])
-  
-  // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
-  
-  const handleTileClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
-    if (DEBUG_LOGGING) {
-      console.log('🖼️ Tile clicked:', {
-        id: image.id,
-        title: image.title,
-        artist: image.artist,
-        databaseId: image.databaseId
-      })
-    }
-    
-    onArtworkClick?.(image)
-  }, [onArtworkClick])
-  
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-  
-  if (DEBUG_LOGGING) {
-    console.log('🎛️ DraggableImageGridV2 render:', {
-      isInitialized,
-      visibleChunks: visible.length,
-      totalTiles: tiles.length,
-      isDragging,
-      translate
-    })
-  }
-  
 
-  // Use ref to avoid updatePosition in useEffect deps (prevents infinite loop)
-  const updatePositionRef = useRef(updatePosition)
-  useEffect(() => { 
-    updatePositionRef.current = updatePosition 
-  }, [updatePosition])
-  
-  // Handle trackpad navigation vs blocking mouse wheel
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    
-    let rafId = 0
-    
-    const handleWheelEvent = (e: WheelEvent) => {
-      // Ignore browser pinch-zoom
-      if (e.ctrlKey) return
-      
-      e.preventDefault()
-      e.stopPropagation()
-      
-      // Detect trackpad vs mouse wheel
-      const isTrackpadGesture = (
-        // Trackpad usually has both X and Y movement
-        Math.abs(e.deltaX) > 0 ||
-        // Trackpad has smaller, smoother deltas
-        (Math.abs(e.deltaY) < 50 && Math.abs(e.deltaX) < 50)
-      )
-      
-      if (isTrackpadGesture) {
-        // Enable trackpad navigation with inverted direction and increased speed
-        const speed = TRACKPAD_SPEED
-        const deltaX = e.deltaX * speed
-        const deltaY = e.deltaY * speed
-        
-        // Cancel previous RAF to prevent stacking
-        if (rafId) cancelAnimationFrame(rafId)
-        
-        // Update translate position with RAF throttling
-        rafId = requestAnimationFrame(() => {
-          // Guard against tiny/noop deltas to avoid extra renders
-          if (deltaX !== 0 || deltaY !== 0) {
-            updatePositionRef.current(deltaX, deltaY)
-          }
-        })
-      }
-      // Mouse wheel events are blocked (no movement)
-    }
-    
-    // Only add listener to container, not document (prevent duplicate handlers)
-    container.addEventListener('wheel', handleWheelEvent, { passive: false })
-    
-    // Prevent body scrolling and hide scrollbars completely
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
-    
-    // Apply CSS classes to hide scrollbars
-    document.documentElement.classList.add('no-scroll')
-    document.body.classList.add('no-scroll')
-    
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-    
-    return () => {
-      container.removeEventListener('wheel', handleWheelEvent)
-      
-      // Cancel any pending RAF
-      if (rafId) cancelAnimationFrame(rafId)
-      
-      // Remove CSS classes
-      document.documentElement.classList.remove('no-scroll')
-      document.body.classList.remove('no-scroll')
-      
-      // Restore original overflow styles
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
-    }
-  }, [containerRef])
+  // Show similarity view if selected
+  if (showSimilarity && selectedArtworkId) {
+    return (
+      <SimilarityGrid
+        artworkId={selectedArtworkId}
+        onClose={closeSimilarityView}
+      />
+    )
+  }
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing hide-scrollbars"
-      style={{ 
-        backgroundColor: WORLD_BACKGROUND_COLOR,
-        overscrollBehavior: 'none', // Prevent overscroll
-        touchAction: 'none', // Prevent touch scrolling
-        msOverflowStyle: 'none', // IE and Edge
-        scrollbarWidth: 'none' // Firefox
-      }}
-      onPointerDown={onPointerDown}
+      className="w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing"
+      style={{ backgroundColor: GRID_BACKGROUND_COLOR }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
     >
-      {/* World Plane with positioned tiles */}
-      <WorldPlane
-        tiles={tiles}
-        translate={translate}
-        onTileClick={handleTileClick}
-        isDragging={isDragging}
-        dragDistance={dragDistance}
-      />
-      
-      {/* Loading indicators */}
-      <LoadingIndicators
-        visible={showLoadingIndicators}
-        loadingChunks={loadingChunks}
-      />
-      
-      {/* Performance overlay */}
-      <PerformanceOverlay
-        visible={showPerformanceOverlay}
-        stats={performanceStats}
-        translate={translate}
-      />
+      <div
+        className={`relative ${
+          isDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'
+        }`}
+        style={{
+          transform: `translate(${translate.x}px, ${translate.y}px)`,
+          willChange: isDragging ? 'transform' : 'auto', // Optimize for smooth dragging
+        }}
+      >
+        {/* All grid rendering now handled by ChunkManager */}
+        <ChunkManager
+          viewport={viewport}
+          isDragging={isDragging}
+          isInitialized={isInitialized}
+          onImageClick={handleArtworkClick}
+          showPerformanceOverlay={showPerformanceOverlay}
+        />
+      </div>
     </div>
   )
 }

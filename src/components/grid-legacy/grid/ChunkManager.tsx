@@ -21,18 +21,13 @@ import {
   generateImageId,
   generateAspectRatio,
   calculateImageDimensions,
-  initializeColumnHeights,
-  calculateImagePosition,
-  updateColumnHeight,
   calculateBoundingBox,
+  calculateOptimalChunkLayout,
 } from './utils/chunkCalculations'
 import { 
   COLUMN_WIDTH,
   CHUNK_SIZE,
-  CHUNK_WIDTH,
   CHUNK_HEIGHT,
-  GRID_ORIGIN_X,
-  GRID_ORIGIN_Y,
   DEBUG_LOGGING
 } from './utils/constants'
 import type { Artwork } from '@/types/api'
@@ -153,32 +148,12 @@ function createChunk(
     chunkY,
   }))
 
-  // Independent masonry layout within this grid cell using utility functions
-  const columnHeights = initializeColumnHeights()
-  const positions: Array<{ x: number; y: number; height: number }> = []
-
-  images.forEach((image) => {
-    // Use utility function to calculate image position
-    const positionResult = calculateImagePosition(
-      columnHeights,
-      image.width,
-      image.height,
-      chunkX,
-      chunkY
-    )
-
-    // Skip if position calculation failed (insufficient space)
-    if (!positionResult) {
-      return
-    }
-
-    const { position, columnIndex } = positionResult
-    positions.push(position)
-
-    // Update column heights using utility function - IMPORTANT: Update the actual array!
-    const updatedHeights = updateColumnHeight(columnHeights, columnIndex, position.height)
-    columnHeights.splice(0, columnHeights.length, ...updatedHeights)
-  })
+  // Use optimized layout calculation for better space utilization
+  const positions = calculateOptimalChunkLayout(
+    images.map(img => ({ width: img.width, height: img.height })),
+    chunkX,
+    chunkY
+  )
 
   return {
     id: `chunk-${chunkX}-${chunkY}`,
@@ -203,7 +178,7 @@ const ChunkManager = memo(function ChunkManager({
 }: ChunkManagerProps) {
   
   // Use data management hook
-  const { chunkDataMap, fetchChunkData, getCacheStats } = useChunkData()
+  const { chunkDataMap, fetchChunkData } = useChunkData()
   
   // Core chunk state
   const [chunks, setChunks] = React.useState<Map<string, Chunk>>(new Map())

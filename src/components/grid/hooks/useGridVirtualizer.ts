@@ -24,10 +24,10 @@ interface UseGridVirtualizerOptions {
   viewport: ViewportSize
 }
 
-// Distance-based culling constants - increased for better infinite scrolling
-const MAX_CHUNK_DISTANCE = 5000 // Maximum distance from viewport center before culling
-const SOFT_CHUNK_LIMIT = 32 // Soft limit - start prioritizing closer chunks  
-const HARD_CHUNK_LIMIT = 64 // Hard limit - emergency brake for memory protection
+// HYBRID APPROACH: More aggressive distance-based culling
+const MAX_CHUNK_DISTANCE = 3000 // ~1.5 viewports - reduced for hybrid approach
+const SOFT_CHUNK_LIMIT = 16 // Reduced - we only keep nearby chunks
+const HARD_CHUNK_LIMIT = 32 // Reduced - aggressive memory management
 
 export function useGridVirtualizer(options: UseGridVirtualizerOptions): UseGridVirtualizerReturn {
   const { translate, viewport } = options

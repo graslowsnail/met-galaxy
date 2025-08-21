@@ -47,8 +47,8 @@ export const TRACKPAD_SPEED = 2.0
 // PERFORMANCE CONSTANTS
 // ============================================================================
 
-/** Maximum chunk data to cache (LRU) */
-export const MAX_DATA_CACHE = 100
+/** Maximum chunk data to cache (LRU) - reduced for hybrid approach */
+export const MAX_DATA_CACHE = 50
 
 /** RAF throttle delay for viewport updates */
 export const RAF_THROTTLE_MS = 16

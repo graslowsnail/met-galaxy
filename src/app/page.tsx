@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityGrid } from "@/components/similarity-grid"
-import type { ImageItem } from "@/components/grid/types/grid"
+import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
 
 export default function Home() {
   // Similarity view state

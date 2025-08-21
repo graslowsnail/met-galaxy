@@ -23,7 +23,14 @@ import {
   MAX_SAFE_COORDINATE 
 } from '../utils/constants'
 
-export function useColumnCarryover(): UseColumnCarryoverReturn {
+// Hybrid approach: only track column heights for nearby chunks
+const NEARBY_VIEWPORT_DISTANCE = 4000 // ~2 viewports (assuming 1920px viewport)
+
+interface UseColumnCarryoverOptions {
+  viewportCenter?: { x: number; y: number }
+}
+
+export function useColumnCarryover(options: UseColumnCarryoverOptions = {}): UseColumnCarryoverReturn {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
@@ -214,15 +221,9 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       placedByKey.delete(`${stripX}:${y}`)
     }
     
-    // Get or establish baseline for this strip
-    let baseline = stripBaselineRef.current.get(stripX)
-    if (baseline === undefined) {
-      // First time - use the FIRST chunk loaded as baseline for stability
-      // This ensures baseline never changes as new chunks are added
-      const sortedYs = [...chunkYs].sort((a, b) => a - b)
-      baseline = sortedYs[0] ?? 0  // Always use first (smallest Y) chunk as baseline
-      stripBaselineRef.current.set(stripX, baseline)
-    }
+    // SIMPLIFIED: Always use Y=0 as baseline for all strips
+    // This removes complexity and ensures consistency
+    const baseline = 0
     
     // Clamp baselineOffset to safe pixel coordinates to prevent browser rendering issues
     const rawBaselineOffset = baseline * CHUNK_HEIGHT
@@ -335,29 +336,54 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
   
   const pruneTo = useCallback((keepKeys: Set<ChunkKey>) => {
     let prunedCount = 0
+    const viewportCenter = options.viewportCenter
     
-    // Remove non-visible chunks from all maps
+    // HYBRID APPROACH: More aggressive pruning based on distance
+    const nearbyKeys = new Set<ChunkKey>()
+    const nearbyStrips = new Set<number>()
+    
+    if (viewportCenter) {
+      // Only keep chunks that are nearby
+      for (const key of keepKeys) {
+        const [xStr, yStr] = key.split(':')
+        if (xStr && yStr) {
+          const x = parseInt(xStr, 10)
+          const y = parseInt(yStr, 10)
+          
+          if (!isNaN(x) && !isNaN(y)) {
+            // Calculate chunk center
+            const chunkCenterX = x * CHUNK_WIDTH + CHUNK_WIDTH / 2
+            const chunkCenterY = y * CHUNK_HEIGHT + CHUNK_HEIGHT / 2
+            
+            // Distance from viewport center
+            const distance = Math.sqrt(
+              Math.pow(chunkCenterX - viewportCenter.x, 2) + 
+              Math.pow(chunkCenterY - viewportCenter.y, 2)
+            )
+            
+            // Only keep if within nearby distance
+            if (distance <= NEARBY_VIEWPORT_DISTANCE) {
+              nearbyKeys.add(key)
+              nearbyStrips.add(x)
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback to keeping all visible chunks if no viewport center
+      nearbyKeys.forEach(key => keepKeys.add(key))
+    }
+    
+    // Remove ALL chunks that aren't nearby
     for (const [key] of originalsByKey) {
-      if (!keepKeys.has(key)) {
+      if (!nearbyKeys.has(key)) {
         originalsByKey.delete(key)
         placedByKey.delete(key)
         prunedCount++
       }
     }
     
-    // Check which strips are completely empty and clean up their state
-    const remainingStrips = new Set<number>()
-    for (const key of keepKeys) {
-      const [xStr] = key.split(':')
-      if (xStr) {
-        const x = parseInt(xStr, 10)
-        if (!isNaN(x)) {
-          remainingStrips.add(x)
-        }
-      }
-    }
-    
-    // Clean up strip state for strips that no longer have any chunks
+    // AGGRESSIVELY clean up strip state for non-nearby strips
     const allStrips = new Set([
       ...stripBottomsRef.current.keys(),
       ...stripTopsRef.current.keys(),
@@ -365,17 +391,17 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
     ])
     
     for (const stripX of allStrips) {
-      if (!remainingStrips.has(stripX)) {
+      if (!nearbyStrips.has(stripX)) {
         stripBottomsRef.current.delete(stripX)
         stripTopsRef.current.delete(stripX)
         stripBaselineRef.current.delete(stripX)
       }
     }
     
-    // Rebuild keysByX from remaining chunks
+    // Rebuild keysByX from nearby chunks only
     keysByX.clear()
     
-    for (const key of keepKeys) {
+    for (const key of nearbyKeys) {
       const [xStr, yStr] = key.split(':')
       if (xStr && yStr) {
         const x = parseInt(xStr, 10)
@@ -392,12 +418,16 @@ export function useColumnCarryover(): UseColumnCarryoverReturn {
       }
     }
     
-    // Reflow affected strips
-    for (const stripX of remainingStrips) {
+    // Only reflow nearby strips
+    for (const stripX of nearbyStrips) {
       reflowStrip(stripX)
     }
     
-  }, [originalsByKey, placedByKey, keysByX, reflowStrip])
+    if (DEBUG_LOGGING && prunedCount > 0) {
+      console.log(`[ColumnCarryover] Pruned ${prunedCount} distant chunks, kept ${nearbyKeys.size} nearby`)
+    }
+    
+  }, [originalsByKey, placedByKey, keysByX, reflowStrip, options.viewportCenter])
   
   const snapshotPlaced = useCallback((): PositionedImage[] => {
     const allPlaced: PositionedImage[] = []
