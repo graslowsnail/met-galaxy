@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
-import { SimilarityGrid } from "@/components/similarity-grid"
+import { SimilarityInfiniteGrid } from "@/components/SimilarityInfiniteGrid"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
 
 export default function Home() {
@@ -44,7 +44,7 @@ export default function Home() {
   // Show similarity view if selected
   if (showSimilarity && selectedArtworkId) {
     return (
-      <SimilarityGrid
+      <SimilarityInfiniteGrid
         artworkId={selectedArtworkId}
         onClose={closeSimilarityView}
       />

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { SimilarityGrid } from "./similarity-grid"
+import { SimilarityInfiniteGrid } from "./SimilarityInfiniteGrid"
 
 
 // Import refactored grid components and hooks  
@@ -178,7 +178,7 @@ export function DraggableImageGrid({
   // Show similarity view if selected
   if (showSimilarity && selectedArtworkId) {
     return (
-      <SimilarityGrid
+      <SimilarityInfiniteGrid
         artworkId={selectedArtworkId}
         onClose={closeSimilarityView}
       />
