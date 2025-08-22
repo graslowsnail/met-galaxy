@@ -4,11 +4,11 @@ import type React from "react"
 
 import { useEffect, useCallback, useRef } from "react"
 
-// Import refactored grid components and hooks  
-import { useViewport } from "./grid-legacy/grid/hooks/useViewport"
-import ChunkManager from "./grid-legacy/grid/ChunkManager"
-import type { ImageItem } from "./grid-legacy/grid/types/grid"
-import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants"
+// Import grid components and hooks  
+import { useViewport } from "./grid/hooks/useViewport"
+import ChunkManager from "./grid/ChunkManager"
+import type { ImageItem } from "./grid/types/grid"
+import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED } from "./grid/utils/constants"
 
 // Note: Image generation functions now handled by ChunkManager
 

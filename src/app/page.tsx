@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
-import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
+import type { ImageItem } from "@/components/grid/types/grid"
 
 export default function Home() {
   // Handle artwork click with simple alert
