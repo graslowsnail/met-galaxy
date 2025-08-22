@@ -16,8 +16,7 @@ import {
   AXIS_LINE_COLOR,
   AXIS_LINE_THICKNESS,
   Z_INDEX_AXIS_LINES,
-  SHOW_CHUNK_BOUNDARIES,
-  DEBUG_LOGGING
+  SHOW_CHUNK_BOUNDARIES
 } from './utils/constants'
 
 /**
@@ -160,11 +159,6 @@ const GridRenderer = memo(function GridRenderer({
   chunkDataMap?: Map<string, import('./types/grid').ChunkData>
   showPerformanceOverlay?: boolean
 }) {
-  
-  if (DEBUG_LOGGING) {
-    console.log(`🎨 GridRenderer: Rendering ${chunks.size} chunks, dragging: ${isDragging}`)
-  }
-
   return (
     <div className="relative w-full h-full">
       {/* Axis lines for coordinate system */}

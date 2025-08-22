@@ -25,11 +25,8 @@ export function DraggableImageGrid({
     handleTouchStart,
     containerRef,
     viewport,
-    onPostDrag,
     updatePosition
   } = useViewport()
-
-  useEffect(() => onPostDrag(() => { /* Post-drag cleanup */ }), [onPostDrag])
 
   const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
     if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD) return
@@ -56,7 +53,6 @@ export function DraggableImageGrid({
       e.preventDefault()
       e.stopPropagation()
       
-      // Only respond to trackpad gestures (smooth, multi-axis movement)
       const isTrackpad = Math.abs(e.deltaX) > 0 || (Math.abs(e.deltaY) < 50 && Math.abs(e.deltaX) < 50)
       
       if (isTrackpad) {
@@ -65,14 +61,13 @@ export function DraggableImageGrid({
         
         if (rafId) cancelAnimationFrame(rafId)
         rafId = requestAnimationFrame(() => {
-          if (deltaX !== 0 || deltaY !== 0) updatePosition(deltaX, deltaY)
+          if (deltaX || deltaY) updatePosition(deltaX, deltaY)
         })
       }
     }
     
     container.addEventListener('wheel', handleWheel, { passive: false })
     
-    // Prevent body scrolling
     const originalBodyOverflow = document.body.style.overflow
     const originalHtmlOverflow = document.documentElement.style.overflow
     
@@ -91,7 +86,6 @@ export function DraggableImageGrid({
       document.documentElement.style.overflow = originalHtmlOverflow
     }
   }, [containerRef, updatePosition])
-
 
   return (
     <div

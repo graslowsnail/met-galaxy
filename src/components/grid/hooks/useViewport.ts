@@ -21,8 +21,7 @@ import {
 } from '../utils/chunkCalculations'
 import { 
   POST_DRAG_UPDATE_DELAY, 
-  VIEWPORT_CHANGE_THRESHOLD,
-  DEBUG_LOGGING 
+  VIEWPORT_CHANGE_THRESHOLD
 } from '../utils/constants'
 
 /**
@@ -83,10 +82,6 @@ export function useViewport(): UseViewportReturn {
       const containerWidth = containerRef.current.clientWidth
       const containerHeight = containerRef.current.clientHeight
       setViewportDimensions({ width: containerWidth, height: containerHeight })
-      
-      if (DEBUG_LOGGING) {
-        console.log(`📐 Viewport dimensions updated: ${containerWidth}x${containerHeight}`)
-      }
     }
   }, [])
   
@@ -100,10 +95,6 @@ export function useViewport(): UseViewportReturn {
       
       setTranslate({ x: centerX, y: centerY })
       setIsInitialized(true)
-      
-      if (DEBUG_LOGGING) {
-        console.log(`🎯 Viewport initialized to center: (${centerX}, ${centerY})`)
-      }
     }
   }, [viewportDimensions, isInitialized])
   
@@ -122,10 +113,6 @@ export function useViewport(): UseViewportReturn {
     })
     setInitialMousePos({ x: e.clientX, y: e.clientY })
     setDragDistance(0)
-    
-    if (DEBUG_LOGGING) {
-      console.log(`🖱️ Mouse drag started at (${e.clientX}, ${e.clientY})`)
-    }
   }, [translate])
   
   /**
@@ -157,10 +144,6 @@ export function useViewport(): UseViewportReturn {
     
     setIsDragging(false)
     
-    if (DEBUG_LOGGING) {
-      console.log('🖱️ Mouse drag ended')
-    }
-    
     // Trigger post-drag callbacks with delay for smooth UX
     setTimeout(() => {
       postDragCallbacks.current.forEach(callback => callback())
@@ -185,10 +168,6 @@ export function useViewport(): UseViewportReturn {
     })
     setInitialMousePos({ x: touch.clientX, y: touch.clientY })
     setDragDistance(0)
-    
-    if (DEBUG_LOGGING) {
-      console.log(`👆 Touch drag started at (${touch.clientX}, ${touch.clientY})`)
-    }
   }, [translate])
   
   /**
@@ -223,10 +202,6 @@ export function useViewport(): UseViewportReturn {
     if (!isDragging) return
     
     setIsDragging(false)
-    
-    if (DEBUG_LOGGING) {
-      console.log('👆 Touch drag ended')
-    }
     
     // Trigger post-drag callbacks with delay for smooth UX
     setTimeout(() => {
@@ -330,10 +305,6 @@ export function useViewport(): UseViewportReturn {
    */
   const setViewportPosition = useCallback((position: Position) => {
     setTranslate(position)
-    
-    if (DEBUG_LOGGING) {
-      console.log(`📍 Viewport position set to (${position.x}, ${position.y})`)
-    }
   }, [])
   
   /**
@@ -355,10 +326,6 @@ export function useViewport(): UseViewportReturn {
       x: prev.x + deltaX,
       y: prev.y + deltaY
     }))
-    
-    if (DEBUG_LOGGING) {
-      console.log(`🖱️ Position updated by delta (${deltaX}, ${deltaY})`)
-    }
   }, [])
   
   // ============================================================================

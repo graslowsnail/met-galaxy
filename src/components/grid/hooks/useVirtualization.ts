@@ -22,8 +22,7 @@ import {
 } from '../utils/chunkCalculations'
 import { 
   MAX_RENDERED_CHUNKS,
-  VIEWPORT_CHANGE_THRESHOLD,
-  DEBUG_LOGGING 
+  VIEWPORT_CHANGE_THRESHOLD
 } from '../utils/constants'
 
 interface UseVirtualizationOptions {
@@ -104,10 +103,6 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
     
     setVisibleChunks(strictVisible)
     setChunksToLoad(bufferedVisible)
-    
-    if (DEBUG_LOGGING) {
-      console.log(`🔍 Visibility update: ${strictVisible.length} visible, ${bufferedVisible.length} to load`)
-    }
   }, [calculateVisibleChunks, calculateStrictVisibleChunks])
   
   // ============================================================================
@@ -131,10 +126,6 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
           newChunks.delete(chunkKey)
           removedCount++
         }
-      }
-      
-      if (removedCount > 0 && DEBUG_LOGGING) {
-        console.log(`🧹 Virtualization cleanup: removed ${removedCount} chunks, keeping ${newChunks.size}`)
       }
       
       return newChunks
@@ -191,17 +182,11 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
   const updateVirtualization = useCallback(() => {
     // Don't update chunks until we're properly initialized
     if (!viewport.width || !viewport.height || !isInitialized) {
-      if (DEBUG_LOGGING) {
-        console.log('⏭️ Skipping virtualization: not initialized')
-      }
       return
     }
     
     // CRITICAL: Don't update virtualization while user is dragging to prevent stuttering
     if (isDragging) {
-      if (DEBUG_LOGGING) {
-        console.log('⏭️ Skipping virtualization: dragging active')
-      }
       return
     }
     
@@ -226,10 +211,6 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
     }
     
     lastViewport.current = currentViewport
-    
-    if (DEBUG_LOGGING) {
-      console.log('🎯 Viewport changed, updating virtualization')
-    }
     
     // Update visibility calculations
     updateChunkVisibility()

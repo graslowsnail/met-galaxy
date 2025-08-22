@@ -15,7 +15,7 @@ import type {
   UseChunkDataReturn 
 } from '../types/grid'
 import { getChunkKey } from '../utils/chunkCalculations'
-import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../utils/constants'
+import { MAX_DATA_CACHE, CHUNK_SIZE } from '../utils/constants'
 
 /**
  * Custom hook for managing chunk data with intelligent caching
@@ -61,10 +61,6 @@ export function useChunkData(): UseChunkDataReturn {
       const keysToRemove = dataKeys.slice(0, excessCount)
       keysToRemove.forEach(key => newData.delete(key))
       
-      if (DEBUG_LOGGING) {
-        console.log(`💾 Data cache cleanup: removed ${keysToRemove.length} entries, keeping ${newData.size}`)
-      }
-      
       return newData
     })
   }, [])
@@ -75,10 +71,6 @@ export function useChunkData(): UseChunkDataReturn {
   const clearCache = useCallback(() => {
     setChunkDataMap(new Map())
     fetchingChunks.current.clear()
-    
-    if (DEBUG_LOGGING) {
-      console.log('🧹 Data cache cleared completely')
-    }
   }, [])
   
   // ============================================================================
@@ -98,17 +90,11 @@ export function useChunkData(): UseChunkDataReturn {
     // Skip if already loaded or loading
     const existingData = chunkDataMap.get(chunkKey)
     if (existingData && (existingData.loading || existingData.artworks)) {
-      if (DEBUG_LOGGING) {
-        console.log(`Chunk ${chunkKey} already has data, skipping fetch`)
-      }
       return existingData.artworks
     }
     
     // Skip if already being fetched (deduplication)
     if (fetchingChunks.current.has(chunkKey)) {
-      if (DEBUG_LOGGING) {
-        console.log(`Chunk ${chunkKey} already being fetched, skipping duplicate`)
-      }
       return null
     }
     
@@ -126,10 +112,6 @@ export function useChunkData(): UseChunkDataReturn {
     setIsLoading(true)
     
     try {
-      if (DEBUG_LOGGING) {
-        console.log(`🔍 Fetching data for chunk ${chunkX},${chunkY}`)
-      }
-      
       const response = await apiClient.getChunkArtworks({ 
         chunkX, 
         chunkY, 
@@ -142,10 +124,6 @@ export function useChunkData(): UseChunkDataReturn {
         loading: false,
         error: null
       }))
-      
-      if (DEBUG_LOGGING) {
-        console.log(`✅ Loaded ${response.artworks.length} artworks for chunk ${chunkX},${chunkY}`)
-      }
       
       // Trigger cache cleanup if needed
       cleanupDataCache()
@@ -190,11 +168,6 @@ export function useChunkData(): UseChunkDataReturn {
   const fetchMultipleChunks = useCallback(async (coordinates: ChunkCoordinates[]): Promise<void> => {
     if (coordinates.length === 0) return
     
-    if (DEBUG_LOGGING) {
-      console.log(`📦 Fetching ${coordinates.length} chunks in parallel:`, 
-        coordinates.map(c => `(${c.x},${c.y})`).join(', '))
-    }
-    
     // Filter out chunks that don't need fetching
     const chunksToFetch = coordinates.filter(coord => {
       const chunkKey = getChunkKey(coord.x, coord.y)
@@ -205,9 +178,6 @@ export function useChunkData(): UseChunkDataReturn {
     })
     
     if (chunksToFetch.length === 0) {
-      if (DEBUG_LOGGING) {
-        console.log('No chunks need fetching - all already loaded or loading')
-      }
       return
     }
     
@@ -215,10 +185,6 @@ export function useChunkData(): UseChunkDataReturn {
     await Promise.allSettled(
       chunksToFetch.map(coord => fetchChunkData(coord.x, coord.y))
     )
-    
-    if (DEBUG_LOGGING) {
-      console.log(`✅ Batch fetch complete for ${chunksToFetch.length} chunks`)
-    }
   }, [chunkDataMap, fetchChunkData])
   
   // ============================================================================
