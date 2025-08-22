@@ -2,9 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { SimilarityInfiniteGrid } from "./SimilarityInfiniteGrid"
-
+import { useEffect, useCallback, useRef } from "react"
 
 // Import refactored grid components and hooks  
 import { useViewport } from "./grid-legacy/grid/hooks/useViewport"
@@ -23,7 +21,7 @@ interface DraggableImageGridProps {
 export function DraggableImageGrid({
   onArtworkClick: externalOnArtworkClick,
   showPerformanceOverlay = true,
-  showLoadingIndicators = true
+  showLoadingIndicators: _showLoadingIndicators = true
 }: DraggableImageGridProps = {}) {
   // Use refactored viewport hook
   const { 
@@ -38,10 +36,6 @@ export function DraggableImageGrid({
     onPostDrag,
     updatePosition
   } = useViewport()
-  
-  // Similarity view state
-  const [selectedArtworkId, setSelectedArtworkId] = useState<number | null>(null)
-  const [showSimilarity, setShowSimilarity] = useState(false)
 
   // Connect post-drag events to trigger updates
   useEffect(() => {
@@ -51,7 +45,7 @@ export function DraggableImageGrid({
     return cleanup
   }, [onPostDrag])
 
-  // Handle artwork click for similarity view
+  // Handle artwork click
   const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
     // Prevent click during dragging OR if mouse moved significantly
     if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD) {
@@ -62,7 +56,7 @@ export function DraggableImageGrid({
     // Stop event propagation to prevent triggering drag
     event.stopPropagation()
     
-    // If external handler provided, use it instead of internal similarity logic
+    // If external handler provided, use it
     if (externalOnArtworkClick) {
       externalOnArtworkClick(image)
       return
@@ -77,25 +71,9 @@ export function DraggableImageGrid({
       src: image.src
     })
     
-    // Use the database ID for similarity search (this is what the backend expects)
-    const artworkId = image.databaseId
-    
-    console.log('Using database ID for similarity search:', artworkId)
-    
-    if (artworkId) {
-      setSelectedArtworkId(artworkId)
-      setShowSimilarity(true)
-    } else {
-      console.error('No database ID found for artwork:', image)
-      alert('This artwork is not available for similarity search')
-    }
+    // Show simple "coming soon" alert
+    alert('Similar artwork exploration coming soon!')
   }, [isDragging, dragDistance, externalOnArtworkClick])
-
-  // Close similarity view
-  const closeSimilarityView = useCallback(() => {
-    setShowSimilarity(false)
-    setSelectedArtworkId(null)
-  }, [])
 
   // Use ref to avoid updatePosition in useEffect deps (prevents infinite loop)
   const updatePositionRef = useRef(updatePosition)
@@ -175,15 +153,6 @@ export function DraggableImageGrid({
     }
   }, [containerRef])
 
-  // Show similarity view if selected
-  if (showSimilarity && selectedArtworkId) {
-    return (
-      <SimilarityInfiniteGrid
-        artworkId={selectedArtworkId}
-        onClose={closeSimilarityView}
-      />
-    )
-  }
 
   return (
     <div

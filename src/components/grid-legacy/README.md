@@ -22,5 +22,3 @@ The current implementation uses `src/components/draggable-image-grid.tsx` which 
 
 These components are used by:
 - `src/components/draggable-image-grid.tsx` - Main grid component
-- `src/components/SimilarityInfiniteGrid.tsx` - Similarity grid component
-- `src/components/similarity-grid/SimilarityChunkManager.tsx` - Similarity chunk manager
