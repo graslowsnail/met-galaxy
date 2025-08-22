@@ -1,11 +1,18 @@
 "use client"
 
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
+import { SimilarityGrid } from "@/components/similarity-grid"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
+import type { SimilarityImageItem } from "@/components/similarity-grid"
 
 export default function Home() {
-  // Handle artwork click with simple alert
+  const [similarityMode, setSimilarityMode] = useState<{
+    active: boolean;
+    artworkId: number | null;
+  }>({ active: false, artworkId: null })
+
+  // Handle artwork click from main grid
   const handleArtworkClick = useCallback((image: ImageItem) => {
     console.log('Artwork clicked:', {
       imageId: image.id,
@@ -16,15 +23,53 @@ export default function Home() {
       src: image.src
     })
     
-    // Show simple "coming soon" alert
-    alert('Similar artwork exploration coming soon!')
+    // Check if we have a database ID for similarity search
+    if (image.databaseId) {
+      setSimilarityMode({ 
+        active: true, 
+        artworkId: image.databaseId 
+      })
+    } else {
+      alert('Similar artwork exploration requires database ID')
+    }
+  }, [])
+
+  // Handle artwork click from similarity grid (for rabbit hole navigation)
+  const handleSimilarityArtworkClick = useCallback((image: SimilarityImageItem) => {
+    console.log('Similarity artwork clicked:', {
+      imageId: image.id,
+      databaseId: image.databaseId,
+      title: image.title,
+      artist: image.artist,
+      similarity: image.similarity
+    })
+    // The SimilarityGrid component will handle the re-focusing internally
+  }, [])
+
+  // Handle closing similarity mode
+  const handleCloseSimilarity = useCallback(() => {
+    setSimilarityMode({ active: false, artworkId: null })
   }, [])
 
   return (
-    <DraggableImageGrid 
-      onArtworkClick={handleArtworkClick}
-      showPerformanceOverlay={true}
-      showLoadingIndicators={true}
-    />
+    <>
+      {/* Main infinite grid */}
+      {!similarityMode.active && (
+        <DraggableImageGrid 
+          onArtworkClick={handleArtworkClick}
+          showPerformanceOverlay={false}
+          showLoadingIndicators={true}
+        />
+      )}
+
+      {/* Similarity exploration mode */}
+      {similarityMode.active && similarityMode.artworkId && (
+        <SimilarityGrid
+          initialArtworkId={similarityMode.artworkId}
+          onArtworkClick={handleSimilarityArtworkClick}
+          onClose={handleCloseSimilarity}
+        />
+      )}
+    </>
   );
 }
