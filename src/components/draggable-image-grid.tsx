@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useCallback, useRef } from "react"
+import { useEffect, useCallback } from "react"
 
 // Import grid components and hooks  
 import { useViewport } from "./grid/hooks/useViewport"
@@ -15,13 +15,11 @@ import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED } from "./g
 interface DraggableImageGridProps {
   onArtworkClick?: (image: ImageItem) => void
   showPerformanceOverlay?: boolean
-  showLoadingIndicators?: boolean
 }
 
 export function DraggableImageGrid({
-  onArtworkClick: externalOnArtworkClick,
-  showPerformanceOverlay = true,
-  showLoadingIndicators: _showLoadingIndicators = true
+  onArtworkClick,
+  showPerformanceOverlay = true
 }: DraggableImageGridProps = {}) {
   // Use refactored viewport hook
   const { 
@@ -40,46 +38,28 @@ export function DraggableImageGrid({
   // Connect post-drag events to trigger updates
   useEffect(() => {
     const cleanup = onPostDrag(() => {
-      console.log('🔄 Post-drag update triggered')
+      // Trigger virtualization updates after drag
     })
     return cleanup
   }, [onPostDrag])
 
   // Handle artwork click
   const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
-    // Prevent click during dragging OR if mouse moved significantly
+    // Prevent click during dragging
     if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD) {
-      console.log('🚫 Click prevented:', { isDragging, dragDistance, threshold: CLICK_MOVE_THRESHOLD })
       return
     }
     
-    // Stop event propagation to prevent triggering drag
     event.stopPropagation()
     
-    // If external handler provided, use it
-    if (externalOnArtworkClick) {
-      externalOnArtworkClick(image)
-      return
+    // Use external handler if provided, otherwise show default alert
+    if (onArtworkClick) {
+      onArtworkClick(image)
+    } else {
+      alert('Similar artwork exploration coming soon!')
     }
-    
-    console.log('Artwork clicked:', {
-      imageId: image.id,
-      databaseId: image.databaseId,
-      objectId: image.objectId,
-      title: image.title,
-      artist: image.artist,
-      src: image.src
-    })
-    
-    // Show simple "coming soon" alert
-    alert('Similar artwork exploration coming soon!')
-  }, [isDragging, dragDistance, externalOnArtworkClick])
+  }, [isDragging, dragDistance, onArtworkClick])
 
-  // Use ref to avoid updatePosition in useEffect deps (prevents infinite loop)
-  const updatePositionRef = useRef(updatePosition)
-  useEffect(() => { 
-    updatePositionRef.current = updatePosition 
-  }, [updatePosition])
 
   // Handle trackpad navigation vs blocking mouse wheel
   useEffect(() => {
@@ -114,9 +94,8 @@ export function DraggableImageGrid({
         
         // Update translate position with RAF throttling
         rafId = requestAnimationFrame(() => {
-          // Guard against tiny/noop deltas to avoid extra renders
           if (deltaX !== 0 || deltaY !== 0) {
-            updatePositionRef.current(deltaX, deltaY)
+            updatePosition(deltaX, deltaY)
           }
         })
       }
@@ -151,7 +130,7 @@ export function DraggableImageGrid({
       document.body.style.overflow = originalBodyOverflow
       document.documentElement.style.overflow = originalHtmlOverflow
     }
-  }, [containerRef])
+  }, [containerRef, updatePosition])
 
 
   return (
