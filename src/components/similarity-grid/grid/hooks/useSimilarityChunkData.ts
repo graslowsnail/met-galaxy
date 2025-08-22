@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { apiClient } from '@/lib/api-client'
 import type { 
   SimilarityChunk, 
   SimilarityChunkData,
@@ -28,7 +29,6 @@ import {
 interface UseSimilarityChunkDataProps {
   currentFocalId: number
   similarityData: SimilarityData | null
-  randomArtworks: any[] | null
 }
 
 interface UseSimilarityChunkDataReturn {
@@ -42,8 +42,7 @@ interface UseSimilarityChunkDataReturn {
 
 export function useSimilarityChunkData({
   currentFocalId,
-  similarityData,
-  randomArtworks
+  similarityData
 }: UseSimilarityChunkDataProps): UseSimilarityChunkDataReturn {
   
   // ============================================================================
@@ -81,12 +80,7 @@ export function useSimilarityChunkData({
       focalArtwork
     )
     
-    if (DEBUG_LOGGING) {
-      console.log(`📋 Calculated chunk assignments for ${assignments.size} chunks`)
-      assignments.forEach((artworks, chunkKey) => {
-        console.log(`  Chunk ${chunkKey}: ${artworks.length} artworks`)
-      })
-    }
+    console.log(`📋 Assigned similar artworks to ${assignments.size} chunks`)
     
     return assignments
   }, [similarityData])
@@ -155,7 +149,7 @@ export function useSimilarityChunkData({
       }
       // Create similarity chunks
       else {
-        // Get chunk assignments (calculate if needed)
+        // Get chunk assignments for predefined rings (calculate if needed)
         let assignments = chunkAssignmentsCache.current
         if (assignments.size === 0 || lastFocalId.current !== currentFocalId) {
           assignments = calculateChunkAssignments()
@@ -163,8 +157,37 @@ export function useSimilarityChunkData({
           lastFocalId.current = currentFocalId
         }
         
+        // For chunks outside the predefined rings, use empty similarity array (pure random)
         const chunkArtworks = assignments.get(chunkId) || []
-        const chunkRandomArtworks = randomArtworks || []
+        
+        console.log(`🔧 Creating chunk ${chunkId}: ${chunkArtworks.length} similar artworks assigned`)
+        
+        // Fetch unique random artworks for this specific chunk
+        let chunkRandomArtworks: any[] = []
+        try {
+          if (DEBUG_LOGGING) {
+            console.log(`🎲 Fetching random artworks for chunk ${chunkId} (${chunkX}, ${chunkY})...`)
+          }
+          
+          const randomResponse = await apiClient.getChunkArtworks({
+            chunkX,
+            chunkY,
+            count: 20 // Get enough random images to fill the chunk
+          })
+          
+          if (DEBUG_LOGGING) {
+            console.log(`🔍 API Response for chunk ${chunkId}:`, randomResponse)
+          }
+          
+          chunkRandomArtworks = randomResponse.artworks || []
+          
+          if (DEBUG_LOGGING) {
+            console.log(`🎲 Fetched ${chunkRandomArtworks.length} random artworks for chunk ${chunkId}`, chunkRandomArtworks)
+          }
+        } catch (error) {
+          console.error(`❌ Failed to fetch random artworks for chunk ${chunkId}:`, error)
+          chunkRandomArtworks = []
+        }
         
         chunk = createSimilarityChunk(
           chunkX, 
@@ -174,7 +197,7 @@ export function useSimilarityChunkData({
         )
         
         if (DEBUG_LOGGING) {
-          console.log(`📦 Created similarity chunk ${chunk.id}: ${chunk.images.length} images (${chunkArtworks.length} similar, ${chunk.images.length - chunkArtworks.length} random)`)
+          console.log(`📦 Created similarity chunk ${chunk.id}: ${chunk.images.length} images (${chunkArtworks.length} similar, ${chunkRandomArtworks.length} random)`)
         }
       }
       
@@ -205,7 +228,7 @@ export function useSimilarityChunkData({
     } finally {
       loadingChunks.delete(chunkId)
     }
-  }, [chunks, loadingChunks, errorChunks, similarityData, randomArtworks, currentFocalId, calculateChunkAssignments])
+  }, [chunks, loadingChunks, errorChunks, similarityData, currentFocalId, calculateChunkAssignments])
   
   // ============================================================================
   // CACHE MANAGEMENT
@@ -238,19 +261,28 @@ export function useSimilarityChunkData({
   }, [clearCache, currentFocalId])
   
   // ============================================================================
-  // AUTOMATIC CHUNK PRELOADING
+  // INITIAL CHUNK PRELOADING
   // ============================================================================
   
   /**
-   * Preload chunks around the focal chunk
+   * Preload essential chunks around the focal chunk on initial load
+   * Additional chunks will be loaded on-demand via viewport-based virtualization
    */
   useEffect(() => {
-    if (!similarityData) return
+    if (!similarityData) {
+      if (DEBUG_LOGGING) {
+        console.log(`⏸️ Skipping initial chunk preload - similarity data not available`)
+      }
+      return
+    }
     
-    const preloadChunks = async () => {
+    const preloadInitialChunks = async () => {
       // Always load focal chunk first
       try {
         await loadChunk('0,0')
+        if (DEBUG_LOGGING) {
+          console.log(`✅ Successfully loaded focal chunk`)
+        }
       } catch (error) {
         console.error('Failed to load focal chunk:', error)
         return
@@ -267,37 +299,15 @@ export function useSimilarityChunkData({
         }
       }
       
-      // Preload ring 2 chunks (random images with some low similarity)
-      const ring2Positions = CHUNK_POSITIONS.RING_2
-      for (const pos of ring2Positions) {
-        const chunkId = `${pos.x},${pos.y}`
-        try {
-          loadChunk(chunkId) // Don't await - load in parallel
-        } catch (error) {
-          console.warn(`Failed to preload chunk ${chunkId}:`, error)
-        }
-      }
-      
-      // Preload ring 3 chunks (mostly random images for exploration)
-      const ring3Positions = CHUNK_POSITIONS.RING_3
-      for (const pos of ring3Positions) {
-        const chunkId = `${pos.x},${pos.y}`
-        try {
-          loadChunk(chunkId) // Don't await - load in parallel
-        } catch (error) {
-          console.warn(`Failed to preload chunk ${chunkId}:`, error)
-        }
-      }
-      
       if (DEBUG_LOGGING) {
-        console.log(`🚀 Preloading ${ring1Positions.length + ring2Positions.length + ring3Positions.length + 1} chunks around focal image`)
+        console.log(`🚀 Preloading ${ring1Positions.length + 1} initial chunks around focal image`)
+        console.log(`   Focal: 1 chunk`)
         console.log(`   Ring 1: ${ring1Positions.length} chunks (similarity)`)
-        console.log(`   Ring 2: ${ring2Positions.length} chunks (mixed)`)
-        console.log(`   Ring 3: ${ring3Positions.length} chunks (random)`)
+        console.log(`   Additional chunks will be loaded on-demand via viewport visibility`)
       }
     }
     
-    preloadChunks()
+    preloadInitialChunks()
   }, [similarityData, currentFocalId, loadChunk])
   
   // ============================================================================

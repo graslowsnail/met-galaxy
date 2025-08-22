@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useState, useMemo, useEffect } from "react";
+import { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import { useSimilarArtworks } from "@/hooks/use-similar-artworks";
-import { useRandomArtworks } from "@/hooks/use-artworks";
 import { useViewport } from "./grid-legacy/grid/hooks/useViewport";
 import { SimilarityGridRenderer } from "./similarity-grid/grid/SimilarityGridRenderer";
 import type { 
@@ -20,6 +19,7 @@ import {
   FOCAL_IMAGE_OFFSET_X,
   FOCAL_IMAGE_OFFSET_Y
 } from "./similarity-grid/grid/utils/constants";
+import { TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants";
 
 export type { SimilarityImageItem };
 
@@ -53,14 +53,7 @@ export function SimilarityGrid({
     artworkId: currentFocalId 
   });
 
-  // Fetch random artworks for filling in gaps (start immediately)
-  const { 
-    data: randomArtworks, 
-    isLoading: isLoadingRandom 
-  } = useRandomArtworks({ 
-    count: 100,
-    enabled: true // Always enabled to load random images immediately
-  });
+  // Random artworks are now fetched per-chunk, similar to main grid
 
   // ============================================================================
   // VIEWPORT MANAGEMENT
@@ -115,18 +108,16 @@ export function SimilarityGrid({
       navigationHistory,
       isTransitioning,
       similarityData: transformedSimilarityData,
-      randomArtworks,
+      randomArtworks: null, // No longer using global random artworks
       isLoadingSimilarity,
-      isLoadingRandom
+      isLoadingRandom: false // No global random loading
     };
   }, [
     currentFocalId,
     navigationHistory,
     isTransitioning,
     similarData,
-    randomArtworks,
-    isLoadingSimilarity,
-    isLoadingRandom
+    isLoadingSimilarity
   ]);
 
   // ============================================================================
@@ -221,6 +212,88 @@ export function SimilarityGrid({
   }, [viewportState.width, viewportState.height, setViewportPosition]);
 
   // ============================================================================
+  // TRACKPAD/WHEEL SCROLLING SUPPORT
+  // ============================================================================
+
+  // Use ref to avoid updatePosition in useEffect deps (prevents infinite loop)
+  const updatePositionRef = useRef(updatePosition)
+  useEffect(() => { 
+    updatePositionRef.current = updatePosition 
+  }, [updatePosition])
+
+  // Handle trackpad navigation vs blocking mouse wheel
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    
+    let rafId = 0
+    
+    const handleWheelEvent = (e: WheelEvent) => {
+      // Ignore browser pinch-zoom
+      if (e.ctrlKey) return
+      
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // Detect trackpad vs mouse wheel
+      const isTrackpadGesture = (
+        // Trackpad usually has both X and Y movement
+        Math.abs(e.deltaX) > 0 ||
+        // Trackpad has smaller, smoother deltas
+        (Math.abs(e.deltaY) < 50 && Math.abs(e.deltaX) < 50)
+      )
+      
+      if (isTrackpadGesture) {
+        // Enable trackpad navigation with natural direction
+        const speed = TRACKPAD_SPEED
+        const deltaX = -e.deltaX * speed  // Invert X for natural movement
+        const deltaY = -e.deltaY * speed  // Invert Y for natural movement
+        
+        // Cancel previous RAF to prevent stacking
+        if (rafId) cancelAnimationFrame(rafId)
+        
+        // Update translate position with RAF throttling
+        rafId = requestAnimationFrame(() => {
+          // Guard against tiny/noop deltas to avoid extra renders
+          if (deltaX !== 0 || deltaY !== 0) {
+            updatePositionRef.current(deltaX, deltaY)
+          }
+        })
+      }
+      // Mouse wheel events are blocked (no movement)
+    }
+    
+    // Only add listener to container, not document (prevent duplicate handlers)
+    container.addEventListener('wheel', handleWheelEvent, { passive: false })
+    
+    // Prevent body scrolling and hide scrollbars completely
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    
+    // Apply CSS classes to hide scrollbars
+    document.documentElement.classList.add('no-scroll')
+    document.body.classList.add('no-scroll')
+    
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheelEvent)
+      
+      // Cancel any pending RAF
+      if (rafId) cancelAnimationFrame(rafId)
+      
+      // Remove CSS classes
+      document.documentElement.classList.remove('no-scroll')
+      document.body.classList.remove('no-scroll')
+      
+      // Restore original overflow styles
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+    }
+  }, [containerRef]);
+
+  // ============================================================================
   // ERROR HANDLING
   // ============================================================================
 
@@ -282,18 +355,24 @@ export function SimilarityGrid({
       {/* Main grid container with viewport management */}
       <div
         ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
+        className="w-full h-full overflow-hidden cursor-grab active:cursor-grabbing hide-scrollbars"
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
         style={{
-          overflow: 'hidden',
-          touchAction: 'none',
+          backgroundColor: '#EDE9E5',
+          overscrollBehavior: 'none', // Prevent overscroll
+          touchAction: 'none', // Prevent touch scrolling
+          msOverflowStyle: 'none', // IE and Edge
+          scrollbarWidth: 'none' // Firefox
         }}
       >
         <div
-          className="relative w-full h-full"
+          className={`relative w-full h-full ${
+            isDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'
+          }`}
           style={{
             transform: `translate(${translate.x}px, ${translate.y}px)`,
+            willChange: isDragging ? 'transform' : 'auto', // Optimize for smooth dragging
           }}
         >
           {/* Main similarity grid renderer */}

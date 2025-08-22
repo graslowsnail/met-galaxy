@@ -65,28 +65,28 @@ export const MIN_IMAGE_SIZE = 100
 
 /** Zone definitions for placing similar images */
 export const SIMILARITY_ZONES = {
-  // Immediately around focal image (adjacent chunks)
+  // Ring 1: Immediately around focal image (8 chunks)
   HIGH_SIMILARITY: {
-    minSimilarity: 0.7,
+    minSimilarity: 0.0,      // Accept all 160 similar images
     chunkDistance: 1,        // 1 chunk away from focal
     imageSize: LARGE_IMAGE_SIZE,
-    maxImages: 60           // 3 chunks * 20 images
+    maxImages: 160          // 8 chunks * 20 images = 160 similar images
   },
   
-  // Second ring of chunks
+  // Ring 2: Second ring of chunks (16 chunks)
   MEDIUM_SIMILARITY: {
-    minSimilarity: 0.4,
+    minSimilarity: 0.0,      // Accept remaining similar images if any
     chunkDistance: 2,        // 2 chunks away from focal
     imageSize: MEDIUM_IMAGE_SIZE,
-    maxImages: 100          // 5 chunks * 20 images
+    maxImages: 0            // Mostly random images via API calls
   },
   
-  // Third ring of chunks
+  // Ring 3: Third ring of chunks (24 chunks) 
   LOW_SIMILARITY: {
-    minSimilarity: 0.2,
+    minSimilarity: 0.0,      // Accept any remaining images
     chunkDistance: 3,        // 3 chunks away from focal
     imageSize: SMALL_IMAGE_SIZE,
-    maxImages: 140          // 7 chunks * 20 images
+    maxImages: 0            // Pure random images via API calls
   },
   
   // Outer rings - random images mixed in
@@ -197,7 +197,7 @@ export const POST_DRAG_UPDATE_DELAY = 100
 // ============================================================================
 
 /** Enable debug logging */
-export const DEBUG_LOGGING = process.env.NODE_ENV === 'development'
+export const DEBUG_LOGGING = false // Cleaned up console logs
 
 /** Show chunk boundaries in debug mode */
 export const SHOW_CHUNK_BOUNDARIES = false
