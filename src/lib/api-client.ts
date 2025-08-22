@@ -85,18 +85,10 @@ export const apiClient = {
     // Use modulo to keep it reasonable, then normalize to 0-1 range
     const normalizedSeed = (hash % 1000000) / 1000000
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🧮 getChunkArtworks: chunk(${x},${y}) → hash=${hash} → seed=${normalizedSeed} → count=${params.count ?? 20}`)
-    }
-    
     const result = await this.getRandomArtworks({
       count: params.count ?? 20,
       seed: normalizedSeed
     })
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`📊 getChunkArtworks result:`, result)
-    }
     
     return result
   },
