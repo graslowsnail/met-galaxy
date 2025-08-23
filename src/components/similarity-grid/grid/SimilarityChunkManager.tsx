@@ -60,11 +60,29 @@ export function SimilarityChunkManager({
     height: viewportBounds.bottom - viewportBounds.top
   }), [viewportBounds])
   
+  // Convert SimilarityChunk to Chunk for virtualization compatibility
+  const convertedChunks = useMemo(() => {
+    const converted = new Map()
+    for (const [chunkId, similarityChunk] of chunks.entries()) {
+      // Create a basic conversion - positions and bounds will be calculated by the renderer
+      converted.set(chunkId, {
+        id: similarityChunk.id,
+        x: similarityChunk.x,
+        y: similarityChunk.y,
+        images: similarityChunk.images,
+        positions: [], // Will be calculated by masonry layout in renderer
+        bounds: { left: 0, top: 0, right: 0, bottom: 0 }, // Will be calculated
+        actualHeight: 1600 // Default chunk height
+      })
+    }
+    return converted
+  }, [chunks])
+
   const virtualizationResult = useVirtualization({
     viewport: viewportState,
     isDragging: false,
     isInitialized: true,
-    chunks: chunks,
+    chunks: convertedChunks,
     setChunks: () => {} // Not used for similarity grid
   })
   
@@ -80,7 +98,7 @@ export function SimilarityChunkManager({
     const chunksToLoad = virtualizationResult.chunksToLoad
     
     for (const coord of chunksToLoad) {
-      const chunkId = `${coord.x},${coord.y}`
+      const chunkId = `${gridState.currentFocalId}:${coord.x},${coord.y}`
       
       // Skip if chunk is already loaded or loading
       if (chunks.has(chunkId) || loadingChunks.has(chunkId)) {
@@ -127,8 +145,9 @@ export function SimilarityChunkManager({
       console.log(`✅ Similarity data available - loading Ring 1 chunks immediately`)
       
       // Load focal chunk first
-      if (!chunks.has('0,0') && !loadingChunks.has('0,0')) {
-        loadChunk('0,0')
+      const focalChunkId = `${gridState.currentFocalId}:0,0`
+      if (!chunks.has(focalChunkId) && !loadingChunks.has(focalChunkId)) {
+        loadChunk(focalChunkId)
       }
       
       // Load Ring 1 chunks immediately
@@ -139,7 +158,7 @@ export function SimilarityChunkManager({
       ]
       
       for (const pos of ring1Positions) {
-        const chunkId = `${pos.x},${pos.y}`
+        const chunkId = `${gridState.currentFocalId}:${pos.x},${pos.y}`
         if (!chunks.has(chunkId) && !loadingChunks.has(chunkId)) {
           loadChunk(chunkId)
         }
@@ -150,30 +169,32 @@ export function SimilarityChunkManager({
   // Combine virtualization-detected chunks with essential similarity chunks
   const visibleChunks = useMemo(() => {
     const virtualizedChunks = virtualizationResult.visibleChunks.map(coord => 
-      chunks.get(`${coord.x},${coord.y}`)
+      chunks.get(`${gridState.currentFocalId}:${coord.x},${coord.y}`)
     ).filter(Boolean)
     
     // Always include focal chunk and Ring 1 chunks when similarity data is available
     if (gridState.similarityData) {
       const essentialChunkIds = [
-        '0,0', // Focal
-        '-1,-1', '0,-1', '1,-1',
-        '-1,0', '1,0',
-        '-1,1', '0,1', '1,1'  // Ring 1
+        `${gridState.currentFocalId}:0,0`, // Focal
+        `${gridState.currentFocalId}:-1,-1`, `${gridState.currentFocalId}:0,-1`, `${gridState.currentFocalId}:1,-1`,
+        `${gridState.currentFocalId}:-1,0`, `${gridState.currentFocalId}:1,0`,
+        `${gridState.currentFocalId}:-1,1`, `${gridState.currentFocalId}:0,1`, `${gridState.currentFocalId}:1,1`  // Ring 1
       ]
       
       for (const chunkId of essentialChunkIds) {
         const chunk = chunks.get(chunkId)
-        if (chunk && !virtualizedChunks.some(c => c.id === chunkId)) {
+        if (chunk && !virtualizedChunks.some(c => c?.id === chunkId)) {
           virtualizedChunks.push(chunk)
         }
       }
     }
     
     return virtualizedChunks
-  }, [virtualizationResult.visibleChunks, chunks, gridState.similarityData])
+  }, [virtualizationResult.visibleChunks, chunks, gridState.similarityData, gridState.currentFocalId])
   
-  console.log(`📊 Rendering ${visibleChunks.length} chunks (${chunks.size} total loaded, similarity data: ${!!gridState.similarityData})`)
+  if (DEBUG_LOGGING) {
+    console.log(`📊 Rendering ${visibleChunks.length} chunks (${chunks.size} total loaded, similarity data: ${!!gridState.similarityData})`)
+  }
   
   // ============================================================================
   // CHUNK RENDERING
@@ -181,7 +202,7 @@ export function SimilarityChunkManager({
   
   return (
     <>
-      {visibleChunks.map((chunk) => {
+      {visibleChunks.filter((chunk): chunk is NonNullable<typeof chunk> => chunk != null).map((chunk) => {
         const isLoading = loadingChunks.has(chunk.id)
         const error = errorChunks.get(chunk.id)
         

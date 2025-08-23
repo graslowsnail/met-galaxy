@@ -306,7 +306,7 @@ function getMinSimilarityForRing(ring: number): number {
 /**
  * Create focal chunk containing the main focal image
  */
-export function createFocalChunk(focalArtwork: SimilarArtwork): SimilarityChunk {
+export function createFocalChunk(focalArtwork: SimilarArtwork, focalId?: number): SimilarityChunk {
   const chunkWorldPos = chunkToWorldCoordinates(0, 0)
   
   const focalImage: SimilarityImageItem = {
@@ -328,7 +328,7 @@ export function createFocalChunk(focalArtwork: SimilarArtwork): SimilarityChunk 
   }
   
   return {
-    id: '0,0',
+    id: `${focalId || focalArtwork.id}:0,0`,
     x: 0,
     y: 0,
     images: [focalImage],
@@ -346,7 +346,8 @@ export function createSimilarityChunk(
   chunkX: number,
   chunkY: number,
   artworks: SimilarArtwork[],
-  randomArtworks: any[] = []
+  randomArtworks: any[] = [],
+  focalId?: number
 ): SimilarityChunk {
   const chunkWorldPos = chunkToWorldCoordinates(chunkX, chunkY)
   const ring = getChunkRing(chunkX, chunkY)
@@ -441,7 +442,7 @@ export function createSimilarityChunk(
                  : 'random'
   
   return {
-    id: `${chunkX},${chunkY}`,
+    id: focalId ? `${focalId}:${chunkX},${chunkY}` : `${chunkX},${chunkY}`,
     x: chunkX,
     y: chunkY,
     images: positionedImages,

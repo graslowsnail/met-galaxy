@@ -61,6 +61,36 @@ export interface ErrorResponse {
   statusCode: number
 }
 
+// Field Chunk API Types (new directional similarity system)
+export interface FieldChunkMeta {
+  targetId: number
+  chunk: { x: number; y: number }
+  r: number            // distance from center
+  theta: number        // angle (radians)
+  t: number            // temperature 0..1
+  weights: { sim: number; drift: number; rand: number }
+  seed: number
+}
+
+export interface FieldChunkItem {
+  id: number
+  objectId: number
+  title: string | null
+  artist: string | null
+  imageUrl: string | null          // always non-null in practice
+  originalImageUrl: string | null
+  imageSource: 's3' | 'met_small' | 'met_original' | null
+  similarity: number | null        // present for sim/drift
+  source: 'sim' | 'drift' | 'rand' // provenance tag
+}
+
+export interface FieldChunkResponse {
+  success: boolean
+  meta: FieldChunkMeta
+  data: FieldChunkItem[]
+  responseTime: string
+}
+
 // API Configuration
 export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080',
@@ -69,5 +99,6 @@ export const API_CONFIG = {
     chunkArtworks: '/api/artworks/chunk',
     artworkCount: '/api/artworks/count',
     similarArtworks: '/api/artworks/similar',
+    fieldChunk: '/api/artworks/field-chunk',
   }
 } as const

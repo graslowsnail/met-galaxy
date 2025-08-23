@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -119,5 +119,44 @@ export const apiClient = {
     const result = await handleResponse<SimilarityResponse>(response)
     
     return result
+  },
+
+  async fetchFieldChunk(params: {
+    targetId: number
+    chunkX: number
+    chunkY: number
+    count?: number
+    excludeIds?: number[]
+    seed?: number
+    signal?: AbortSignal
+  }): Promise<FieldChunkResponse> {
+    const qs = new URLSearchParams({
+      targetId: String(params.targetId),
+      chunkX: String(params.chunkX),
+      chunkY: String(params.chunkY),
+      ...(params.count ? { count: String(params.count) } : {}),
+      ...(params.seed ? { seed: String(params.seed) } : {}),
+      ...(params.excludeIds && params.excludeIds.length
+        ? { exclude: params.excludeIds.join(',') }
+        : {}),
+    })
+
+    const url = new URL(API_CONFIG.endpoints.fieldChunk, API_CONFIG.baseUrl)
+    url.search = qs.toString()
+    
+    console.log('🌍 Field-chunk URL:', url.toString())
+    
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      signal: params.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) throw new Error(`field-chunk http ${response.status}`)
+    const json = (await response.json()) as FieldChunkResponse
+    if (!json.success) throw new Error(`field-chunk error: ${(json as any).error || 'unknown'}`)
+    return json
   },
 }

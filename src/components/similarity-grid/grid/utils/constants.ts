@@ -197,7 +197,7 @@ export const POST_DRAG_UPDATE_DELAY = 100
 // ============================================================================
 
 /** Enable debug logging */
-export const DEBUG_LOGGING = false // Cleaned up console logs
+export const DEBUG_LOGGING = false
 
 /** Show chunk boundaries in debug mode */
 export const SHOW_CHUNK_BOUNDARIES = false

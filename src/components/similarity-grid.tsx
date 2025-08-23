@@ -1,59 +1,46 @@
 "use client";
 
-import { useCallback, useState, useMemo, useEffect, useRef } from "react";
-import { useSimilarArtworks } from "@/hooks/use-similar-artworks";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useViewport } from "./grid-legacy/grid/hooks/useViewport";
-import { SimilarityGridRenderer } from "./similarity-grid/grid/SimilarityGridRenderer";
+import SimilarityChunkManagerSimple from "./similarity-grid/grid/SimilarityChunkManagerSimple";
 import type { 
   SimilarityGridProps,
-  SimilarityImageItem, 
-  SimilarityGridState,
-  SimilarityData
+  SimilarityImageItem
 } from "./similarity-grid/grid/types/similarity";
-import type { SimilarArtwork } from "@/types/api";
-import { 
-  DEBUG_LOGGING,
-  CHUNK_WIDTH,
-  CHUNK_HEIGHT,
-  FOCAL_IMAGE_SIZE,
-  FOCAL_IMAGE_OFFSET_X,
-  FOCAL_IMAGE_OFFSET_Y
-} from "./similarity-grid/grid/utils/constants";
+import type { ImageItem } from "./grid-legacy/grid/types/grid";
+import { DEBUG_LOGGING } from "./similarity-grid/grid/utils/constants";
 import { TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants";
 
 export type { SimilarityImageItem };
 
 export function SimilarityGrid({ 
   initialArtworkId, 
+  focalArtwork,
   onArtworkClick,
   onClose,
   layoutConfig,
   showPerformanceOverlay = false,
   showLoadingIndicators = true
-}: SimilarityGridProps) {
+}: SimilarityGridProps & {
+  focalArtwork?: {
+    id: number
+    title: string | null
+    artist: string | null
+    imageUrl: string | null
+    originalImageUrl: string | null
+  }
+}) {
   
   // ============================================================================
-  // STATE MANAGEMENT
+  // SIMPLIFIED STATE MANAGEMENT
   // ============================================================================
   
   const [currentFocalId, setCurrentFocalId] = useState<number>(initialArtworkId);
   const [navigationHistory, setNavigationHistory] = useState<number[]>([]);
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // ============================================================================
-  // DATA FETCHING
+  // NO COMPLEX DATA FETCHING - Just pass props to ChunkManager
   // ============================================================================
-
-  // Fetch similar artworks for current focal image
-  const { 
-    data: similarData, 
-    isLoading: isLoadingSimilarity, 
-    error: similarError 
-  } = useSimilarArtworks({ 
-    artworkId: currentFocalId 
-  });
-
-  // Random artworks are now fetched per-chunk, similar to main grid
 
   // ============================================================================
   // VIEWPORT MANAGEMENT
@@ -71,145 +58,54 @@ export function SimilarityGrid({
     updatePosition
   } = useViewport();
 
-  // Calculate viewport bounds for chunk management
-  const viewportBounds = useMemo(() => {
-    return getViewportBounds()
-  }, [getViewportBounds]);
-
-  // ============================================================================
-  // GRID STATE CONSTRUCTION
-  // ============================================================================
-
-  const gridState: SimilarityGridState = useMemo(() => {
-    // Transform similarity API response to internal format
-    let transformedSimilarityData: SimilarityData | null = null;
-    
-    // Only use similarity data if it matches the current focal ID
-    // This prevents showing old similarity data when focal image changes
-    if (similarData?.data && similarData?.meta && 
-        similarData.meta.targetId === currentFocalId) {
-      transformedSimilarityData = {
-        targetArtwork: {
-          id: similarData.meta.targetId,
-          title: similarData.meta.targetTitle,
-          artist: similarData.meta.targetArtist,
-          imageUrl: similarData.data.find(a => a.original)?.imageUrl || ''
-        },
-        similarArtworks: similarData.data,
-        meta: similarData.meta
-      };
-    }
-
-    return {
-      currentFocalId,
-      focalImagePosition: { x: 0, y: 0 },
-      loadedChunks: new Map(), // Will be managed by chunk system
-      visibleChunks: [],
-      navigationHistory,
-      isTransitioning,
-      similarityData: transformedSimilarityData,
-      randomArtworks: null, // No longer using global random artworks
-      isLoadingSimilarity,
-      isLoadingRandom: false // No global random loading
-    };
-  }, [
-    currentFocalId,
-    navigationHistory,
-    isTransitioning,
-    similarData,
-    isLoadingSimilarity
-  ]);
+  // No complex state construction needed - just pass props to ChunkManager
 
   // ============================================================================
   // EVENT HANDLERS
   // ============================================================================
 
-  // Handle image clicks for navigation
-  const handleImageClick = useCallback((image: SimilarityImageItem) => {
+  // Simplified image click handler - let parent handle navigation
+  const handleImageClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
     if (DEBUG_LOGGING) {
       console.log('🖱️ Similarity image clicked:', {
         id: image.databaseId,
-        title: image.title,
-        similarity: image.similarity,
-        imageType: image.imageType
+        title: image.title
       });
     }
 
-    // Don't re-focus on the same image
-    if (image.isFocal) return;
+    // Transform ImageItem to SimilarityImageItem format for parent callback
+    const similarityImage: SimilarityImageItem = {
+      id: image.id,
+      databaseId: image.databaseId ?? image.objectId ?? 0,
+      imageUrl: image.src,
+      title: image.title || 'Untitled',
+      artist: image.artist || 'Unknown',
+      width: image.width,
+      height: image.height,
+      aspectRatio: image.aspectRatio,
+      x: 0,
+      y: 0,
+      similarity: 0,
+      isOriginal: false,
+      isFocal: false,
+      imageType: 'similar',
+      gridSize: 'medium'
+    };
     
-    // Add current focal to history before changing
-    setNavigationHistory(prev => [...prev, currentFocalId]);
-    
-    // Start transition
-    setIsTransitioning(true);
-    
-    // Update focal image
-    setCurrentFocalId(image.databaseId);
-    
-    // Center viewport on the new focal image
-    // The focal image is positioned at chunk (0,0) + focal image offsets
-    // Calculate the center position of the focal image in world coordinates
-    const focalImageCenterX = 0 + FOCAL_IMAGE_OFFSET_X + (FOCAL_IMAGE_SIZE / 2);
-    const focalImageCenterY = 0 + FOCAL_IMAGE_OFFSET_Y + (FOCAL_IMAGE_SIZE / 2);
-    
-    // To center this position on screen, translate viewport so focal image appears in center
-    const centerX = (viewportState.width / 2) - focalImageCenterX;
-    const centerY = (viewportState.height / 2) - focalImageCenterY;
-    
-    // Smoothly animate to center on new focal image
-    setViewportPosition({ x: centerX, y: centerY });
-    
-    // Transition will be cleared when new data loads (see useEffect below)
-    
-    // Call parent callback
-    onArtworkClick?.(image);
-  }, [currentFocalId, onArtworkClick, viewportState.width, viewportState.height, setViewportPosition]);
+    // Call parent callback - let parent handle navigation if needed
+    onArtworkClick?.(similarityImage);
+  }, [onArtworkClick]);
 
-  // Handle back navigation
+  // Simplified back navigation - just update state, no complex positioning
   const handleGoBack = useCallback(() => {
     if (navigationHistory.length === 0) return;
     
     const previousFocalId = navigationHistory[navigationHistory.length - 1];
+    if (previousFocalId === undefined) return;
+    
     setNavigationHistory(prev => prev.slice(0, -1));
     setCurrentFocalId(previousFocalId);
-    
-    // Center viewport on the focal image when going back
-    const focalImageCenterX = 0 + FOCAL_IMAGE_OFFSET_X + (FOCAL_IMAGE_SIZE / 2);
-    const focalImageCenterY = 0 + FOCAL_IMAGE_OFFSET_Y + (FOCAL_IMAGE_SIZE / 2);
-    
-    // To center this position on screen, translate viewport so focal image appears in center
-    const centerX = (viewportState.width / 2) - focalImageCenterX;
-    const centerY = (viewportState.height / 2) - focalImageCenterY;
-    setViewportPosition({ x: centerX, y: centerY });
-  }, [navigationHistory, viewportState.width, viewportState.height, setViewportPosition]);
-
-  // ============================================================================
-  // TRANSITION MANAGEMENT
-  // ============================================================================
-
-  // Clear transition state when new similarity data loads for current focal ID
-  useEffect(() => {
-    if (similarData?.meta?.targetId === currentFocalId && !isLoadingSimilarity) {
-      setIsTransitioning(false);
-    }
-  }, [similarData, currentFocalId, isLoadingSimilarity]);
-
-  // Center viewport on focal image when viewport is ready (initial centering)
-  useEffect(() => {
-    if (viewportState.width > 0 && viewportState.height > 0) {
-      // Calculate the center position of the focal image in world coordinates
-      const focalImageCenterX = 0 + FOCAL_IMAGE_OFFSET_X + (FOCAL_IMAGE_SIZE / 2);
-      const focalImageCenterY = 0 + FOCAL_IMAGE_OFFSET_Y + (FOCAL_IMAGE_SIZE / 2);
-      
-      // To center this position on screen, translate viewport so focal image appears in center
-      const centerX = (viewportState.width / 2) - focalImageCenterX;
-      const centerY = (viewportState.height / 2) - focalImageCenterY;
-      
-      // Center on focal image immediately when viewport is ready
-      setViewportPosition({ x: centerX, y: centerY });
-    }
-  }, [viewportState.width, viewportState.height, setViewportPosition]);
+  }, [navigationHistory]);
 
   // ============================================================================
   // TRACKPAD/WHEEL SCROLLING SUPPORT
@@ -294,37 +190,6 @@ export function SimilarityGrid({
   }, [containerRef]);
 
   // ============================================================================
-  // ERROR HANDLING
-  // ============================================================================
-
-  if (similarError) {
-    return (
-      <div className="fixed inset-0 bg-[#EDE9E5] flex items-center justify-center">
-        <div className="text-center max-w-md mx-4">
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <p className="text-red-600 mb-4 font-medium">Error loading similar artworks</p>
-            <p className="text-gray-600 text-sm mb-4">{similarError.message}</p>
-            <div className="space-x-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={onClose}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-sm"
-              >
-                Back to Grid
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ============================================================================
   // MAIN RENDER
   // ============================================================================
 
@@ -375,13 +240,15 @@ export function SimilarityGrid({
             willChange: isDragging ? 'transform' : 'auto', // Optimize for smooth dragging
           }}
         >
-          {/* Main similarity grid renderer */}
-          <SimilarityGridRenderer
-            gridState={gridState}
-            viewportBounds={viewportBounds}
+          {/* Simplified similarity chunk manager */}
+          <SimilarityChunkManagerSimple
+            viewport={viewportState}
+            isDragging={isDragging}
+            isInitialized={viewportState.width > 0 && viewportState.height > 0}
+            focalArtworkId={currentFocalId}
+            focalArtwork={focalArtwork}
             onImageClick={handleImageClick}
             showPerformanceOverlay={showPerformanceOverlay}
-            showLoadingIndicators={showLoadingIndicators}
           />
         </div>
       </div>

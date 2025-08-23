@@ -17,7 +17,6 @@ import type { SimilarArtwork } from '@/types/api'
 import { 
   createFocalChunk, 
   createSimilarityChunk,
-  assignSimilarArtworksToChunks,
   getVisibleChunks
 } from '../utils/chunkCalculations'
 import { 
@@ -53,37 +52,15 @@ export function useSimilarityChunkData({
   const [loadingChunks] = useState<Set<string>>(new Set())
   const [errorChunks] = useState<Map<string, Error>>(new Map())
   
-  // Cache for chunk assignments to avoid recalculation
-  const chunkAssignmentsCache = useRef<Map<string, SimilarArtwork[]>>(new Map())
+  // Track last focal ID for cache invalidation
   const lastFocalId = useRef<number | null>(null)
   
-  // ============================================================================
-  // CHUNK ASSIGNMENT LOGIC
-  // ============================================================================
+  // In-flight request tracking for abort control
+  const inflightRequests = useRef<Map<string, AbortController>>(new Map())
   
-  /**
-   * Calculate which similar artworks belong to which chunks
-   */
-  const calculateChunkAssignments = useCallback(() => {
-    if (!similarityData?.similarArtworks) {
-      return new Map<string, SimilarArtwork[]>()
-    }
-    
-    const focalArtwork = similarityData.similarArtworks.find(artwork => artwork.original)
-    if (!focalArtwork) {
-      console.warn('No focal artwork found in similarity data')
-      return new Map<string, SimilarArtwork[]>()
-    }
-    
-    const assignments = assignSimilarArtworksToChunks(
-      similarityData.similarArtworks,
-      focalArtwork
-    )
-    
-    console.log(`📋 Assigned similar artworks to ${assignments.size} chunks`)
-    
-    return assignments
-  }, [similarityData])
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
   
   // ============================================================================
   // CHUNK CREATION
@@ -127,7 +104,17 @@ export function useSimilarityChunkData({
     errorChunks.delete(chunkId)
     
     try {
-      const [chunkX, chunkY] = chunkId.split(',').map(Number)
+      // Parse new format: "targetId:chunkX,chunkY"
+      const parts = chunkId.split(':')
+      if (parts.length !== 2) {
+        throw new Error(`Invalid chunk ID format: ${chunkId} (expected targetId:chunkX,chunkY)`)
+      }
+      const coords = parts[1].split(',').map(Number)
+      if (coords.length !== 2 || isNaN(coords[0]!) || isNaN(coords[1]!)) {
+        throw new Error(`Invalid chunk ID format: ${chunkId} (invalid coordinates)`)
+      }
+      const chunkX = coords[0]!
+      const chunkY = coords[1]!
       let chunk: SimilarityChunk
       
       // Create focal chunk (0,0)
@@ -136,12 +123,25 @@ export function useSimilarityChunkData({
           throw new Error('No similarity data available for focal chunk')
         }
         
-        const focalArtwork = similarityData.similarArtworks.find(artwork => artwork.original)
+        const focalArtwork = similarityData.similarArtworks.find(artwork => artwork.isOriginal)
         if (!focalArtwork) {
           throw new Error('No focal artwork found in similarity data')
         }
         
-        chunk = createFocalChunk(focalArtwork)
+        // Transform the focal artwork for createFocalChunk
+        const transformedFocalArtwork: SimilarArtwork = {
+          id: focalArtwork.id,
+          objectId: focalArtwork.id,
+          title: focalArtwork.title,
+          artist: focalArtwork.artist,
+          imageUrl: focalArtwork.imageUrl,
+          originalImageUrl: focalArtwork.imageUrl,
+          imageSource: "s3" as const,
+          original: focalArtwork.isOriginal,
+          similarity: focalArtwork.similarity
+        }
+        
+        chunk = createFocalChunk(transformedFocalArtwork, currentFocalId)
         
         if (DEBUG_LOGGING) {
           console.log(`🎯 Created focal chunk: ${chunk.id}`)
@@ -149,56 +149,83 @@ export function useSimilarityChunkData({
       }
       // Create similarity chunks
       else {
-        // Get chunk assignments for predefined rings (calculate if needed)
-        let assignments = chunkAssignmentsCache.current
-        if (assignments.size === 0 || lastFocalId.current !== currentFocalId) {
-          assignments = calculateChunkAssignments()
-          chunkAssignmentsCache.current = assignments
-          lastFocalId.current = currentFocalId
+        // Use field-chunk endpoint for ALL chunks - backend handles deduplication
+        // Cancel any existing request for this chunk
+        const existingController = inflightRequests.current.get(chunkId)
+        if (existingController) {
+          existingController.abort()
         }
         
-        // For chunks outside the predefined rings, use empty similarity array (pure random)
-        const chunkArtworks = assignments.get(chunkId) || []
+        // Create new abort controller
+        const controller = new AbortController()
+        inflightRequests.current.set(chunkId, controller)
         
-        console.log(`🔧 Creating chunk ${chunkId}: ${chunkArtworks.length} similar artworks assigned`)
-        
-        // Fetch unique random artworks for this specific chunk
-        let chunkRandomArtworks: any[] = []
         try {
-          if (DEBUG_LOGGING) {
-            console.log(`🎲 Fetching random artworks for chunk ${chunkId} (${chunkX}, ${chunkY})...`)
+            if (DEBUG_LOGGING) {
+              console.log(`🌍 Using field-chunk API for chunk ${chunkId} (${chunkX}, ${chunkY})`)
+            }
+            
+            const fieldResponse = await apiClient.fetchFieldChunk({
+              targetId: currentFocalId,
+              chunkX,
+              chunkY,
+              count: 20,
+              signal: controller.signal
+            })
+            
+            // Transform field chunk items to similarity format
+            const fieldArtworks = fieldResponse.data.map(item => ({
+              id: item.id,
+              objectId: item.objectId,
+              title: item.title || 'Untitled',
+              artist: item.artist || 'Unknown',
+              imageUrl: item.imageUrl || '',
+              originalImageUrl: item.originalImageUrl,
+              imageSource: item.imageSource || 's3',
+              original: false,
+              similarity: item.similarity || 0
+            }))
+            
+            chunk = createSimilarityChunk(
+              chunkX,
+              chunkY,
+              [], // No predefined similar artworks for field chunks
+              fieldArtworks, // Use field response as "random" artworks
+              currentFocalId
+            )
+            
+            // Clean up inflight request
+            inflightRequests.current.delete(chunkId)
+            
+            if (DEBUG_LOGGING) {
+              console.log(`🌍 Created field chunk ${chunk.id}: ${chunk.images.length} images from field API (t=${fieldResponse.meta.t.toFixed(3)}, weights: sim=${fieldResponse.meta.weights.sim.toFixed(2)}, drift=${fieldResponse.meta.weights.drift.toFixed(2)}, rand=${fieldResponse.meta.weights.rand.toFixed(2)})`)
+            }
+          } catch (error) {
+            // Clean up inflight request on error
+            inflightRequests.current.delete(chunkId)
+            
+            // Don't fallback if the request was aborted (user navigated away)
+            if ((error as Error).name === 'AbortError') {
+              throw error
+            }
+            
+            console.warn(`⚠️ Field-chunk API failed for ${chunkId}, falling back to traditional method:`, error)
+            
+            // Fallback to original random artwork approach
+            const randomResponse = await apiClient.getChunkArtworks({
+              chunkX,
+              chunkY,
+              count: 20
+            })
+            
+            chunk = createSimilarityChunk(
+              chunkX,
+              chunkY,
+              [], // No similar artworks for fallback
+              randomResponse.artworks || [],
+              currentFocalId
+            )
           }
-          
-          const randomResponse = await apiClient.getChunkArtworks({
-            chunkX,
-            chunkY,
-            count: 20 // Get enough random images to fill the chunk
-          })
-          
-          if (DEBUG_LOGGING) {
-            console.log(`🔍 API Response for chunk ${chunkId}:`, randomResponse)
-          }
-          
-          chunkRandomArtworks = randomResponse.artworks || []
-          
-          if (DEBUG_LOGGING) {
-            console.log(`🎲 Fetched ${chunkRandomArtworks.length} random artworks for chunk ${chunkId}`, chunkRandomArtworks)
-          }
-        } catch (error) {
-          console.error(`❌ Failed to fetch random artworks for chunk ${chunkId}:`, error)
-          chunkRandomArtworks = []
-        }
-        
-        chunk = createSimilarityChunk(
-          chunkX, 
-          chunkY, 
-          chunkArtworks,
-          chunkRandomArtworks
-        )
-        
-        if (DEBUG_LOGGING) {
-          console.log(`📦 Created similarity chunk ${chunk.id}: ${chunk.images.length} images (${chunkArtworks.length} similar, ${chunkRandomArtworks.length} random)`)
-        }
       }
       
       // Store chunk
@@ -228,7 +255,7 @@ export function useSimilarityChunkData({
     } finally {
       loadingChunks.delete(chunkId)
     }
-  }, [chunks, loadingChunks, errorChunks, similarityData, currentFocalId, calculateChunkAssignments])
+  }, [chunks, loadingChunks, errorChunks, similarityData, currentFocalId])
   
   // ============================================================================
   // CACHE MANAGEMENT
@@ -241,8 +268,20 @@ export function useSimilarityChunkData({
     chunks.clear()
     loadingChunks.clear()
     errorChunks.clear()
-    chunkAssignmentsCache.current.clear()
     lastFocalId.current = null
+    
+    // Cancel all inflight requests
+    for (const controller of inflightRequests.current.values()) {
+      try {
+        controller.abort()
+      } catch (error) {
+        // Ignore AbortErrors during cleanup
+        if ((error as Error).name !== 'AbortError') {
+          console.warn('Error aborting request during cleanup:', error)
+        }
+      }
+    }
+    inflightRequests.current.clear()
     
     if (DEBUG_LOGGING) {
       console.log('🧹 Cleared similarity chunk cache')
@@ -279,7 +318,7 @@ export function useSimilarityChunkData({
     const preloadInitialChunks = async () => {
       // Always load focal chunk first
       try {
-        await loadChunk('0,0')
+        await loadChunk(`${currentFocalId}:0,0`)
         if (DEBUG_LOGGING) {
           console.log(`✅ Successfully loaded focal chunk`)
         }
@@ -291,7 +330,7 @@ export function useSimilarityChunkData({
       // Preload ring 1 chunks (immediately around focal with similarity)
       const ring1Positions = CHUNK_POSITIONS.RING_1
       for (const pos of ring1Positions) {
-        const chunkId = `${pos.x},${pos.y}`
+        const chunkId = `${currentFocalId}:${pos.x},${pos.y}`
         try {
           loadChunk(chunkId) // Don't await - load in parallel
         } catch (error) {
