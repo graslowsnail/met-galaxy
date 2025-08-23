@@ -17,12 +17,15 @@ import type {
 } from '../types/grid'
 import { 
   calculateViewportBounds, 
-  isSignificantViewportChange 
+  isSignificantViewportChange,
+  pixelToChunkCoords 
 } from '../utils/chunkCalculations'
 import { 
   POST_DRAG_UPDATE_DELAY, 
   VIEWPORT_CHANGE_THRESHOLD,
-  DEBUG_LOGGING 
+  DEBUG_LOGGING,
+  CHUNK_WIDTH,
+  CHUNK_HEIGHT 
 } from '../utils/constants'
 
 /**
@@ -52,6 +55,24 @@ export function useViewport(): UseViewportReturn {
   const [dragDistance, setDragDistance] = useState(0)
   const [initialMousePos, setInitialMousePos] = useState<Position>({ x: 0, y: 0 })
   
+  // ============================================================================
+  // MOVEMENT PREDICTION STATE
+  // ============================================================================
+  
+  /** Movement velocity tracking for prediction */
+  const [velocity, setVelocity] = useState<Position>({ x: 0, y: 0 })
+  
+  /** Movement prediction data */
+  const [movementPrediction, setMovementPrediction] = useState<{
+    direction: Position
+    speed: number
+    predictedChunks: Array<{ x: number; y: number; priority: number }>
+  }>({
+    direction: { x: 0, y: 0 },
+    speed: 0,
+    predictedChunks: []
+  })
+  
   /** Initialization flag */
   const [isInitialized, setIsInitialized] = useState(false)
   
@@ -70,6 +91,13 @@ export function useViewport(): UseViewportReturn {
   
   /** Callbacks to trigger after drag ends */
   const postDragCallbacks = useRef<Array<() => void>>([])
+  
+  /** Movement tracking refs for velocity calculation */
+  const lastPosition = useRef<Position>({ x: 0, y: 0 })
+  const lastPositionTime = useRef<number>(Date.now())
+  const velocityHistory = useRef<Array<{ velocity: Position; timestamp: number }>>([])
+  const VELOCITY_HISTORY_SIZE = 5
+  const PREDICTION_DISTANCE = 2 // Number of chunks ahead to predict
   
   // ============================================================================
   // VIEWPORT DIMENSION MANAGEMENT
@@ -106,6 +134,128 @@ export function useViewport(): UseViewportReturn {
       }
     }
   }, [viewportDimensions, isInitialized])
+  
+  // ============================================================================
+  // MOVEMENT PREDICTION LOGIC
+  // ============================================================================
+  
+  /**
+   * Calculate current movement velocity based on position changes
+   */
+  const calculateVelocity = useCallback((newPosition: Position) => {
+    const now = Date.now()
+    const deltaTime = now - lastPositionTime.current
+    
+    if (deltaTime === 0) return { x: 0, y: 0 }
+    
+    const deltaX = newPosition.x - lastPosition.current.x
+    const deltaY = newPosition.y - lastPosition.current.y
+    
+    // Velocity in pixels per second
+    const velocityX = (deltaX / deltaTime) * 1000
+    const velocityY = (deltaY / deltaTime) * 1000
+    
+    return { x: velocityX, y: velocityY }
+  }, [])
+  
+  /**
+   * Update movement prediction based on current velocity
+   */
+  const updateMovementPrediction = useCallback((newVelocity: Position) => {
+    // Add current velocity to history
+    velocityHistory.current.push({
+      velocity: newVelocity,
+      timestamp: Date.now()
+    })
+    
+    // Keep only recent history
+    if (velocityHistory.current.length > VELOCITY_HISTORY_SIZE) {
+      velocityHistory.current.shift()
+    }
+    
+    // Calculate average velocity from recent history
+    if (velocityHistory.current.length === 0) {
+      setMovementPrediction({
+        direction: { x: 0, y: 0 },
+        speed: 0,
+        predictedChunks: []
+      })
+      return
+    }
+    
+    const avgVelocity = velocityHistory.current.reduce(
+      (acc, entry) => ({
+        x: acc.x + entry.velocity.x,
+        y: acc.y + entry.velocity.y
+      }),
+      { x: 0, y: 0 }
+    )
+    
+    avgVelocity.x /= velocityHistory.current.length
+    avgVelocity.y /= velocityHistory.current.length
+    
+    const speed = Math.sqrt(avgVelocity.x * avgVelocity.x + avgVelocity.y * avgVelocity.y)
+    
+    // Only predict if there's significant movement
+    if (speed < 50) { // 50 pixels per second threshold
+      setMovementPrediction({
+        direction: { x: 0, y: 0 },
+        speed: 0,
+        predictedChunks: []
+      })
+      return
+    }
+    
+    // Normalize direction
+    const direction = {
+      x: avgVelocity.x / speed,
+      y: avgVelocity.y / speed
+    }
+    
+    // Predict future chunks based on direction and current viewport
+    const predictedChunks = []
+    const currentViewportBounds = calculateViewportBounds({ 
+      width: viewportDimensions.width, 
+      height: viewportDimensions.height, 
+      translateX: translate.x, 
+      translateY: translate.y 
+    }, false)
+    
+    // Calculate chunks in movement direction
+    for (let i = 1; i <= PREDICTION_DISTANCE; i++) {
+      const futureX = currentViewportBounds.left + direction.x * CHUNK_WIDTH * i
+      const futureY = currentViewportBounds.top + direction.y * CHUNK_HEIGHT * i
+      
+      const chunkCoord = pixelToChunkCoords(futureX, futureY)
+      const priority = Math.max(0, 1 - (i / PREDICTION_DISTANCE)) // Higher priority for closer predictions
+      
+      predictedChunks.push({
+        x: chunkCoord.x,
+        y: chunkCoord.y,
+        priority
+      })
+    }
+    
+    setMovementPrediction({
+      direction,
+      speed,
+      predictedChunks
+    })
+    
+    setVelocity(avgVelocity)
+  }, [viewportDimensions, translate, calculateVelocity])
+  
+  /**
+   * Track position changes and update predictions
+   */
+  const trackMovement = useCallback((newPosition: Position) => {
+    const newVelocity = calculateVelocity(newPosition)
+    updateMovementPrediction(newVelocity)
+    
+    // Update tracking references
+    lastPosition.current = newPosition
+    lastPositionTime.current = Date.now()
+  }, [calculateVelocity, updateMovementPrediction])
   
   // ============================================================================
   // DRAG HANDLING - MOUSE
@@ -147,7 +297,8 @@ export function useViewport(): UseViewportReturn {
     }
     
     setTranslate(newTranslate)
-  }, [isDragging, dragStart, initialMousePos])
+    trackMovement(newTranslate)
+  }, [isDragging, dragStart, initialMousePos, trackMovement])
   
   /**
    * Handle mouse up to end dragging
@@ -214,7 +365,8 @@ export function useViewport(): UseViewportReturn {
     }
     
     setTranslate(newTranslate)
-  }, [isDragging, dragStart, initialMousePos])
+    trackMovement(newTranslate)
+  }, [isDragging, dragStart, initialMousePos, trackMovement])
   
   /**
    * Handle touch end to end dragging
@@ -330,11 +482,12 @@ export function useViewport(): UseViewportReturn {
    */
   const setViewportPosition = useCallback((position: Position) => {
     setTranslate(position)
+    trackMovement(position)
     
     if (DEBUG_LOGGING) {
       console.log(`📍 Viewport position set to (${position.x}, ${position.y})`)
     }
-  }, [])
+  }, [trackMovement])
   
   /**
    * Reset viewport to center position
@@ -351,15 +504,19 @@ export function useViewport(): UseViewportReturn {
    * Update position by delta amount (for trackpad/wheel navigation)
    */
   const updatePosition = useCallback((deltaX: number, deltaY: number) => {
-    setTranslate(prev => ({
-      x: prev.x + deltaX,
-      y: prev.y + deltaY
-    }))
+    setTranslate(prev => {
+      const newPosition = {
+        x: prev.x + deltaX,
+        y: prev.y + deltaY
+      }
+      trackMovement(newPosition)
+      return newPosition
+    })
     
     if (DEBUG_LOGGING) {
       console.log(`🖱️ Position updated by delta (${deltaX}, ${deltaY})`)
     }
-  }, [])
+  }, [trackMovement])
   
   // ============================================================================
   // RETURN INTERFACE
@@ -393,6 +550,10 @@ export function useViewport(): UseViewportReturn {
     setViewportPosition,
     resetViewport,
     updatePosition,
+    
+    // Movement prediction
+    velocity,
+    movementPrediction,
     
     // Refs for components that need them
     containerRef,

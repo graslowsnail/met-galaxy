@@ -43,7 +43,12 @@ interface ChunkManagerProps {
   onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
   /** Whether to show performance overlay */
   showPerformanceOverlay?: boolean
-
+  /** Movement prediction for intelligent prefetching */
+  movementPrediction?: {
+    direction: Position
+    speed: number
+    predictedChunks: Array<{ x: number; y: number; priority: number }>
+  }
 }
 
 /**
@@ -174,11 +179,12 @@ const ChunkManager = memo(function ChunkManager({
   isDragging,
   isInitialized,
   onImageClick,
-  showPerformanceOverlay = true
+  showPerformanceOverlay = true,
+  movementPrediction = { direction: { x: 0, y: 0 }, speed: 0, predictedChunks: [] }
 }: ChunkManagerProps) {
   
-  // Use data management hook
-  const { chunkDataMap, fetchChunkData } = useChunkData()
+  // Use data management hook with streaming capabilities
+  const { chunkDataMap, fetchChunkData, fetchChunksWithPriority } = useChunkData()
   
   // Core chunk state
   const [chunks, setChunks] = React.useState<Map<string, Chunk>>(new Map())
@@ -196,6 +202,8 @@ const ChunkManager = memo(function ChunkManager({
     setChunks
   })
 
+  // Movement prediction is passed as a prop for intelligent prefetching
+
   // Performance tracking
   const loadingChunks = useRef<Set<string>>(new Set())
   
@@ -204,17 +212,18 @@ const ChunkManager = memo(function ChunkManager({
   // ============================================================================
   
   /**
-   * Load chunks efficiently with async batching
+   * Load chunks using streaming approach - chunks render individually as data arrives
    */
   const loadChunks = useCallback(async (coords: ChunkCoordinates[]) => {
     if (DEBUG_LOGGING) {
-      console.log(`📦 ChunkManager: Loading ${coords.length} coordinates:`, coords.map(c => `(${c.x},${c.y})`).join(', '))
+      console.log(`🚀 ChunkManager: Streaming load for ${coords.length} coordinates:`, coords.map(c => `(${c.x},${c.y})`).join(', '))
     }
     
-    const chunksToFetch: ChunkCoordinates[] = []
     const chunksToCreate: ChunkCoordinates[] = []
+    const visibleChunksToFetch: ChunkCoordinates[] = []
+    const bufferChunksToFetch: ChunkCoordinates[] = []
     
-    // Separate chunks that need data fetching vs chunk creation
+    // Separate chunks by state and prioritize visible vs buffer chunks
     for (const coord of coords) {
       const chunkKey = `${coord.x},${coord.y}`
       const chunkData = chunkDataMap.get(chunkKey)
@@ -222,20 +231,28 @@ const ChunkManager = memo(function ChunkManager({
       const chunkLoading = loadingChunks.current.has(chunkKey)
       
       if (!chunkExists && !chunkLoading) {
-        // Always mark as loading first to show skeleton
+        // Mark as loading to show skeleton
         loadingChunks.current.add(chunkKey)
         
         if (!chunkData || (!chunkData.artworks && !chunkData.loading)) {
-          // Need to fetch data first
-          chunksToFetch.push(coord)
-          if (DEBUG_LOGGING) {
-            console.log(`🔄 Chunk ${chunkKey} needs data fetch (showing skeleton)`)
+          // Need to fetch data first - prioritize based on whether it's visible
+          const isVisible = visibleChunks.some(vc => vc.x === coord.x && vc.y === coord.y)
+          if (isVisible) {
+            visibleChunksToFetch.push(coord)
+            if (DEBUG_LOGGING) {
+              console.log(`📋 Chunk ${chunkKey} needs HIGH PRIORITY fetch (visible)`)
+            }
+          } else {
+            bufferChunksToFetch.push(coord)
+            if (DEBUG_LOGGING) {
+              console.log(`📋 Chunk ${chunkKey} needs LOW PRIORITY fetch (buffer)`)
+            }
           }
         } else if (chunkData.artworks) {
-          // Data is ready, can create chunk
+          // Data is ready, can create chunk immediately
           chunksToCreate.push(coord)
           if (DEBUG_LOGGING) {
-            console.log(`🏗️ Chunk ${chunkKey} ready for creation (showing skeleton)`)
+            console.log(`🏗️ Chunk ${chunkKey} ready for immediate creation`)
           }
         }
       } else if (DEBUG_LOGGING) {
@@ -243,76 +260,63 @@ const ChunkManager = memo(function ChunkManager({
       }
     }
     
-    // Fetch data for chunks that need it and collect the results
-    const fetchResults = new Map<string, Artwork[]>()
-    if (chunksToFetch.length > 0) {
-      const results = await Promise.all(
-        chunksToFetch.map(async coord => {
-          const artworks = await fetchChunkData(coord.x, coord.y)
-          return { coord, artworks }
-        })
-      )
-      
-      // Store fetched data in local map for immediate use
-      results.forEach(({ coord, artworks }) => {
-        if (artworks) {
-          fetchResults.set(`${coord.x},${coord.y}`, artworks)
-          if (DEBUG_LOGGING) {
-            console.log(`📦 Stored ${artworks.length} artworks for chunk ${coord.x},${coord.y} in fetchResults`)
-          }
-        } else {
-          if (DEBUG_LOGGING) {
-            console.log(`⚠️ No artworks returned for chunk ${coord.x},${coord.y}`)
-          }
-        }
-      })
-      
-      // After fetching, these chunks can now be created
-      chunksToCreate.push(...chunksToFetch)
+    // Start streaming fetch with priority (doesn't wait for completion)
+    if (visibleChunksToFetch.length > 0 || bufferChunksToFetch.length > 0) {
+      await fetchChunksWithPriority(visibleChunksToFetch, bufferChunksToFetch)
+      if (DEBUG_LOGGING) {
+        console.log(`🚀 Started streaming fetch: ${visibleChunksToFetch.length} high priority, ${bufferChunksToFetch.length} low priority`)
+      }
     }
     
-    // Create chunks that have data ready
+    // Create chunks that already have data ready (immediate rendering)
+    createChunksFromCoordinates(chunksToCreate)
+    
+  }, [chunks, chunkDataMap, fetchChunksWithPriority, visibleChunks])
+
+  /**
+   * Create chunks from coordinates that have data ready
+   */
+  const createChunksFromCoordinates = useCallback((coords: ChunkCoordinates[]) => {
+    if (coords.length === 0) return
+    
     const newChunks: Chunk[] = []
-    for (const coord of chunksToCreate) {
+    
+    for (const coord of coords) {
       const chunkKey = `${coord.x},${coord.y}`
       
       if (!chunks.has(chunkKey)) {
         try {
-          const newChunk = createChunk(coord.x, coord.y, chunkDataMap, fetchResults)
+          const newChunk = createChunk(coord.x, coord.y, chunkDataMap)
           if (newChunk && newChunk.positions.length > 0) {
             newChunks.push(newChunk)
-            // Only remove loading state when chunk is successfully created
             if (DEBUG_LOGGING) {
-              console.log(`✅ Chunk ${chunkKey} created successfully`)
+              console.log(`✅ Chunk ${chunkKey} created from available data`)
             }
           } else {
             if (DEBUG_LOGGING) {
               console.log(`⚠️ Chunk ${chunkKey} created but empty - removing from loading state`)
             }
-            // Remove from loading state even if empty to prevent infinite loading
             loadingChunks.current.delete(chunkKey)
           }
         } catch (error) {
           console.error(`❌ Error creating chunk ${coord.x},${coord.y}:`, error)
-          // Keep loading state on error so user knows something went wrong
         }
       }
     }
     
-    // Update chunks state and remove loading states for successful chunks
+    // Add new chunks to state immediately
     if (newChunks.length > 0) {
       setChunks(prev => {
         const updated = new Map(prev)
         newChunks.forEach(chunk => {
           const chunkKey = `${chunk.x},${chunk.y}`
           updated.set(chunkKey, chunk)
-          // Remove loading state only when chunk is actually in the map
           loadingChunks.current.delete(chunkKey)
         })
         return updated
       })
     }
-  }, [chunks, chunkDataMap, fetchChunkData])
+  }, [chunks, chunkDataMap])
   
   // Store loadChunks in a ref to avoid dependency issues
   const loadChunksRef = useRef(loadChunks)
@@ -330,6 +334,76 @@ const ChunkManager = memo(function ChunkManager({
       void loadChunksRef.current(chunksToLoad)
     }
   }, [chunksToLoad])
+
+  /**
+   * STREAMING: Create chunks immediately when their data becomes available
+   * This is the key to streaming performance - chunks render as soon as data arrives
+   */
+  useEffect(() => {
+    const chunksReadyForCreation: ChunkCoordinates[] = []
+    
+    // Check all loading chunks to see if their data has arrived
+    for (const chunkKey of loadingChunks.current) {
+      const [xStr, yStr] = chunkKey.split(',')
+      const x = parseInt(xStr!, 10)
+      const y = parseInt(yStr!, 10)
+      
+      const chunkData = chunkDataMap.get(chunkKey)
+      const chunkExists = chunks.has(chunkKey)
+      
+      // If data is ready and chunk doesn't exist yet, create it immediately
+      if (chunkData?.artworks && !chunkExists && !chunkData.loading) {
+        chunksReadyForCreation.push({ x, y })
+        if (DEBUG_LOGGING) {
+          console.log(`🎯 STREAMING: Chunk ${chunkKey} data arrived, creating immediately`)
+        }
+      }
+    }
+    
+    // Create chunks that just got their data
+    if (chunksReadyForCreation.length > 0) {
+      createChunksFromCoordinates(chunksReadyForCreation)
+    }
+  }, [chunkDataMap, chunks, createChunksFromCoordinates])
+
+  /**
+   * INTELLIGENT PREFETCHING: Load predicted chunks based on movement direction
+   * This anticipates user movement for seamless navigation
+   */
+  useEffect(() => {
+    // Only prefetch if user is moving significantly and not dragging
+    if (isDragging || !isInitialized || movementPrediction.predictedChunks.length === 0) {
+      return
+    }
+    
+    // Filter predicted chunks to only those that aren't already loaded/loading
+    const chunksToPreload: ChunkCoordinates[] = []
+    
+    for (const prediction of movementPrediction.predictedChunks) {
+      const chunkKey = `${prediction.x},${prediction.y}`
+      const chunkData = chunkDataMap.get(chunkKey)
+      const chunkExists = chunks.has(chunkKey)
+      const chunkLoading = loadingChunks.current.has(chunkKey)
+      
+      // Skip if already exists, loading, or already in current chunksToLoad
+      const alreadyInBuffer = chunksToLoad.some(coord => coord.x === prediction.x && coord.y === prediction.y)
+      
+      if (!chunkExists && !chunkLoading && !chunkData && !alreadyInBuffer) {
+        chunksToPreload.push({ x: prediction.x, y: prediction.y })
+        if (DEBUG_LOGGING) {
+          console.log(`🔮 PREFETCH: Queuing predicted chunk ${chunkKey} (priority: ${prediction.priority.toFixed(2)})`)
+        }
+      }
+    }
+    
+    // Start prefetching with low priority (doesn't wait)
+    if (chunksToPreload.length > 0) {
+      void fetchChunksWithPriority([], chunksToPreload) // Empty array for visible, predicted chunks as buffer
+      if (DEBUG_LOGGING) {
+        console.log(`🚀 PREFETCH: Started loading ${chunksToPreload.length} predicted chunks`)
+      }
+    }
+  }, [movementPrediction, isDragging, isInitialized, chunks, chunkDataMap, loadingChunks, chunksToLoad, fetchChunksWithPriority])
 
   /**
    * Store updateVirtualization in ref to avoid dependency cycles

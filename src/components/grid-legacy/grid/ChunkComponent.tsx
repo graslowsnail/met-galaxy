@@ -6,7 +6,7 @@
  * interactions, error handling, and hover effects.
  */
 
-import React, { memo } from 'react'
+import React, { memo, useState, useEffect } from 'react'
 import type { ChunkComponentProps } from './types/grid'
 import { 
   GRID_ORIGIN_X, 
@@ -133,6 +133,18 @@ const ChunkComponent = memo(function ChunkComponent({
   showBoundary = false
 }: ChunkComponentProps & { showBoundary?: boolean }) {
   
+  // Fade-in animation state
+  const [isVisible, setIsVisible] = useState(false)
+  
+  // Trigger fade-in animation when chunk first appears
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 50) // Small delay to ensure smooth animation
+    
+    return () => clearTimeout(timer)
+  }, [])
+  
   // Early return if chunk has no valid positions
   if (!chunk.positions || chunk.positions.length === 0) {
     return null
@@ -160,8 +172,12 @@ const ChunkComponent = memo(function ChunkComponent({
       
       {/* Clipping container for images */}
       <div
-        className={`absolute overflow-hidden transition-opacity duration-300 ease-in-out ${
-          isLoading ? 'opacity-50' : 'opacity-100'
+        className={`absolute overflow-hidden transition-all duration-500 ease-out transform ${
+          isVisible 
+            ? 'opacity-100 scale-100' 
+            : 'opacity-0 scale-95'
+        } ${
+          isLoading ? 'opacity-50' : ''
         }`}
         style={{
           left: chunkLeft,

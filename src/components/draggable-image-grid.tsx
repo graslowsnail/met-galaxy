@@ -34,7 +34,8 @@ export function DraggableImageGrid({
     containerRef,
     viewport,
     onPostDrag,
-    updatePosition
+    updatePosition,
+    movementPrediction
   } = useViewport()
 
   // Connect post-drag events to trigger updates
@@ -184,6 +185,7 @@ export function DraggableImageGrid({
           isInitialized={isInitialized}
           onImageClick={handleArtworkClick}
           showPerformanceOverlay={showPerformanceOverlay}
+          movementPrediction={movementPrediction}
         />
       </div>
     </div>

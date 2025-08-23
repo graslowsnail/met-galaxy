@@ -182,16 +182,18 @@ export function useChunkData(): UseChunkDataReturn {
   // ============================================================================
   
   /**
-   * Fetch multiple chunks in parallel with intelligent batching
+   * Fetch multiple chunks in parallel with streaming (non-blocking) approach
+   * This allows individual chunks to render as soon as they're loaded
    * 
    * @param coordinates - Array of chunk coordinates to fetch
-   * @returns Promise resolving when all fetches complete
+   * @param priority - Priority level for these chunks ('high' for visible, 'low' for buffer)
+   * @returns Promise resolving immediately (doesn't wait for all fetches)
    */
-  const fetchMultipleChunks = useCallback(async (coordinates: ChunkCoordinates[]): Promise<void> => {
+  const fetchMultipleChunks = useCallback(async (coordinates: ChunkCoordinates[], priority: 'high' | 'low' = 'high'): Promise<void> => {
     if (coordinates.length === 0) return
     
     if (DEBUG_LOGGING) {
-      console.log(`📦 Fetching ${coordinates.length} chunks in parallel:`, 
+      console.log(`📦 Streaming fetch for ${coordinates.length} chunks (${priority} priority):`, 
         coordinates.map(c => `(${c.x},${c.y})`).join(', '))
     }
     
@@ -211,15 +213,69 @@ export function useChunkData(): UseChunkDataReturn {
       return
     }
     
-    // Fetch all chunks in parallel
-    await Promise.allSettled(
-      chunksToFetch.map(coord => fetchChunkData(coord.x, coord.y))
-    )
+    // Start all chunks immediately without waiting (streaming approach)
+    // Higher priority chunks get fetched first by sorting
+    const sortedChunks = priority === 'high' 
+      ? chunksToFetch  // High priority: fetch in order
+      : [...chunksToFetch].reverse()  // Low priority: reverse order to fetch less critical chunks last
+    
+    // Fire and forget - don't await the individual fetches
+    sortedChunks.forEach((coord, index) => {
+      // Add small delay for low priority chunks to not overwhelm the API
+      const delay = priority === 'low' ? index * 50 : 0
+      
+      if (delay > 0) {
+        setTimeout(() => {
+          fetchChunkData(coord.x, coord.y).catch(error => {
+            console.warn(`Failed to fetch chunk ${coord.x},${coord.y}:`, error)
+          })
+        }, delay)
+      } else {
+        fetchChunkData(coord.x, coord.y).catch(error => {
+          console.warn(`Failed to fetch chunk ${coord.x},${coord.y}:`, error)
+        })
+      }
+    })
     
     if (DEBUG_LOGGING) {
-      console.log(`✅ Batch fetch complete for ${chunksToFetch.length} chunks`)
+      console.log(`🚀 Started streaming fetch for ${chunksToFetch.length} chunks`)
     }
   }, [chunkDataMap, fetchChunkData])
+
+  /**
+   * Fetch a single chunk with streaming approach (convenience method)
+   * 
+   * @param chunkX - X coordinate of the chunk
+   * @param chunkY - Y coordinate of the chunk  
+   * @param priority - Priority level for this chunk
+   * @returns Promise resolving immediately (doesn't wait for fetch)
+   */
+  const fetchChunkStreaming = useCallback(async (chunkX: number, chunkY: number, priority: 'high' | 'low' = 'high'): Promise<void> => {
+    await fetchMultipleChunks([{ x: chunkX, y: chunkY }], priority)
+  }, [fetchMultipleChunks])
+
+  /**
+   * Fetch chunks with intelligent prioritization based on visibility
+   * Visible chunks get high priority, buffered chunks get low priority
+   * 
+   * @param visibleChunks - Chunks currently visible in viewport
+   * @param bufferChunks - Additional chunks in buffer zone (optional)
+   * @returns Promise resolving immediately
+   */
+  const fetchChunksWithPriority = useCallback(async (
+    visibleChunks: ChunkCoordinates[], 
+    bufferChunks: ChunkCoordinates[] = []
+  ): Promise<void> => {
+    // Start high priority chunks first
+    if (visibleChunks.length > 0) {
+      await fetchMultipleChunks(visibleChunks, 'high')
+    }
+    
+    // Then start buffer chunks with lower priority
+    if (bufferChunks.length > 0) {
+      await fetchMultipleChunks(bufferChunks, 'low')
+    }
+  }, [fetchMultipleChunks])
   
   // ============================================================================
   // UTILITY FUNCTIONS
@@ -295,8 +351,12 @@ export function useChunkData(): UseChunkDataReturn {
     // Cache management
     clearCache,
     
-    // Batch operations
+    // Batch operations (legacy)
     fetchMultipleChunks,
+    
+    // Streaming operations (new)
+    fetchChunkStreaming,
+    fetchChunksWithPriority,
     
     // Utility functions
     getChunkData,

@@ -268,8 +268,12 @@ export interface UseChunkDataReturn {
   isLoading: boolean
   /** Function to clear data cache (for memory management) */
   clearCache: () => void
-  /** Function to fetch multiple chunks in parallel */
-  fetchMultipleChunks: (coordinates: ChunkCoordinates[]) => Promise<void>
+  /** Function to fetch multiple chunks in parallel (legacy - waits for all) */
+  fetchMultipleChunks: (coordinates: ChunkCoordinates[], priority?: 'high' | 'low') => Promise<void>
+  /** Function to fetch a single chunk with streaming approach */
+  fetchChunkStreaming: (chunkX: number, chunkY: number, priority?: 'high' | 'low') => Promise<void>
+  /** Function to fetch chunks with intelligent prioritization */
+  fetchChunksWithPriority: (visibleChunks: ChunkCoordinates[], bufferChunks?: ChunkCoordinates[]) => Promise<void>
   /** Function to get data for a specific chunk (synchronous cache access) */
   getChunkData: (chunkX: number, chunkY: number) => ChunkData | undefined
   /** Function to check if a chunk has loaded artwork data */
@@ -320,6 +324,14 @@ export interface UseViewportReturn {
   resetViewport: () => void
   /** Function to update position by delta amount (for trackpad/wheel) */
   updatePosition: (deltaX: number, deltaY: number) => void
+  /** Current movement velocity in pixels per second */
+  velocity: Position
+  /** Movement prediction data for preemptive chunk loading */
+  movementPrediction: {
+    direction: Position
+    speed: number
+    predictedChunks: Array<{ x: number; y: number; priority: number }>
+  }
   /** Container ref for dimension tracking */
   containerRef: React.RefObject<HTMLDivElement | null>
 }
@@ -364,44 +376,6 @@ export interface UseVirtualizationReturn {
 // ============================================================================
 // UTILITY TYPES
 // ============================================================================
-
-/**
- * Return type for useViewport hook
- */
-export interface UseViewportReturn {
-  /** Current viewport state */
-  viewport: ViewportState
-  /** Current translation position */
-  translate: Position
-  /** Viewport dimensions */
-  viewportDimensions: { width: number; height: number }
-  /** Whether viewport is initialized */
-  isInitialized: boolean
-  /** Current drag state */
-  dragState: DragState
-  /** Whether dragging is currently active */
-  isDragging: boolean
-  /** Distance moved during current drag operation */
-  dragDistance: number
-  /** Function to handle mouse down events */
-  handleMouseDown: (event: React.MouseEvent) => void
-  /** Function to handle touch start events */
-  handleTouchStart: (event: React.TouchEvent) => void
-  /** Function to get viewport bounds */
-  getViewportBounds: (includeBuffer?: boolean) => ViewportBounds
-  /** Function to check if viewport has changed significantly */
-  hasSignificantViewportChange: (threshold?: number) => boolean
-  /** Function to register post-drag callbacks */
-  onPostDrag: (callback: () => void) => () => void
-  /** Function to set viewport position programmatically */
-  setViewportPosition: (position: Position) => void
-  /** Function to reset viewport to center */
-  resetViewport: () => void
-  /** Function to update position by delta amount (for trackpad/wheel) */
-  updatePosition: (deltaX: number, deltaY: number) => void
-  /** Container ref for dimension tracking */
-  containerRef: React.RefObject<HTMLDivElement | null>
-}
 
 
 
