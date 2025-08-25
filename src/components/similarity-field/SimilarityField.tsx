@@ -9,7 +9,7 @@ import React, { memo, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useViewport } from '../grid-legacy/grid/hooks/useViewport'
 import { TRACKPAD_SPEED, DEBUG_LOGGING, CHUNK_WIDTH, CHUNK_HEIGHT } from './utils/constants'
-import { chunkToPixelCoords } from '../grid-legacy/grid/utils/chunkCalculations'
+import { chunkToPixelCoords } from './utils/chunkCalculations'
 import type { ImageItem } from '../grid-legacy/grid/types/grid'
 import type { Artwork } from '@/types/api'
 

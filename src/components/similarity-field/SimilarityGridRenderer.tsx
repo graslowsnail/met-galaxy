@@ -6,8 +6,8 @@
  */
 
 import React, { memo } from 'react'
-import ChunkComponent from '../grid-legacy/grid/ChunkComponent'
-import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
+import SimilarityChunkComponent from './SimilarityChunkComponent'
+import SimilarityChunkSkeleton from './SimilarityChunkSkeleton'
 import FocalChunkComponent from './FocalChunkComponent'
 import type { GridRendererProps } from '../grid-legacy/grid/types/grid'
 import { 
@@ -90,7 +90,7 @@ const LoadingIndicators = memo(function LoadingIndicators({
         const chunkY = parseInt(yStr!, 10)
         
         return (
-          <ChunkSkeleton
+          <SimilarityChunkSkeleton
             key={`loading-${chunkKey}`}
             chunkX={chunkX}
             chunkY={chunkY}
@@ -153,7 +153,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
           )
         } else {
           return (
-            <ChunkComponent
+            <SimilarityChunkComponent
               key={chunk.id}
               chunk={chunk}
               onImageClick={onImageClick}

@@ -8,7 +8,7 @@
 
 import React, { memo, useCallback, useEffect, useRef } from 'react'
 import { useSimilarityChunkDataSimple } from './hooks/useSimilarityChunkDataSimple'
-import { useVirtualization } from '../grid-legacy/grid/hooks/useVirtualization'
+import { useVirtualization } from './hooks/useVirtualization'
 import SimilarityGridRenderer from './SimilarityGridRenderer'
 import type { 
   Chunk, 
@@ -29,11 +29,14 @@ import {
   calculateBoundingBox,
   calculateOptimalChunkLayout,
 } from '../grid-legacy/grid/utils/chunkCalculations'
+import { calculateSimpleGridLayout } from './utils/chunkCalculations'
 import { 
   COLUMN_WIDTH,
   CHUNK_SIZE,
   CHUNK_WIDTH,
   CHUNK_HEIGHT,
+  COLUMNS_PER_CHUNK,
+  ROWS_PER_CHUNK,
   FOCAL_CHUNK_SIZE,
   DEBUG_LOGGING
 } from './utils/constants'
@@ -84,7 +87,9 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
   
   return filledArtworks.map((artwork, i) => {
       const aspectRatio = generateAspectRatio(chunkX, chunkY, i)
-      const { width, height } = calculateImageDimensions(aspectRatio)
+      // For simple grid layout, use uniform dimensions based on our constants
+      const width = COLUMN_WIDTH
+      const height = COLUMN_WIDTH // Use square dimensions for uniform grid appearance
 
       // Use primaryImageSmall if available, fallback to primaryImage
       const imageUrl = artwork.primaryImageSmall ?? artwork.primaryImage
@@ -117,14 +122,16 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
  */
 function generateFocalImage(chunkX: number, chunkY: number, focalArtwork: Artwork): ImageItem {
   const aspectRatio = generateAspectRatio(chunkX, chunkY, 0)
-  const { width, height } = calculateImageDimensions(aspectRatio)
+  // For focal image, use larger dimensions to make it prominent
+  const width = CHUNK_WIDTH * 0.8 // Use 80% of chunk width
+  const height = CHUNK_HEIGHT * 0.8 // Use 80% of chunk height
 
   // Use primaryImageSmall if available, fallback to primaryImage
   const imageUrl = focalArtwork.primaryImageSmall ?? focalArtwork.primaryImage
   const src = imageUrl!
 
   return {
-    id: generateImageId('focal', chunkX, chunkY, 0, focalArtwork.id),
+    id: generateImageId('artwork', chunkX, chunkY, 0, focalArtwork.id),
     src,
     width,
     height,
@@ -248,11 +255,13 @@ function createChunk(
     chunkY,
   }))
 
-  // Use optimized layout calculation for better space utilization
-  const positions = calculateOptimalChunkLayout(
+  // Use simple grid layout for compact 2x3 similarity grid
+  const positions = calculateSimpleGridLayout(
     finalImages.map(img => ({ width: img.width, height: img.height })),
     chunkX,
-    chunkY
+    chunkY,
+    COLUMNS_PER_CHUNK,
+    ROWS_PER_CHUNK
   )
 
   // Report focal artwork position if this is the focal chunk (0,0)
