@@ -29,7 +29,7 @@ import {
   CHUNK_SIZE,
   CHUNK_HEIGHT,
   DEBUG_LOGGING
-} from '../../grid-legacy/grid/utils/constants'
+} from '../../utils/constants'
 import type { Artwork } from '@/types/api'
 
 interface SimilarityChunkManagerProps {

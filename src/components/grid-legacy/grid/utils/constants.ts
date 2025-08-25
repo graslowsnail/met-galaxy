@@ -24,7 +24,7 @@ export const CHUNK_SIZE = 20
 export const COLUMNS_PER_CHUNK = 4
 
 /** Space around the axis lines in pixels */
-export const AXIS_MARGIN = 15
+export const AXIS_MARGIN = 5
 
 /** Width includes margins - total width of each chunk */
 export const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
@@ -151,6 +151,6 @@ export const API_TIMEOUT = 10000
 export const DEBUG_LOGGING = false
 
 /** Whether to show chunk boundaries by default */
-export const SHOW_CHUNK_BOUNDARIES = false
+export const SHOW_CHUNK_BOUNDARIES = true 
 
 

@@ -91,6 +91,33 @@ export interface FieldChunkResponse {
   responseTime: string
 }
 
+// Multi-Chunk API Types
+export interface MultiChunkMeta {
+  targetId: number
+  totalChunks: number
+  globalExcludes: number
+  seed: number
+  t: number
+}
+
+export interface MultiChunkData {
+  chunk: { x: number; y: number }
+  artworks: FieldChunkItem[]
+  meta: {
+    r: number
+    theta: number
+    t: number
+    weights: { sim: number; drift: number; rand: number }
+  }
+}
+
+export interface MultiChunkResponse {
+  success: boolean
+  meta: MultiChunkMeta
+  data: { [chunkKey: string]: MultiChunkData }
+  responseTime: string
+}
+
 // API Configuration
 export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080',
@@ -100,5 +127,6 @@ export const API_CONFIG = {
     artworkCount: '/api/artworks/count',
     similarArtworks: '/api/artworks/similar',
     fieldChunk: '/api/artworks/field-chunk',
+    fieldChunks: '/api/artworks/field-chunks',
   }
 } as const

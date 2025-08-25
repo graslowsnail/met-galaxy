@@ -16,7 +16,7 @@ import type {
   UseChunkDataReturn 
 } from '../../../grid-legacy/grid/types/grid'
 import { getChunkKey } from '../../../grid-legacy/grid/utils/chunkCalculations'
-import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../../../grid-legacy/grid/utils/constants'
+import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../../utils/constants'
 
 interface UseSimilarityChunkDataProps {
   focalArtworkId: number

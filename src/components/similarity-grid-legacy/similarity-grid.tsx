@@ -9,7 +9,7 @@ import type {
 } from "./similarity-grid/grid/types/similarity";
 import type { ImageItem } from "./grid-legacy/grid/types/grid";
 import { DEBUG_LOGGING } from "./similarity-grid/grid/utils/constants";
-import { TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants";
+import { TRACKPAD_SPEED } from "./utils/constants";
 
 export type { SimilarityImageItem };
 

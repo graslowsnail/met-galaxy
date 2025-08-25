@@ -118,7 +118,7 @@ export function SimilarityGridRenderer({
       .reduce((sum, chunkData) => sum + (chunkData.chunk?.images.length || 0), 0)
     
     return (
-      <div className="fixed top-4 left-4 bg-black/80 text-white p-4 rounded-lg text-sm font-mono z-50">
+      <div className="fixed top-4 right-4 bg-black/80 text-white p-4 rounded-lg text-sm font-mono z-50">
         <div className="font-bold mb-2">Similarity Grid Performance</div>
         <div>Focal ID: {gridState.currentFocalId}</div>
         <div>Visible Chunks: {visibleChunkCount}</div>

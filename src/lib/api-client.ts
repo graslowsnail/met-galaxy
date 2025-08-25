@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -157,6 +157,41 @@ export const apiClient = {
     if (!response.ok) throw new Error(`field-chunk http ${response.status}`)
     const json = (await response.json()) as FieldChunkResponse
     if (!json.success) throw new Error(`field-chunk error: ${(json as any).error || 'unknown'}`)
+    return json
+  },
+
+  async fetchMultipleChunks(params: {
+    targetId: number
+    chunks: Array<{ x: number; y: number }>
+    count?: number
+    excludeIds?: number[]
+    seed?: number
+    signal?: AbortSignal
+  }): Promise<MultiChunkResponse> {
+    const url = new URL(API_CONFIG.endpoints.fieldChunks, API_CONFIG.baseUrl)
+    
+    const requestBody = {
+      targetId: params.targetId,
+      chunks: params.chunks,
+      count: params.count || 20,
+      ...(params.excludeIds && params.excludeIds.length ? { excludeIds: params.excludeIds } : {}),
+      ...(params.seed ? { seed: params.seed } : {})
+    }
+    
+    console.log('🌍 Multi-chunk request:', requestBody)
+    
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      signal: params.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    })
+
+    if (!response.ok) throw new Error(`field-chunks http ${response.status}`)
+    const json = (await response.json()) as MultiChunkResponse
+    if (!json.success) throw new Error(`field-chunks error: ${(json as any).error || 'unknown'}`)
     return json
   },
 }
