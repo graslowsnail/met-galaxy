@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityField } from "@/components/similarity-field"
+import NavigationOverlay, { type NavigationHistoryItem } from "@/components/similarity-field/NavigationOverlay"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
 
 export default function Home() {
@@ -18,6 +19,9 @@ export default function Home() {
     } | null;
   }>({ active: false, artworkId: null, artworkData: null })
 
+  // Navigation history for rabbit hole exploration
+  const [navigationHistory, setNavigationHistory] = useState<NavigationHistoryItem[]>([])
+
   // Handle artwork click from main grid
   const handleArtworkClick = useCallback((image: ImageItem) => {
     console.log('Artwork clicked:', {
@@ -31,17 +35,36 @@ export default function Home() {
     
     // Check if we have a database ID for similarity search
     if (image.databaseId) {
+      const artworkData = {
+        id: image.databaseId,
+        title: image.title ?? null,
+        artist: image.artist ?? null,
+        imageUrl: image.src,
+        originalImageUrl: image.src ?? null
+      }
+      
       setSimilarityMode({ 
         active: true, 
         artworkId: image.databaseId,
-        artworkData: {
+        artworkData
+      })
+      
+      // Initialize navigation history with main grid + first artwork
+      setNavigationHistory([
+        {
+          id: 'main-grid',
+          title: 'Main Grid',
+          artist: null,
+          thumbnailUrl: null,
+          isMainGrid: true
+        },
+        {
           id: image.databaseId,
           title: image.title ?? null,
           artist: image.artist ?? null,
-          imageUrl: image.src,
-          originalImageUrl: image.src ?? null
+          thumbnailUrl: image.src
         }
-      })
+      ])
     } else {
       alert('Similar artwork exploration requires database ID')
     }
@@ -60,24 +83,68 @@ export default function Home() {
       artist: artwork.artist,
       imageUrl: artwork.imageUrl
     })
+    
+    const artworkData = {
+      id: artwork.id,
+      title: artwork.title,
+      artist: artwork.artist,
+      imageUrl: artwork.imageUrl,
+      originalImageUrl: artwork.imageUrl ?? null
+    }
+    
     // Update the focal artwork for rabbit hole navigation
     setSimilarityMode({ 
       active: true, 
       artworkId: artwork.id,
-      artworkData: {
+      artworkData
+    })
+    
+    // Add new artwork to navigation history (forward exploration)
+    setNavigationHistory(prev => [
+      ...prev,
+      {
         id: artwork.id,
         title: artwork.title,
         artist: artwork.artist,
-        imageUrl: artwork.imageUrl,
-        originalImageUrl: artwork.imageUrl ?? null
+        thumbnailUrl: artwork.imageUrl
       }
-    })
+    ])
   }, [])
 
   // Handle closing similarity mode
   const handleCloseSimilarity = useCallback(() => {
     setSimilarityMode({ active: false, artworkId: null, artworkData: null })
+    setNavigationHistory([])
   }, [])
+  
+  // Handle navigation overlay clicks (smart history truncation)
+  const handleNavigateToHistoryItem = useCallback((item: NavigationHistoryItem, index: number) => {
+    console.log('Navigate to history item:', { item, index })
+    
+    if (item.isMainGrid) {
+      // Navigate back to main grid
+      handleCloseSimilarity()
+      return
+    }
+    
+    // Navigate to selected artwork and truncate history at that point
+    const artworkData = {
+      id: item.id as number,
+      title: item.title,
+      artist: item.artist,
+      imageUrl: item.thumbnailUrl,
+      originalImageUrl: item.thumbnailUrl ?? null
+    }
+    
+    setSimilarityMode({
+      active: true,
+      artworkId: item.id as number,
+      artworkData
+    })
+    
+    // Truncate history at clicked point (smart backtracking)
+    setNavigationHistory(prev => prev.slice(0, index + 1))
+  }, [handleCloseSimilarity])
 
   return (
     <>
@@ -99,31 +166,13 @@ export default function Home() {
             focalArtwork={similarityMode.artworkData}
             onArtworkClick={handleSimilarityArtworkClick}
           />
-          {/* Control panel */}
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            {/* Close button */}
-            <button
-              onClick={handleCloseSimilarity}
-              style={{
-                padding: '10px 15px',
-                background: 'rgba(0,0,0,0.8)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              ← Back to Grid
-            </button>
-          </div>
+          {/* Navigation overlay for rabbit hole exploration */}
+          <NavigationOverlay
+            navigationHistory={navigationHistory}
+            currentFocalId={similarityMode.artworkId ?? 'main-grid'}
+            onNavigateToHistoryItem={handleNavigateToHistoryItem}
+            isVisible={true}
+          />
         </div>
       )}
     </>
