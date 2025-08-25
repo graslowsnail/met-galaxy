@@ -57,6 +57,9 @@ export function useSimilarityChunkDataSimple({
   /** Track which chunks are currently being fetched to prevent duplicates */
   const fetchingChunks = useRef<Set<string>>(new Set())
   
+  /** Track abort controllers for in-flight requests */
+  const abortControllers = useRef<Map<string, AbortController>>(new Map())
+  
   /** Track overall loading state */
   const [isLoading, setIsLoading] = useState(false)
   
@@ -103,6 +106,10 @@ export function useSimilarityChunkDataSimple({
    * Clear the entire data cache and reset deduplication
    */
   const clearCache = useCallback(() => {
+    // Abort all in-flight requests
+    abortControllers.current.forEach(controller => controller.abort())
+    abortControllers.current.clear()
+    
     setChunkDataMap(new Map())
     fetchingChunks.current.clear()
     usedArtworkIds.current.clear()
@@ -160,6 +167,10 @@ export function useSimilarityChunkDataSimple({
     
     // Mark as being fetched
     fetchingChunks.current.add(chunkKey)
+    
+    // Create abort controller for this request
+    const abortController = new AbortController()
+    abortControllers.current.set(chunkKey, abortController)
     
     // Set loading state
     setChunkDataMap(prev => new Map(prev).set(chunkKey, {
@@ -226,7 +237,8 @@ export function useSimilarityChunkDataSimple({
           chunkX,
           chunkY,
           count: CHUNK_SIZE,
-          excludeIds: excludeIds
+          excludeIds: excludeIds,
+          signal: abortController.signal
         })
         
         // Transform FieldChunkItem to Artwork format
@@ -286,6 +298,9 @@ export function useSimilarityChunkDataSimple({
       // Remove from fetching set
       fetchingChunks.current.delete(chunkKey)
       
+      // Remove abort controller
+      abortControllers.current.delete(chunkKey)
+      
       // Update global loading state
       setIsLoading(prev => {
         // Check if any other chunks are still loading
@@ -334,16 +349,8 @@ export function useSimilarityChunkDataSimple({
       return
     }
     
-    // Optimistically reserve IDs for chunks we're about to fetch
-    // This helps reduce duplicates even with parallel fetching
-    const estimatedArtworksPerChunk = CHUNK_SIZE
-    const totalExpectedArtworks = chunksToFetch.length * estimatedArtworksPerChunk
-    
-    // Reserve a range of IDs (this is a rough estimate)
-    const startReservedId = Math.max(...Array.from(usedArtworkIds.current), 0) + 1
-    for (let i = 0; i < totalExpectedArtworks; i++) {
-      reservedArtworkIds.current.add(startReservedId + i)
-    }
+    // Skip optimistic reservation - it adds complexity without much benefit
+    // The multi-chunk API handles deduplication better
     
     // Start all chunks immediately without waiting (streaming approach)
     // Higher priority chunks get fetched first by sorting
@@ -352,20 +359,31 @@ export function useSimilarityChunkDataSimple({
       : [...chunksToFetch].reverse()  // Low priority: reverse order
     
     // Fire and forget - don't await the individual fetches
-    sortedChunks.forEach((coord, index) => {
-      // Add small delay for low priority chunks to not overwhelm the API
-      const delay = priority === 'low' ? index * 50 : 0
-      
-      if (delay > 0) {
-        setTimeout(() => {
+    // Process chunks in parallel batches to improve performance
+    const BATCH_SIZE = 4 // Process 4 chunks at once
+    const processBatch = async (batch: ChunkCoordinates[]) => {
+      await Promise.all(
+        batch.map(coord => 
           fetchChunkData(coord.x, coord.y).catch(error => {
             console.warn(`Failed to fetch chunk ${coord.x},${coord.y}:`, error)
           })
-        }, delay)
+        )
+      )
+    }
+    
+    // Process chunks in batches
+    const batches: ChunkCoordinates[][] = []
+    for (let i = 0; i < sortedChunks.length; i += BATCH_SIZE) {
+      batches.push(sortedChunks.slice(i, i + BATCH_SIZE))
+    }
+    
+    // Execute batches with minimal delay between them
+    batches.forEach((batch, index) => {
+      const delay = priority === 'low' ? index * 25 : index * 10 // Reduced delays
+      if (delay > 0) {
+        setTimeout(() => processBatch(batch), delay)
       } else {
-        fetchChunkData(coord.x, coord.y).catch(error => {
-          console.warn(`Failed to fetch chunk ${coord.x},${coord.y}:`, error)
-        })
+        processBatch(batch)
       }
     })
     

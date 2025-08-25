@@ -390,9 +390,9 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       const batch: ChunkCoordinates[] = [coord]
       processed.add(key)
       
-      // Find nearby chunks to batch together (2x2 grouping)
+      // Find nearby chunks to batch together (3x3 grouping)
       for (const other of sortedCoords) {
-        if (batch.length >= 4) break // Limit batch size
+        if (batch.length >= 9) break // Increased batch size for better deduplication
         
         const otherKey = `${other.x},${other.y}`
         if (processed.has(otherKey)) continue

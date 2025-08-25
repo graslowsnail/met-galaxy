@@ -16,16 +16,16 @@ export const COLUMN_WIDTH = 160
 export const GAP = 12
 
 /** Number of images per chunk */
-export const CHUNK_SIZE = 6
+export const CHUNK_SIZE = 12
 
 /** Number of images in the focal chunk (should be 1 for single focal image) */
 export const FOCAL_CHUNK_SIZE = 1
 
 /** Number of columns per chunk */
-export const COLUMNS_PER_CHUNK = 2
+export const COLUMNS_PER_CHUNK = 3
 
 /** Number of rows per chunk */
-export const ROWS_PER_CHUNK = 3
+export const ROWS_PER_CHUNK = 4
 
 /** Space around the axis lines in pixels */
 export const AXIS_MARGIN = 5
@@ -41,10 +41,10 @@ export const CHUNK_HEIGHT = ROWS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MA
 // ============================================================================
 
 /** Buffer around viewport for smooth scrolling experience */
-export const VIEWPORT_BUFFER = 100
+export const VIEWPORT_BUFFER = 200
 
 /** Maximum chunks to render simultaneously (keep this small for performance!) */
-export const MAX_RENDERED_CHUNKS = 12
+export const MAX_RENDERED_CHUNKS = 20
 
 /** Maximum chunk data to cache (can be larger than rendered chunks) */
 export const MAX_DATA_CACHE = 100

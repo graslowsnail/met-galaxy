@@ -144,7 +144,7 @@ export const apiClient = {
     const url = new URL(API_CONFIG.endpoints.fieldChunk, API_CONFIG.baseUrl)
     url.search = qs.toString()
     
-    console.log('🌍 Field-chunk URL:', url.toString())
+    // console.log('🌍 Field-chunk URL:', url.toString())
     
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -178,7 +178,7 @@ export const apiClient = {
       ...(params.seed ? { seed: params.seed } : {})
     }
     
-    console.log('🌍 Multi-chunk request:', requestBody)
+    // console.log('🌍 Multi-chunk request:', requestBody)
     
     const response = await fetch(url.toString(), {
       method: 'POST',

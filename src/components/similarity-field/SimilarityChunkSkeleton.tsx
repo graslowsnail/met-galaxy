@@ -13,7 +13,8 @@ import {
   ROWS_PER_CHUNK,
   COLUMN_WIDTH,
   GAP,
-  AXIS_MARGIN
+  AXIS_MARGIN,
+  CHUNK_SIZE
 } from './utils/constants'
 import { CHUNK_BORDER_COLOR } from '../grid-legacy/grid/utils/constants'
 
@@ -28,12 +29,12 @@ const SimilarityChunkSkeleton = memo(function SimilarityChunkSkeleton({
   chunkY,
   showBoundary = true
 }: SimilarityChunkSkeletonProps) {
-  // Calculate positions for skeleton items (2x3 grid)
+  // Calculate positions for skeleton items based on dynamic grid size
   const skeletonItems = []
   const cellWidth = (CHUNK_WIDTH - (2 * AXIS_MARGIN) - ((COLUMNS_PER_CHUNK - 1) * GAP)) / COLUMNS_PER_CHUNK
   const cellHeight = (CHUNK_HEIGHT - (2 * AXIS_MARGIN) - ((ROWS_PER_CHUNK - 1) * GAP)) / ROWS_PER_CHUNK
 
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < CHUNK_SIZE; i++) {
     const row = Math.floor(i / COLUMNS_PER_CHUNK)
     const col = i % COLUMNS_PER_CHUNK
     
