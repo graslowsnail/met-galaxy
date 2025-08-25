@@ -18,7 +18,8 @@ import type {
 import { 
   calculateViewportBounds, 
   isSignificantViewportChange,
-  pixelToChunkCoords 
+  pixelToChunkCoords,
+  chunkToPixelCoords 
 } from '../utils/chunkCalculations'
 import { 
   POST_DRAG_UPDATE_DELAY, 
@@ -119,18 +120,37 @@ export function useViewport(): UseViewportReturn {
   }, [])
   
   /**
-   * Initialize viewport to center position
+   * Initialize viewport to center on a specific chunk
    */
   const initializeViewport = useCallback(() => {
     if (viewportDimensions.width && viewportDimensions.height && !isInitialized) {
-      const centerX = viewportDimensions.width / 2
-      const centerY = viewportDimensions.height / 2
+      // Focus on chunk (2, -2) in quadrant 4
+      const targetChunkX = 2
+      const targetChunkY = -2
       
-      setTranslate({ x: centerX, y: centerY })
+      // Get the pixel coordinates of the target chunk's top-left corner
+      const chunkPixelCoords = chunkToPixelCoords(targetChunkX, targetChunkY)
+      
+      // Calculate the center of the target chunk
+      const chunkCenterX = chunkPixelCoords.x + (CHUNK_WIDTH / 2)
+      const chunkCenterY = chunkPixelCoords.y + (CHUNK_HEIGHT / 2)
+      
+      // Calculate translation needed to center this chunk in the viewport
+      const viewportCenterX = viewportDimensions.width / 2
+      const viewportCenterY = viewportDimensions.height / 2
+      
+      // Translation = viewport center - chunk center
+      const translateX = viewportCenterX - chunkCenterX
+      const translateY = viewportCenterY - chunkCenterY
+      
+      setTranslate({ x: translateX, y: translateY })
       setIsInitialized(true)
       
       if (DEBUG_LOGGING) {
-        console.log(`🎯 Viewport initialized to center: (${centerX}, ${centerY})`)
+        console.log(`🎯 Viewport initialized to chunk (${targetChunkX}, ${targetChunkY}):`)
+        console.log(`   Chunk pixel coords: (${chunkPixelCoords.x}, ${chunkPixelCoords.y})`)
+        console.log(`   Chunk center: (${chunkCenterX}, ${chunkCenterY})`)
+        console.log(`   Viewport translation: (${translateX}, ${translateY})`)
       }
     }
   }, [viewportDimensions, isInitialized])
@@ -490,13 +510,30 @@ export function useViewport(): UseViewportReturn {
   }, [trackMovement])
   
   /**
-   * Reset viewport to center position
+   * Reset viewport to default chunk position
    */
   const resetViewport = useCallback(() => {
     if (viewportDimensions.width && viewportDimensions.height) {
-      const centerX = viewportDimensions.width / 2
-      const centerY = viewportDimensions.height / 2
-      setViewportPosition({ x: centerX, y: centerY })
+      // Reset to the same chunk we initialize to
+      const targetChunkX = 2
+      const targetChunkY = -2
+      
+      // Get the pixel coordinates of the target chunk's top-left corner
+      const chunkPixelCoords = chunkToPixelCoords(targetChunkX, targetChunkY)
+      
+      // Calculate the center of the target chunk
+      const chunkCenterX = chunkPixelCoords.x + (CHUNK_WIDTH / 2)
+      const chunkCenterY = chunkPixelCoords.y + (CHUNK_HEIGHT / 2)
+      
+      // Calculate translation needed to center this chunk in the viewport
+      const viewportCenterX = viewportDimensions.width / 2
+      const viewportCenterY = viewportDimensions.height / 2
+      
+      // Translation = viewport center - chunk center
+      const translateX = viewportCenterX - chunkCenterX
+      const translateY = viewportCenterY - chunkCenterY
+      
+      setViewportPosition({ x: translateX, y: translateY })
     }
   }, [viewportDimensions, setViewportPosition])
 
