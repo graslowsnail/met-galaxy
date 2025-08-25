@@ -198,15 +198,24 @@ function createFocalChunk(
   // Report focal artwork position for centering
   if (onFocalArtworkPosition) {
     const focalPosition = positions[0]
-    if (DEBUG_LOGGING) {
-      console.log(`🎯 Focal chunk (${chunkX},${chunkY}) created with single focal image:`)
-      console.log(`   Focal image positioned at:`, focalPosition)
-      console.log(`   Focal image dimensions:`, { width: focalImage.width, height: focalImage.height })
-    }
     if (focalPosition) {
+      // Calculate absolute world position for the focal image
+      const chunkWorldX = chunkX * CHUNK_WIDTH
+      const chunkWorldY = chunkY * CHUNK_HEIGHT
+      const worldX = chunkWorldX + focalPosition.x + (focalImage.width / 2) // Center of image
+      const worldY = chunkWorldY + focalPosition.y + (focalImage.height / 2) // Center of image
+      
+      if (DEBUG_LOGGING) {
+        console.log(`🎯 Focal chunk (${chunkX},${chunkY}) created with single focal image:`)
+        console.log(`   Focal image local position:`, focalPosition)
+        console.log(`   Chunk world position:`, { x: chunkWorldX, y: chunkWorldY })
+        console.log(`   Focal image world center:`, { x: worldX, y: worldY })
+        console.log(`   Focal image dimensions:`, { width: focalImage.width, height: focalImage.height })
+      }
+      
       onFocalArtworkPosition({
-        x: focalPosition.x,
-        y: focalPosition.y,
+        x: worldX,
+        y: worldY,
         chunkX,
         chunkY
       })
@@ -267,16 +276,26 @@ function createChunk(
   // Report focal artwork position if this is the focal chunk (0,0)
   if (chunkX === 0 && chunkY === 0 && onFocalArtworkPosition && positions.length > 0) {
     const focalPosition = positions[0] // First image in focal chunk is the focal artwork
-    if (DEBUG_LOGGING) {
-      console.log(`🎯 Focal chunk (${chunkX},${chunkY}) created:`)
-      console.log(`   Chunk has ${positions.length} image positions:`, positions)
-      console.log(`   Focal artwork (first image) positioned at:`, focalPosition)
-      console.log(`   Focal artwork dimensions:`, finalImages[0] ? { width: finalImages[0].width, height: finalImages[0].height } : 'N/A')
-    }
-    if (focalPosition) {
+    const focalImage = finalImages[0]
+    if (focalPosition && focalImage) {
+      // Calculate absolute world position for the focal image
+      const chunkWorldX = chunkX * CHUNK_WIDTH
+      const chunkWorldY = chunkY * CHUNK_HEIGHT
+      const worldX = chunkWorldX + focalPosition.x + (focalImage.width / 2) // Center of image
+      const worldY = chunkWorldY + focalPosition.y + (focalImage.height / 2) // Center of image
+      
+      if (DEBUG_LOGGING) {
+        console.log(`🎯 Focal chunk (${chunkX},${chunkY}) created:`)
+        console.log(`   Chunk has ${positions.length} image positions`)
+        console.log(`   Focal artwork local position:`, focalPosition)
+        console.log(`   Chunk world position:`, { x: chunkWorldX, y: chunkWorldY })
+        console.log(`   Focal artwork world center:`, { x: worldX, y: worldY })
+        console.log(`   Focal artwork dimensions:`, { width: focalImage.width, height: focalImage.height })
+      }
+      
       onFocalArtworkPosition({
-        x: focalPosition.x,
-        y: focalPosition.y,
+        x: worldX,
+        y: worldY,
         chunkX,
         chunkY
       })
