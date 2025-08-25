@@ -97,7 +97,7 @@ export const GRID_BACKGROUND_COLOR = '#EDE9E5'
 export const AXIS_LINE_COLOR = 'rgba(0, 0, 0, 0.3)'
 
 /** Axis line thickness in pixels */
-export const AXIS_LINE_THICKNESS = 2
+export const AXIS_LINE_THICKNESS = 0
 
 /** Chunk border color for debug visualization */
 export const CHUNK_BORDER_COLOR = 'rgb(212 212 212)' // neutral-300
@@ -151,6 +151,6 @@ export const API_TIMEOUT = 10000
 export const DEBUG_LOGGING = false
 
 /** Whether to show chunk boundaries by default */
-export const SHOW_CHUNK_BOUNDARIES = true 
+export const SHOW_CHUNK_BOUNDARIES = false 
 
 
