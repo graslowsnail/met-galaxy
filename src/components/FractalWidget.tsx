@@ -13,7 +13,7 @@ export function FractalWidget() {
   return (
     <>
       {/* Floating Icon Button */}
-      <div className="fixed top-6 left-6 sm:bottom-6 sm:right-6 sm:top-auto sm:left-auto z-50">
+      <div className="fixed top-6 right-6 sm:bottom-6 sm:right-6 sm:top-auto z-50">
         {/* Glowing effect for button on mobile when modal is open */}
         {isOpen && (
           <div
@@ -39,7 +39,7 @@ export function FractalWidget() {
       {/* Expanded Modal */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-start justify-start pt-22 pl-4 sm:items-end sm:justify-end sm:pt-0 sm:pl-0 sm:bottom-6 sm:right-6 sm:inset-auto"
+          className="fixed inset-0 z-50 flex items-start justify-end pt-22 pr-4 sm:items-end sm:justify-end sm:pt-0 sm:pr-0 sm:bottom-6 sm:right-6 sm:inset-auto"
           onClick={() => setIsOpen(false)}
         >
           <div className="relative max-w-[90vw] sm:max-w-none">
@@ -53,7 +53,7 @@ export function FractalWidget() {
 
             {/* Modal Content */}
             <div
-              className="relative w-full sm:w-[28rem] bg-[#26252480] backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-2xl animate-in fade-in-0 slide-in-from-left-4 sm:slide-in-from-bottom-4 duration-300"
+              className="relative w-full sm:w-[28rem] bg-[#26252480] backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-2xl animate-in fade-in-0 slide-in-from-right-4 sm:slide-in-from-bottom-4 duration-300"
               style={{ backgroundColor: "#26252480" }}
               onClick={(e) => e.stopPropagation()}
             >
