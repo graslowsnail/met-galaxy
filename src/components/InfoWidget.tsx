@@ -62,7 +62,7 @@ export function InfoWidget() {
             {/* Main Content */}
             <div className="text-white/90 space-y-4">
               <p className="text-sm leading-relaxed">
-                MET Backrooms is an infinite gallery for The Met's open-access collection. Wander 330,000+ artworks and
+                MET Backrooms is an infinite gallery for The Met&apos;s open-access collection. Wander 330,000+ artworks and
                 keep scrolling forever.
               </p>
 
@@ -70,7 +70,7 @@ export function InfoWidget() {
                 <p className="text-white/70 text-sm font-medium">Links:</p>
                 <div className="space-y-1">
                   <a href="https://www.pabloar.com/" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                    • What's Public Domain?
+                    • What&apos;s Public Domain?
                   </a>
                   <a href="#" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
                     • Terms of service

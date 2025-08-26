@@ -178,7 +178,7 @@ const FocalImage = memo(function FocalImage({
       {!hasError ? (
         <img
           src={image.src}
-          alt={image.title || 'Focal artwork'}
+          alt={image.title ?? 'Focal artwork'}
           style={{
             // Let image render at its natural dimensions
             display: 'block',

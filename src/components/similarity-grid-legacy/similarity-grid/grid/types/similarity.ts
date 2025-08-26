@@ -12,7 +12,9 @@ export type {
   DragState,
   ViewportBounds,
   UseViewportReturn
-} from '../../../grid-legacy/grid/types/grid'
+} from '../../../../grid-legacy/grid/types/grid'
+
+import type { Position } from '../../../../grid-legacy/grid/types/grid'
 
 /**
  * Similarity-specific image item that extends base ImageItem

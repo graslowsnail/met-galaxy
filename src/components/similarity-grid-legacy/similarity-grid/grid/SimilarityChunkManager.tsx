@@ -9,7 +9,7 @@
 import React, { useMemo, useEffect, useCallback } from 'react'
 import { SimilarityChunkComponent } from './SimilarityChunkComponent'
 import { useSimilarityChunkData } from './hooks/useSimilarityChunkData'
-import { useVirtualization } from '../../grid-legacy/grid/hooks/useVirtualization'
+import { useVirtualization } from '../../../grid-legacy/grid/hooks/useVirtualization'
 import type { 
   SimilarityChunk, 
   SimilarityGridState,
@@ -204,7 +204,7 @@ export function SimilarityChunkManager({
     <>
       {visibleChunks.filter((chunk): chunk is NonNullable<typeof chunk> => chunk != null).map((chunk) => {
         const isLoading = loadingChunks.has(chunk.id)
-        const error = errorChunks.get(chunk.id)
+        const error = errorChunks.get(chunk.id) ?? null
         
         return (
           <SimilarityChunkComponent

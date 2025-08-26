@@ -14,9 +14,9 @@ import type {
   ChunkData, 
   ChunkCoordinates, 
   UseChunkDataReturn 
-} from '../../../grid-legacy/grid/types/grid'
-import { getChunkKey } from '../../../grid-legacy/grid/utils/chunkCalculations'
-import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../../utils/constants'
+} from '../../../../grid-legacy/grid/types/grid'
+import { getChunkKey } from '../../../../grid-legacy/grid/utils/chunkCalculations'
+import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../../../utils/constants'
 
 interface UseSimilarityChunkDataProps {
   focalArtworkId: number
@@ -382,6 +382,13 @@ export function useSimilarityChunkDataSimple({
     
     // Batch operations
     fetchMultipleChunks,
+    fetchChunkStreaming: async (chunkX: number, chunkY: number) => {
+      await fetchChunkData(chunkX, chunkY)
+    },
+    fetchChunksWithPriority: async (visibleChunks: ChunkCoordinates[], bufferChunks?: ChunkCoordinates[]) => {
+      const allChunks = [...visibleChunks, ...(bufferChunks ?? [])]
+      await fetchMultipleChunks(allChunks)
+    },
     
     // Utility functions
     getChunkData,

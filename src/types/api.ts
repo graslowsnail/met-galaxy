@@ -122,7 +122,7 @@ export interface MultiChunkData {
 export interface MultiChunkResponse {
   success: boolean
   meta: MultiChunkMeta
-  data: { [chunkKey: string]: MultiChunkData }
+  data: Record<string, MultiChunkData>
   responseTime: string
 }
 

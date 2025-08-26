@@ -13,7 +13,7 @@ import type {
   Position,
   ViewportBounds
 } from '../types/similarity'
-import type { SimilarArtwork } from '@/types/api'
+import type { SimilarArtwork, Artwork } from '@/types/api'
 import {
   CHUNK_WIDTH,
   CHUNK_HEIGHT,
@@ -91,7 +91,7 @@ export function getVisibleChunks(viewportBounds: ViewportBounds): Position[] {
 function generateAspectRatio(chunkX: number, chunkY: number, imageIndex: number): number {
   const seed = Math.abs(chunkX * 1337 + chunkY * 271 + imageIndex * 73)
   const extendedRatios = [0.5, 0.6, 0.7, 0.75, 0.8, 1.0, 1.2, 1.33, 1.5, 1.6, 1.78, 2.0]
-  return extendedRatios[seed % extendedRatios.length]
+  return extendedRatios[seed % extendedRatios.length] ?? 1.0
 }
 
 /**
@@ -108,18 +108,18 @@ function calculateImageDimensions(aspectRatio: number) {
 function findBestColumn(columnHeights: number[], imageHeight: number, maxHeight: number): number {
   const availableSpace = columnHeights.map(height => maxHeight - height)
   const validColumns = columnHeights
-    .map((height, index) => ({ index, height, available: availableSpace[index] }))
+    .map((height, index) => ({ index, height, available: availableSpace[index] ?? 0 }))
     .filter(col => col.available >= imageHeight + GAP)
 
   if (validColumns.length > 0) {
     validColumns.sort((a, b) => a.height - b.height)
-    return validColumns[0].index
+    return validColumns[0]?.index ?? 0
   }
 
   // Fallback to shortest column if no perfect fit
   let shortestIndex = 0
   for (let i = 1; i < columnHeights.length; i++) {
-    if (columnHeights[i] < columnHeights[shortestIndex]) {
+    if ((columnHeights[i] ?? 0) < (columnHeights[shortestIndex] ?? 0)) {
       shortestIndex = i
     }
   }
@@ -157,7 +157,7 @@ function applyMasonryLayout(
       localX = CHUNK_WIDTH - AXIS_MARGIN - (columnIndex + 1) * (COLUMN_WIDTH + GAP) + GAP
     }
     
-    const localY = columnHeights[columnIndex]
+    const localY = columnHeights[columnIndex] ?? 0
     
     // Create positioned image
     const positionedImage: SimilarityImageItem = {
@@ -172,7 +172,9 @@ function applyMasonryLayout(
     positionedImages.push(positionedImage)
     
     // Update column height
-    columnHeights[columnIndex] += dimensions.height + GAP
+    if (columnHeights[columnIndex] !== undefined) {
+      columnHeights[columnIndex] += dimensions.height + GAP
+    }
   })
 
   return positionedImages
@@ -251,6 +253,8 @@ export function assignSimilarArtworksToChunks(
     let addedToChunk = 0
     while (artworkIndex < sortedArtworks.length && addedToChunk < 20) {
       const artwork = sortedArtworks[artworkIndex]
+      if (!artwork) break
+      
       const minSimilarityForRing = getMinSimilarityForRing(ring)
       
       if (artwork.similarity >= minSimilarityForRing) {
@@ -328,7 +332,7 @@ export function createFocalChunk(focalArtwork: SimilarArtwork, focalId?: number)
   }
   
   return {
-    id: `${focalId || focalArtwork.id}:0,0`,
+    id: `${focalId ?? focalArtwork.id}:0,0`,
     x: 0,
     y: 0,
     images: [focalImage],
@@ -346,7 +350,7 @@ export function createSimilarityChunk(
   chunkX: number,
   chunkY: number,
   artworks: SimilarArtwork[],
-  randomArtworks: any[] = [],
+  randomArtworks: Artwork[] = [],
   focalId?: number
 ): SimilarityChunk {
   const chunkWorldPos = chunkToWorldCoordinates(chunkX, chunkY)
@@ -370,6 +374,7 @@ export function createSimilarityChunk(
   // Create image items (without positioning) for similar artworks
   for (let i = 0; i < artworks.length && rawImages.length < maxSimilarImages; i++) {
     const artwork = artworks[i]
+    if (!artwork) continue
     
     const image: SimilarityImageItem = {
       id: `similar-${artwork.id}-${chunkX}-${chunkY}`,
@@ -398,13 +403,14 @@ export function createSimilarityChunk(
     
     for (let i = 0; i < Math.min(remainingSlots, randomArtworks.length); i++) {
       const randomArtwork = randomArtworks[i % randomArtworks.length]
+      if (!randomArtwork) continue
       
       const image: SimilarityImageItem = {
         id: `random-${randomArtwork.id}-${chunkX}-${chunkY}-${i}`,
         databaseId: randomArtwork.id,
-        imageUrl: randomArtwork.imageUrl || randomArtwork.primaryImage || '',
-        title: randomArtwork.title || 'Untitled',
-        artist: randomArtwork.artist || 'Unknown Artist',
+        imageUrl: randomArtwork.imageUrl ?? randomArtwork.primaryImage ?? '',
+        title: randomArtwork.title ?? 'Untitled',
+        artist: randomArtwork.artist ?? 'Unknown Artist',
         similarity: 0,
         width: COLUMN_WIDTH, // Will be set by masonry layout
         height: 200,        // Will be set by masonry layout
@@ -433,7 +439,7 @@ export function createSimilarityChunk(
   // Calculate chunk metadata
   const similarImages = positionedImages.filter(img => img.imageType === 'similar')
   const averageSimilarity = similarImages.length > 0 
-    ? similarImages.reduce((sum, img) => sum + (img.similarity || 0), 0) / similarImages.length
+    ? similarImages.reduce((sum, img) => sum + (img.similarity ?? 0), 0) / similarImages.length
     : 0
   
   const chunkType = ring === 0 ? 'focal' 

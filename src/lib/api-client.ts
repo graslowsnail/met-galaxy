@@ -136,7 +136,7 @@ export const apiClient = {
       chunkY: String(params.chunkY),
       ...(params.count ? { count: String(params.count) } : {}),
       ...(params.seed ? { seed: String(params.seed) } : {}),
-      ...(params.excludeIds && params.excludeIds.length
+      ...(params.excludeIds?.length
         ? { exclude: params.excludeIds.join(',') }
         : {}),
     })
@@ -156,7 +156,7 @@ export const apiClient = {
 
     if (!response.ok) throw new Error(`field-chunk http ${response.status}`)
     const json = (await response.json()) as FieldChunkResponse
-    if (!json.success) throw new Error(`field-chunk error: ${(json as any).error || 'unknown'}`)
+    if (!json.success) throw new Error(`field-chunk error: ${(json as { error?: string }).error ?? 'unknown'}`)
     return json
   },
 
@@ -173,8 +173,8 @@ export const apiClient = {
     const requestBody = {
       targetId: params.targetId,
       chunks: params.chunks,
-      count: params.count || 20,
-      ...(params.excludeIds && params.excludeIds.length ? { excludeIds: params.excludeIds } : {}),
+      count: params.count ?? 20,
+      ...(params.excludeIds?.length ? { excludeIds: params.excludeIds } : {}),
       ...(params.seed ? { seed: params.seed } : {})
     }
     
@@ -191,7 +191,7 @@ export const apiClient = {
 
     if (!response.ok) throw new Error(`field-chunks http ${response.status}`)
     const json = (await response.json()) as MultiChunkResponse
-    if (!json.success) throw new Error(`field-chunks error: ${(json as any).error || 'unknown'}`)
+    if (!json.success) throw new Error(`field-chunks error: ${(json as { error?: string }).error ?? 'unknown'}`)
     return json
   },
 }

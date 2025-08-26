@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useState, useEffect, useRef } from "react";
-import { useViewport } from "./grid-legacy/grid/hooks/useViewport";
+import { useViewport } from "../grid-legacy/grid/hooks/useViewport";
 import SimilarityChunkManagerSimple from "./similarity-grid/grid/SimilarityChunkManagerSimple";
 import type { 
   SimilarityGridProps,
   SimilarityImageItem
 } from "./similarity-grid/grid/types/similarity";
-import type { ImageItem } from "./grid-legacy/grid/types/grid";
+import type { ImageItem } from "../grid-legacy/grid/types/grid";
 import { DEBUG_LOGGING } from "./similarity-grid/grid/utils/constants";
 import { TRACKPAD_SPEED } from "./utils/constants";
 
@@ -78,8 +78,8 @@ export function SimilarityGrid({
       id: image.id,
       databaseId: image.databaseId ?? image.objectId ?? 0,
       imageUrl: image.src,
-      title: image.title || 'Untitled',
-      artist: image.artist || 'Unknown',
+      title: image.title ?? 'Untitled',
+      artist: image.artist ?? 'Unknown',
       width: image.width,
       height: image.height,
       aspectRatio: image.aspectRatio,

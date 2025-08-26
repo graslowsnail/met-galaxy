@@ -22,7 +22,7 @@ interface FocalArtworkPopupProps {
 }
 
 export function FocalArtworkPopup({ artwork, isOpen, onClose }: FocalArtworkPopupProps) {
-  const formatField = (label: string, value: string | null) => {
+  const formatField = (label: string, value: string | null | undefined) => {
     if (!value || value.trim() === '') return null
     return (
       <div key={label}>

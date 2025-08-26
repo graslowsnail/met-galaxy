@@ -100,8 +100,8 @@ export function calculateSimpleGridLayout(
   images: { width: number; height: number }[],
   chunkX: number,
   chunkY: number,
-  columnsPerChunk: number = 2,
-  rowsPerChunk: number = 3
+  columnsPerChunk = 2,
+  rowsPerChunk = 3
 ): PositionedImage[] {
   const positions: PositionedImage[] = []
   const maxImages = Math.min(images.length, columnsPerChunk * rowsPerChunk)

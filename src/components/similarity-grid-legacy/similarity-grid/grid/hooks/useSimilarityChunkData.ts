@@ -109,7 +109,7 @@ export function useSimilarityChunkData({
       if (parts.length !== 2) {
         throw new Error(`Invalid chunk ID format: ${chunkId} (expected targetId:chunkX,chunkY)`)
       }
-      const coords = parts[1].split(',').map(Number)
+      const coords = parts[1]?.split(',').map(Number) ?? []
       if (coords.length !== 2 || isNaN(coords[0]!) || isNaN(coords[1]!)) {
         throw new Error(`Invalid chunk ID format: ${chunkId} (invalid coordinates)`)
       }
@@ -177,13 +177,17 @@ export function useSimilarityChunkData({
             const fieldArtworks = fieldResponse.data.map(item => ({
               id: item.id,
               objectId: item.objectId,
-              title: item.title || 'Untitled',
-              artist: item.artist || 'Unknown',
-              imageUrl: item.imageUrl || '',
+              title: item.title ?? 'Untitled',
+              artist: item.artist ?? 'Unknown',
+              date: null,
+              imageUrl: item.imageUrl ?? '',
               originalImageUrl: item.originalImageUrl,
-              imageSource: item.imageSource || 's3',
+              imageSource: item.imageSource ?? 's3',
+              department: null,
+              culture: null,
+              medium: null,
               original: false,
-              similarity: item.similarity || 0
+              similarity: item.similarity ?? 0
             }))
             
             chunk = createSimilarityChunk(

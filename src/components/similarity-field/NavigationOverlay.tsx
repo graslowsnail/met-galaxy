@@ -96,7 +96,7 @@ const NavigationThumbnail = memo(function NavigationThumbnail({
           {item.thumbnailUrl ? (
             <img
               src={item.thumbnailUrl}
-              alt={item.title || 'Artwork'}
+              alt={item.title ?? 'Artwork'}
               style={{
                 width: '100%',
                 height: '100%',

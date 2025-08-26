@@ -144,7 +144,7 @@ export function calculateOptimalChunkLayout(
   const maxY = baseY + CHUNK_HEIGHT - AXIS_MARGIN
   
   // Track which images are in which columns
-  const columnImages: Map<number, number[]> = new Map()
+  const columnImages = new Map<number, number[]>()
   for (let i = 0; i < COLUMNS_PER_CHUNK; i++) {
     columnImages.set(i, [])
   }
@@ -164,7 +164,7 @@ export function calculateOptimalChunkLayout(
       columnHeights[result.columnIndex] = columnHeights[result.columnIndex]! + result.position.height + GAP
       
       // Track which column this image is in
-      const columnImagesList = columnImages.get(result.columnIndex) || []
+      const columnImagesList = columnImages.get(result.columnIndex) ?? []
       columnImagesList.push(index)
       columnImages.set(result.columnIndex, columnImagesList)
     }
@@ -172,7 +172,7 @@ export function calculateOptimalChunkLayout(
   
   // Second pass: Stretch the last images in each column to fill gaps
   for (let colIndex = 0; colIndex < COLUMNS_PER_CHUNK; colIndex++) {
-    const imagesInColumn = columnImages.get(colIndex) || []
+    const imagesInColumn = columnImages.get(colIndex) ?? []
     
     if (imagesInColumn.length > 0) {
       // Find the last image in this column

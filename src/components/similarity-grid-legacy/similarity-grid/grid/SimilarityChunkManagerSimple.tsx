@@ -8,22 +8,22 @@
 
 import React, { memo, useCallback, useEffect, useRef } from 'react'
 import { useSimilarityChunkDataSimple } from './hooks/useSimilarityChunkDataSimple'
-import { useVirtualization } from '../../grid-legacy/grid/hooks/useVirtualization'
-import GridRenderer from '../../grid-legacy/grid/GridRenderer'
+import { useVirtualization } from '../../../grid-legacy/grid/hooks/useVirtualization'
+import GridRenderer from '../../../grid-legacy/grid/GridRenderer'
 import type { 
   Chunk, 
   ChunkCoordinates, 
   ImageItem, 
   Position,
   ViewportState
-} from '../../grid-legacy/grid/types/grid'
+} from '../../../grid-legacy/grid/types/grid'
 import {
   generateImageId,
   generateAspectRatio,
   calculateImageDimensions,
   calculateBoundingBox,
   calculateOptimalChunkLayout,
-} from '../../grid-legacy/grid/utils/chunkCalculations'
+} from '../../../grid-legacy/grid/utils/chunkCalculations'
 import { 
   COLUMN_WIDTH,
   CHUNK_SIZE,
@@ -111,7 +111,7 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
 function createChunk(
   chunkX: number, 
   chunkY: number, 
-  chunkDataMap: Map<string, import('../../grid-legacy/grid/types/grid').ChunkData>,
+  chunkDataMap: Map<string, import('../../../grid-legacy/grid/types/grid').ChunkData>,
   fetchResults?: Map<string, Artwork[]>
 ): Chunk {
   const chunkKey = `${chunkX},${chunkY}`
