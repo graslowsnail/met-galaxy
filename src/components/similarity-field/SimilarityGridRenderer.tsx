@@ -110,6 +110,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
   chunks,
   translate,
   isDragging,
+  dragDistance,
   onImageClick,
   loadingChunks = new Set(),
   chunksToLoad = [],
@@ -117,6 +118,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
   chunkDataMap = new Map(),
   focalArtwork
 }: GridRendererProps & {
+  dragDistance?: number
   loadingChunks?: Set<string>
   chunksToLoad?: import('../grid-legacy/grid/types/grid').ChunkCoordinates[]
   visibleChunks?: number
@@ -164,6 +166,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
               chunk={chunk}
               onImageClick={onImageClick}
               isDragging={isDragging}
+              dragDistance={dragDistance ?? 0}
               focalArtwork={focalArtwork}
             />
           )
@@ -174,6 +177,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
               chunk={chunk}
               onImageClick={onImageClick}
               isDragging={isDragging}
+              dragDistance={dragDistance ?? 0}
               showBoundary={SHOW_CHUNK_BOUNDARIES}
             />
           )

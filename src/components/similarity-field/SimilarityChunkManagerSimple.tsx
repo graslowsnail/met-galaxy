@@ -47,6 +47,8 @@ interface SimilarityChunkManagerProps {
   viewport: ViewportState
   /** Whether dragging is currently active */
   isDragging: boolean
+  /** Distance dragged to distinguish clicks from drags */
+  dragDistance: number
   /** Whether viewport is initialized */
   isInitialized: boolean
   /** Focal artwork ID that user clicked */
@@ -323,6 +325,7 @@ function createChunk(
 const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple({
   viewport,
   isDragging,
+  dragDistance,
   isInitialized,
   focalArtworkId,
   focalArtwork,
@@ -690,6 +693,7 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       chunks={chunks}
       translate={translate}
       isDragging={isDragging}
+      dragDistance={dragDistance}
       onImageClick={onImageClick}
       loadingChunks={loadingChunks.current}
       chunksToLoad={chunksToLoad}

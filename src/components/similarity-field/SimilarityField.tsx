@@ -50,6 +50,7 @@ const SimilarityField = memo(function SimilarityField({
   const {
     viewport,
     isDragging,
+    dragDistance,
     isInitialized,
     containerRef,
     handleMouseDown,
@@ -212,6 +213,7 @@ const SimilarityField = memo(function SimilarityField({
           <SimilarityChunkManagerSimple
             viewport={viewport}
             isDragging={isDragging}
+            dragDistance={dragDistance}
             isInitialized={isInitialized}
             focalArtworkId={focalArtworkId}
             focalArtwork={focalArtwork}

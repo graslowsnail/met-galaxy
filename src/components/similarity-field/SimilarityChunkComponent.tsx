@@ -19,13 +19,15 @@ import {
 import { 
   IMAGE_BORDER_RADIUS, 
   IMAGE_SHADOW,
-  CHUNK_BORDER_COLOR 
+  CHUNK_BORDER_COLOR,
+  CLICK_MOVE_THRESHOLD
 } from '../grid-legacy/grid/utils/constants'
 
 interface SimilarityChunkComponentProps {
   chunk: Chunk
   onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
   isDragging?: boolean
+  dragDistance?: number
   showBoundary?: boolean
 }
 
@@ -33,6 +35,7 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
   chunk,
   onImageClick,
   isDragging = false,
+  dragDistance = 0,
   showBoundary = SHOW_CHUNK_BOUNDARIES
 }: SimilarityChunkComponentProps) {
   const { x: chunkX, y: chunkY, images, positions } = chunk
@@ -48,7 +51,8 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
   // }
 
   const handleImageClick = (image: ImageItem, event: React.MouseEvent) => {
-    if (isDragging || !onImageClick) return
+    // Prevent click during dragging OR if mouse moved significantly
+    if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD || !onImageClick) return
     event.preventDefault()
     event.stopPropagation()
     onImageClick(image, event)

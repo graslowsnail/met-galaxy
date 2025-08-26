@@ -17,6 +17,7 @@ import {
   FOCAL_CHUNK_BACKGROUND,
   DEBUG_LOGGING
 } from './utils/constants'
+import { CLICK_MOVE_THRESHOLD } from '../grid-legacy/grid/utils/constants'
 
 /**
  * Focal image component with special styling
@@ -26,12 +27,14 @@ const FocalImage = memo(function FocalImage({
   position,
   onImageClick, 
   isDragging,
+  dragDistance,
   focalArtwork
 }: {
   image: ImageItem
   position: import('../grid-legacy/grid/types/grid').PositionedImage
   onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
   isDragging?: boolean
+  dragDistance?: number
   focalArtwork?: {
     title: string | null
     artist: string | null
@@ -50,7 +53,8 @@ const FocalImage = memo(function FocalImage({
     event.preventDefault()
     event.stopPropagation()
     
-    if (!isDragging) {
+    // Prevent click during dragging OR if mouse moved significantly
+    if (!isDragging && (dragDistance ?? 0) <= CLICK_MOVE_THRESHOLD) {
       // Toggle modal for focal image
       setShowModal(prev => {
         const next = !prev
@@ -244,8 +248,10 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
   chunk,
   onImageClick,
   isDragging = false,
+  dragDistance = 0,
   focalArtwork
 }: ChunkComponentProps & {
+  dragDistance?: number
   focalArtwork?: {
     title: string | null
     artist: string | null
@@ -292,6 +298,7 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
         position={focalPosition}
         onImageClick={onImageClick}
         isDragging={isDragging}
+        dragDistance={dragDistance}
         focalArtwork={focalArtwork}
       />
 
