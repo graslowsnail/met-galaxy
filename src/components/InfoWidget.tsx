@@ -1,32 +1,56 @@
 "use client"
 
 import { useState } from "react"
-import { X } from "lucide-react"
+import { X, Info } from "lucide-react"
 
 export function InfoWidget() {
   const [isOpen, setIsOpen] = useState(false)
 
+  const handleToggle = () => {
+    setIsOpen(!isOpen)
+  }
+
   return (
     <>
       {/* Info Icon Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed top-4 right-4 z-40 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow duration-200"
-      >
-        <span className="text-black font-medium text-lg">i</span>
-      </button>
+      <div className="fixed top-6 right-6 z-40">
+        {/* Glowing effect for button on mobile when modal is open */}
+        {isOpen && (
+          <div
+            className="absolute top-0 left-0 w-full h-full rounded-full opacity-40 blur-[6px] scale-110 sm:hidden"
+            style={{
+              background: "linear-gradient(270deg, rgb(85, 254, 254) 0%, rgb(191, 73, 238) 100%)",
+            }}
+          ></div>
+        )}
+        
+        <button
+          onClick={handleToggle}
+          className={`relative w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 ${isOpen ? 'sm:opacity-0 sm:pointer-events-none' : ''}`}
+        >
+          {isOpen ? (
+            <X className="w-6 h-6 text-black sm:hidden" />
+          ) : (
+            <Info className="w-6 h-6 text-black" />
+          )}
+        </button>
+      </div>
 
       {/* Info Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end p-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-start justify-end pt-22 pr-4 sm:items-start sm:justify-end sm:pt-0 sm:p-4"
+          onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
+        >
           <div
-            className="w-80 bg-[#26252480] backdrop-blur-sm rounded-2xl p-6 shadow-2xl animate-in slide-in-from-right-5 duration-300"
+            className="w-full max-w-[90vw] sm:w-80 bg-[#26252480] backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-2xl animate-in slide-in-from-right-5 duration-300"
             style={{ backgroundColor: "#26252480" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
+            {/* Close Button - Desktop only */}
             <button
               onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+              className="hidden sm:flex absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
             >
               <X size={20} />
             </button>
