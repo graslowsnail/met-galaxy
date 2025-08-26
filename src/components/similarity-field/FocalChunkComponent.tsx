@@ -45,24 +45,6 @@ const FocalImage = memo(function FocalImage({
     objectUrl?: string | null
   }
 }) {
-  // Debug logging for focal artwork props
-  console.log('🖼️ FocalImage: Received focalArtwork props:', {
-    focalArtwork: focalArtwork ? {
-      title: focalArtwork.title,
-      artist: focalArtwork.artist,
-      objectUrl: focalArtwork.objectUrl,
-      hasObjectUrl: !!focalArtwork.objectUrl,
-      description: focalArtwork.description,
-      hasDescription: !!focalArtwork.description,
-      allProps: focalArtwork
-    } : null,
-    imageInfo: {
-      title: image.title,
-      artist: image.artist,
-      databaseId: image.databaseId,
-      description: image.description
-    }
-  })
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -75,11 +57,7 @@ const FocalImage = memo(function FocalImage({
     // Prevent click during dragging OR if mouse moved significantly
     if (!isDragging && (dragDistance ?? 0) <= CLICK_MOVE_THRESHOLD) {
       // Toggle modal for focal image
-      setShowModal(prev => {
-        const next = !prev
-          console.log(`🖱️ Focal image clicked. showModal: ${prev} -> ${next}`)
-        return next
-      })
+      setShowModal(prev => !prev)
     }
   }
 
@@ -116,7 +94,6 @@ const FocalImage = memo(function FocalImage({
 
   // If modal is open, show artwork info instead of image
   if (showModal) {
-      console.log('🪟 Focal modal opened', { hasArtwork: !!focalArtwork, title: focalArtwork?.title })
     const fields = focalArtwork ? [
       formatField("Artist", focalArtwork.artist),
       formatField("Date", focalArtwork.date),
@@ -255,13 +232,7 @@ const FocalImage = memo(function FocalImage({
         )}
 
         {/* View on The MET Button */}
-        {(() => {
-          console.log('🔗 Checking for MET button render:', {
-            hasObjectUrl: !!focalArtwork?.objectUrl,
-            objectUrl: focalArtwork?.objectUrl
-          })
-          return focalArtwork?.objectUrl
-        })() && (
+        {focalArtwork?.objectUrl && (
           <div className="mt-4 pt-4 border-t border-white/10">
             <button
               onClick={(e) => {
@@ -402,11 +373,6 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
     return null
   }
 
-  if (DEBUG_LOGGING) {
-    console.log(`🎯 Rendering focal chunk ${chunk.x},${chunk.y} with image:`, focalImage.title)
-    console.log(`🎯 Focal image position:`, focalPosition)
-    console.log(`🎯 Chunk pixel position: (${pixelX}, ${pixelY})`)
-  }
 
   return (
     <div

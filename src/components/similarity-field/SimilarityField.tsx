@@ -48,20 +48,6 @@ const SimilarityField = memo(function SimilarityField({
   onArtworkClick,
   className = ''
 }: SimilarityFieldProps) {
-  // Debug logging for focal artwork props
-  console.log('🎯 SimilarityField: Received focalArtwork props:', {
-    focalArtworkId,
-    focalArtwork: focalArtwork ? {
-      id: focalArtwork.id,
-      title: focalArtwork.title,
-      artist: focalArtwork.artist,
-      objectUrl: focalArtwork.objectUrl,
-      hasObjectUrl: !!focalArtwork.objectUrl,
-      description: focalArtwork.description,
-      hasDescription: !!focalArtwork.description,
-      allProps: focalArtwork
-    } : null
-  })
   const {
     viewport,
     isDragging,

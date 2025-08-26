@@ -216,16 +216,6 @@ export function useSimilarityChunkDataSimple({
             primaryImage: focalArtwork.imageUrl,
             primaryImageSmall: focalArtwork.imageUrl
           }]
-          
-          // Debug logging for focal artwork with objectUrl and description
-          console.log('🎯 useSimilarityChunkDataSimple: Creating focal artwork:', {
-            id: focalArtwork.id,
-            title: focalArtwork.title,
-            objectUrl: focalArtwork.objectUrl,
-            hasObjectUrl: !!focalArtwork.objectUrl,
-            description: focalArtwork.description,
-            hasDescription: !!focalArtwork.description
-          })
         } else {
           if (DEBUG_LOGGING) {
             console.log(`⚠️ No focal artwork provided for focal chunk`)

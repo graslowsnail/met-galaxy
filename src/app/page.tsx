@@ -53,17 +53,6 @@ export default function Home() {
         objectUrl: (image as any).objectUrl ?? null
       }
       
-      // Debug logging to check if objectUrl and description are available
-      console.log('🎯 Main page: Creating artworkData from image click:', {
-        databaseId: image.databaseId,
-        title: image.title,
-        objectUrl: (image as any).objectUrl,
-        hasObjectUrl: !!((image as any).objectUrl),
-        description: image.description,
-        hasDescription: !!image.description,
-        fullArtworkData: artworkData
-      })
-      
       setSimilarityMode({ 
         active: true, 
         artworkId: image.databaseId,
