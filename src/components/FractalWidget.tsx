@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, CirclePower } from "lucide-react"
+import { X, Zap } from "lucide-react"
 
 export function FractalWidget() {
   const [isOpen, setIsOpen] = useState(false)
@@ -26,12 +26,12 @@ export function FractalWidget() {
         
         <button
           onClick={handleToggle}
-          className={`relative w-14 h-14 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center ${isOpen ? 'sm:opacity-0 sm:pointer-events-none' : ''}`}
+          className={`relative w-14 h-14 bg-white/50 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center ${isOpen ? 'sm:opacity-0 sm:pointer-events-none' : ''}`}
         >
           {isOpen ? (
-            <X className="w-6 h-6 text-gray-800 sm:hidden" />
+            <X className="w-6 h-6 text-slate-900 sm:hidden" />
           ) : (
-            <CirclePower className="w-6 h-6 text-gray-800" />
+            <Zap className="w-6 h-6 text-slate-900" />
           )}
         </button>
       </div>
@@ -94,8 +94,7 @@ export function FractalWidget() {
                   height="125" 
                   decoding="async" 
                   className="w-full h-full object-cover object-center"
-                  srcSet="https://images.spr.so/cdn-cgi/imagedelivery/j42No7y-dcokJuNgXeA0ig/f609c1f5-b124-4e1b-82e6-b25273749e52/bitsy_background/w=128,quality=90,fit=scale-down 1x, https://images.spr.so/cdn-cgi/imagedelivery/j42No7y-dcokJuNgXeA0ig/f609c1f5-b124-4e1b-82e6-b25273749e52/bitsy_background/w=256,quality=90,fit=scale-down 2x" 
-                  src="https://images.spr.so/cdn-cgi/imagedelivery/j42No7y-dcokJuNgXeA0ig/f609c1f5-b124-4e1b-82e6-b25273749e52/bitsy_background/w=256,quality=90,fit=scale-down"
+                  src="/fractalIcon.avif"
                 />
               </div>
             </div>

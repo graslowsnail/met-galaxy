@@ -26,15 +26,19 @@ export function InfoWidget() {
         
         <button
           onClick={handleToggle}
-          className="relative w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300"
+          className="relative bg-white/50 rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 w-14 h-14 sm:w-auto sm:h-auto sm:px-4 sm:py-3 sm:rounded-lg gap-2"
         >
           {isOpen ? (
             <>
               <X className="w-6 h-6 text-black sm:hidden" />
-              <Info className="w-6 h-6 text-black hidden sm:block" />
+              <span className="hidden sm:block text-slate-900 font-medium">Open Metropolitan</span>
+              <Info className="w-6 h-6 text-slate-900 hidden sm:block" />
             </>
           ) : (
-            <Info className="w-6 h-6 text-black" />
+            <>
+              <span className="hidden sm:block text-slate-900 font-medium">Open Metropolitan</span>
+              <Info className="w-6 h-6 text-slate-900" />
+            </>
           )}
         </button>
       </div>
