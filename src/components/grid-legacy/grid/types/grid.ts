@@ -45,6 +45,7 @@ export interface ImageItem {
   medium?: string | null
   creditLine?: string | null
   description?: string | null
+  objectUrl?: string | null
 }
 
 /**

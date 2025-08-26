@@ -23,8 +23,13 @@ interface UseSimilarityChunkDataProps {
     id: number
     title: string | null
     artist: string | null
+    date?: string | null
+    department?: string | null
+    creditLine?: string | null
+    description?: string | null
     imageUrl: string | null
     originalImageUrl: string | null
+    objectUrl?: string | null
   }
 }
 
@@ -198,16 +203,29 @@ export function useSimilarityChunkDataSimple({
             objectId: focalArtwork.id, // Use same ID for objectId
             title: focalArtwork.title,
             artist: focalArtwork.artist,
-            date: null,
+            date: focalArtwork.date ?? null,
             imageUrl: focalArtwork.imageUrl,
             originalImageUrl: focalArtwork.originalImageUrl || focalArtwork.imageUrl,
             imageSource: 's3',
-            department: null,
+            department: focalArtwork.department ?? null,
             culture: null,
             medium: null,
+            creditLine: focalArtwork.creditLine ?? null,
+            description: focalArtwork.description ?? null,
+            objectUrl: focalArtwork.objectUrl,
             primaryImage: focalArtwork.imageUrl,
             primaryImageSmall: focalArtwork.imageUrl
           }]
+          
+          // Debug logging for focal artwork with objectUrl and description
+          console.log('🎯 useSimilarityChunkDataSimple: Creating focal artwork:', {
+            id: focalArtwork.id,
+            title: focalArtwork.title,
+            objectUrl: focalArtwork.objectUrl,
+            hasObjectUrl: !!focalArtwork.objectUrl,
+            description: focalArtwork.description,
+            hasDescription: !!focalArtwork.description
+          })
         } else {
           if (DEBUG_LOGGING) {
             console.log(`⚠️ No focal artwork provided for focal chunk`)
@@ -247,13 +265,16 @@ export function useSimilarityChunkDataSimple({
           objectId: item.objectId,
           title: item.title,
           artist: item.artist,
-          date: null,
+          date: item.date ?? null,
           imageUrl: item.imageUrl,
           originalImageUrl: item.originalImageUrl || item.imageUrl,
           imageSource: item.imageSource,
-          department: null,
+          department: item.department ?? null,
           culture: null,
           medium: null,
+          creditLine: item.creditLine ?? null,
+          description: item.description ?? null,
+          objectUrl: item.objectUrl,
           primaryImage: item.imageUrl,
           primaryImageSmall: item.imageUrl
         }))
@@ -465,13 +486,16 @@ export function useSimilarityChunkDataSimple({
           objectId: item.objectId,
           title: item.title,
           artist: item.artist,
-          date: null,
+          date: item.date ?? null,
           imageUrl: item.imageUrl,
           originalImageUrl: item.originalImageUrl || item.imageUrl,
           imageSource: item.imageSource,
-          department: null,
+          department: item.department ?? null,
           culture: null,
           medium: null,
+          creditLine: item.creditLine ?? null,
+          description: item.description ?? null,
+          objectUrl: item.objectUrl,
           primaryImage: item.imageUrl,
           primaryImageSmall: item.imageUrl
         }))

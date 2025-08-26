@@ -78,6 +78,19 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
       // Use primaryImageSmall if available, fallback to primaryImage
       const imageUrl = artwork.primaryImageSmall ?? artwork.primaryImage
       const src = imageUrl!
+      
+      // Debug log for first artwork in chunk to check objectUrl and description
+      if (i === 0) {
+        console.log(`📦 ChunkManager: Creating ImageItem for chunk (${chunkX},${chunkY}) artwork:`, {
+          id: artwork.id,
+          title: artwork.title,
+          objectUrl: artwork.objectUrl,
+          hasObjectUrl: !!artwork.objectUrl,
+          description: artwork.description,
+          hasDescription: !!artwork.description,
+          creditLine: artwork.creditLine
+        })
+      }
 
       return {
         id: generateImageId('artwork', chunkX, chunkY, i, artwork.id),
@@ -97,6 +110,9 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
         department: artwork.department,
         culture: artwork.culture,
         medium: artwork.medium,
+        creditLine: artwork.creditLine,
+        description: artwork.description,
+        objectUrl: artwork.objectUrl,
       }
     })
 }

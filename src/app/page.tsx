@@ -20,6 +20,7 @@ export default function Home() {
       description?: string | null;
       imageUrl: string | null;
       originalImageUrl: string | null;
+      objectUrl?: string | null;
     } | null;
   }>({ active: false, artworkId: null, artworkData: null })
 
@@ -48,8 +49,20 @@ export default function Home() {
         creditLine: image.creditLine ?? null,
         description: image.description ?? null,
         imageUrl: image.src,
-        originalImageUrl: image.src ?? null
+        originalImageUrl: image.src ?? null,
+        objectUrl: (image as any).objectUrl ?? null
       }
+      
+      // Debug logging to check if objectUrl and description are available
+      console.log('🎯 Main page: Creating artworkData from image click:', {
+        databaseId: image.databaseId,
+        title: image.title,
+        objectUrl: (image as any).objectUrl,
+        hasObjectUrl: !!((image as any).objectUrl),
+        description: image.description,
+        hasDescription: !!image.description,
+        fullArtworkData: artworkData
+      })
       
       setSimilarityMode({ 
         active: true, 
@@ -97,7 +110,8 @@ export default function Home() {
       title: artwork.title,
       artist: artwork.artist,
       imageUrl: artwork.imageUrl,
-      originalImageUrl: artwork.imageUrl ?? null
+      originalImageUrl: artwork.imageUrl ?? null,
+      objectUrl: (artwork as any).objectUrl ?? null
     }
     
     // Update the focal artwork for rabbit hole navigation
@@ -141,7 +155,8 @@ export default function Home() {
       title: item.title,
       artist: item.artist,
       imageUrl: item.thumbnailUrl,
-      originalImageUrl: item.thumbnailUrl ?? null
+      originalImageUrl: item.thumbnailUrl ?? null,
+      objectUrl: (item as any).objectUrl ?? null
     }
     
     setSimilarityMode({

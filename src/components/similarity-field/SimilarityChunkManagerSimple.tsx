@@ -64,6 +64,7 @@ interface SimilarityChunkManagerProps {
     description?: string | null
     imageUrl: string | null
     originalImageUrl: string | null
+    objectUrl?: string | null
   }
   /** Callback when an image is clicked */
   onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
@@ -119,6 +120,9 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
         department: artwork.department,
         culture: artwork.culture,
         medium: artwork.medium,
+        creditLine: artwork.creditLine,
+        description: artwork.description,
+        objectUrl: artwork.objectUrl,
       }
     })
 }
@@ -154,6 +158,9 @@ function generateFocalImage(chunkX: number, chunkY: number, focalArtwork: Artwor
     department: focalArtwork.department,
     culture: focalArtwork.culture,
     medium: focalArtwork.medium,
+    creditLine: focalArtwork.creditLine,
+    description: focalArtwork.description,
+    objectUrl: focalArtwork.objectUrl,
   }
 }
 

@@ -15,6 +15,7 @@ export interface Artwork {
   // Enhanced metadata for focal artwork display
   creditLine?: string | null
   description?: string | null
+  objectUrl?: string | null
   // For backward compatibility
   primaryImage?: string | null
   primaryImageSmall?: string | null
@@ -90,6 +91,7 @@ export interface FieldChunkItem {
   department?: string | null
   creditLine?: string | null
   description?: string | null
+  objectUrl?: string | null
 }
 
 export interface FieldChunkResponse {

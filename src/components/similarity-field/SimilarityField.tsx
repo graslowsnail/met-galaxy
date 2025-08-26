@@ -31,6 +31,7 @@ interface SimilarityFieldProps {
     description?: string | null
     imageUrl: string | null
     originalImageUrl: string | null
+    objectUrl?: string | null
   }
   onArtworkClick?: (artwork: {
     id: number
@@ -47,6 +48,20 @@ const SimilarityField = memo(function SimilarityField({
   onArtworkClick,
   className = ''
 }: SimilarityFieldProps) {
+  // Debug logging for focal artwork props
+  console.log('🎯 SimilarityField: Received focalArtwork props:', {
+    focalArtworkId,
+    focalArtwork: focalArtwork ? {
+      id: focalArtwork.id,
+      title: focalArtwork.title,
+      artist: focalArtwork.artist,
+      objectUrl: focalArtwork.objectUrl,
+      hasObjectUrl: !!focalArtwork.objectUrl,
+      description: focalArtwork.description,
+      hasDescription: !!focalArtwork.description,
+      allProps: focalArtwork
+    } : null
+  })
   const {
     viewport,
     isDragging,

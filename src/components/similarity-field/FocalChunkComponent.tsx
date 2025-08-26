@@ -42,8 +42,27 @@ const FocalImage = memo(function FocalImage({
     department?: string | null
     creditLine?: string | null
     description?: string | null
+    objectUrl?: string | null
   }
 }) {
+  // Debug logging for focal artwork props
+  console.log('🖼️ FocalImage: Received focalArtwork props:', {
+    focalArtwork: focalArtwork ? {
+      title: focalArtwork.title,
+      artist: focalArtwork.artist,
+      objectUrl: focalArtwork.objectUrl,
+      hasObjectUrl: !!focalArtwork.objectUrl,
+      description: focalArtwork.description,
+      hasDescription: !!focalArtwork.description,
+      allProps: focalArtwork
+    } : null,
+    imageInfo: {
+      title: image.title,
+      artist: image.artist,
+      databaseId: image.databaseId,
+      description: image.description
+    }
+  })
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -107,28 +126,108 @@ const FocalImage = memo(function FocalImage({
     ].filter(Boolean) : []
 
     return (
-      <div
-        style={{
-          position: 'absolute',
-          left: imageX,
-          top: imageY,
-          cursor: 'pointer',
-          transform: 'translate(-50%, -50%)',
-          transformOrigin: 'center center',
-          zIndex: 99999,
-          backgroundColor: 'rgba(38, 37, 36, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '16px',
-          padding: '24px',
-          minWidth: '320px',
-          maxWidth: '450px',
-          maxHeight: '600px',
-          overflowY: 'auto',
-          boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.6), 0 10px 20px -4px rgb(0 0 0 / 0.3)',
-          border: '1px solid rgba(255, 255, 255, 0.2)'
-        }}
-        onClick={handleClick}
-      >
+      <>
+        <style>{`
+          .focal-modal-scroll::-webkit-scrollbar {
+            width: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+          }
+          
+          .focal-modal-scroll::-webkit-scrollbar-track {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            margin: 8px 0;
+          }
+          
+          .focal-modal-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+          }
+          
+          .focal-modal-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+          }
+          
+          .focal-modal-scroll::-webkit-scrollbar-thumb:active {
+            background-color: rgba(255, 255, 255, 0.6);
+          }
+          
+          /* For Firefox */
+          .focal-modal-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+          }
+          
+          /* Much larger scrollbar for mobile/touch devices */
+          @media (hover: none) and (pointer: coarse) {
+            .focal-modal-scroll::-webkit-scrollbar {
+              width: 20px;
+            }
+            
+            .focal-modal-scroll::-webkit-scrollbar-track {
+              background-color: rgba(255, 255, 255, 0.1);
+              border-radius: 10px;
+            }
+            
+            .focal-modal-scroll::-webkit-scrollbar-thumb {
+              background-color: rgba(255, 255, 255, 0.5);
+              border-radius: 10px;
+              border: 3px solid transparent;
+              background-clip: padding-box;
+            }
+            
+            .focal-modal-scroll::-webkit-scrollbar-thumb:active {
+              background-color: rgba(255, 255, 255, 0.7);
+            }
+          }
+          
+          /* Alternative mobile detection */
+          @media (max-width: 768px) {
+            .focal-modal-scroll::-webkit-scrollbar {
+              width: 20px;
+            }
+            
+            .focal-modal-scroll::-webkit-scrollbar-thumb {
+              background-color: rgba(255, 255, 255, 0.5);
+              min-height: 50px; /* Ensure thumb is always grabbable */
+            }
+            
+            .focal-modal-scroll {
+              padding-right: 8px !important; /* Less padding on mobile for wider scrollbar */
+            }
+          }
+        `}</style>
+        <div
+          className="focal-modal-scroll"
+          style={{
+            position: 'absolute',
+            left: imageX,
+            top: imageY,
+            cursor: 'pointer',
+            transform: 'translate(-50%, -50%)',
+            transformOrigin: 'center center',
+            zIndex: 99999,
+            backgroundColor: 'rgba(38, 37, 36, 0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '16px',
+            padding: '24px',
+            paddingRight: '16px', // Less padding on right to accommodate scrollbar
+            minWidth: '320px',
+            maxWidth: '450px',
+            maxHeight: '600px',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.6), 0 10px 20px -4px rgb(0 0 0 / 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+          }}
+          onClick={handleClick}
+          onScroll={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
         {/* Title */}
         {focalArtwork?.title ? (
           <h3 className="text-lg font-medium text-white/95 leading-tight mb-4">
@@ -154,12 +253,39 @@ const FocalImage = memo(function FocalImage({
             No additional information available for this artwork.
           </p>
         )}
+
+        {/* View on The MET Button */}
+        {(() => {
+          console.log('🔗 Checking for MET button render:', {
+            hasObjectUrl: !!focalArtwork?.objectUrl,
+            objectUrl: focalArtwork?.objectUrl
+          })
+          return focalArtwork?.objectUrl
+        })() && (
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                if (focalArtwork?.objectUrl) {
+                  window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
+                }
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              View on The MET
+            </button>
+          </div>
+        )}
         
         {/* Click to close hint */}
         <div className="mt-4 text-white/50 text-xs text-center">
           Click to close
         </div>
-      </div>
+        </div>
+      </>
     )
   }
 
@@ -259,6 +385,7 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
     department?: string | null
     creditLine?: string | null
     description?: string | null
+    objectUrl?: string | null
   }
 }) {
   const pixelX = chunk.x * CHUNK_WIDTH

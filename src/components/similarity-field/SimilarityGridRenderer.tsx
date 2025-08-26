@@ -136,6 +136,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
     culture?: string | null
     period?: string | null
     dynasty?: string | null
+    objectUrl?: string | null
   }
 }) {
   
