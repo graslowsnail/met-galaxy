@@ -3,7 +3,7 @@
  * Based on ChunkComponent but uses similarity field constants for correct positioning
  */
 
-import React, { memo } from 'react'
+import React, { memo, useState } from 'react'
 import type { Chunk, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 
   CHUNK_WIDTH, 
@@ -36,6 +36,7 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
   showBoundary = SHOW_CHUNK_BOUNDARIES
 }: SimilarityChunkComponentProps) {
   const { x: chunkX, y: chunkY, images, positions } = chunk
+  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null)
   
   // Calculate the actual cell width used in the grid layout
   const cellWidth = (CHUNK_WIDTH - (2 * AXIS_MARGIN) - ((COLUMNS_PER_CHUNK - 1) * GAP)) / COLUMNS_PER_CHUNK
@@ -99,56 +100,91 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
         const position = positions[index]
         if (!position) return null
 
+        const isHovered = hoveredImageId === image.id
+
         return (
           <div
             key={image.id}
-            className="absolute bg-white overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200 group cursor-pointer"
+            className="absolute cursor-pointer group"
             style={{
               left: position.x,
               top: position.y,
               width: cellWidth,
               height: position.height,
               borderRadius: IMAGE_BORDER_RADIUS,
-              boxShadow: IMAGE_SHADOW.default,
+              transformOrigin: 'center',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              zIndex: isHovered ? 500 : 1,
             }}
             onClick={(e) => handleImageClick(image, e)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = IMAGE_SHADOW.hover
+            onMouseEnter={() => {
+              if (!isDragging) {
+                setHoveredImageId(image.id)
+              }
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = IMAGE_SHADOW.default
+            onMouseLeave={() => {
+              setHoveredImageId(null)
             }}
           >
-            <img
-              src={image.src}
-              alt={image.title ?? `Artwork ${image.id}`}
-              className="w-full h-full object-cover pointer-events-none select-none"
+            {/* Main container that transforms on hover */}
+            <div
+              className="relative w-full h-full transition-all duration-300 ease-out"
               style={{
-                objectFit: 'cover',
-                objectPosition: 'center',
+                transform: isHovered ? 'scale(1.25) translateY(-12px)' : 'scale(1)',
+                boxShadow: isHovered 
+                  ? '0 36px 72px -18px rgba(0,0,0,0.55), 0 20px 40px -12px rgba(0,0,0,0.35)' 
+                  : 'none',
+                filter: isHovered ? 'saturate(1.08) contrast(1.06)' : 'none',
+                borderRadius: IMAGE_BORDER_RADIUS,
               }}
-              draggable={false}
-              loading="lazy"
-              onError={handleError}
-            />
-            
-            {/* Metadata overlay on hover */}
-            {(image.title ?? image.artist) && (
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="p-2 text-white text-xs">
+            >
+              {isHovered && (
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    borderRadius: IMAGE_BORDER_RADIUS,
+                    boxShadow: '0 0 0 2px rgba(255,255,255,0.95), 0 0 40px rgba(255,255,255,0.38)'
+                  }}
+                />
+              )}
+              {/* Background for full image */}
+              <div 
+                className="w-full h-full overflow-hidden"
+                style={{ 
+                  borderRadius: IMAGE_BORDER_RADIUS
+                }}
+              >
+                <img
+                  src={image.src}
+                  alt={image.title ?? `Artwork ${image.id}`}
+                  className="w-full h-full pointer-events-none select-none transition-all duration-300"
+                  style={{
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                    
+                  }}
+                  draggable={false}
+                  loading="lazy"
+                  onError={handleError}
+                />
+              </div>
+
+              {/* Enhanced metadata overlay */}
+              {isHovered && (image.title || image.artist) && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2 pb-1 pt-2 pointer-events-none">
                   {image.title && (
-                    <div className="font-medium truncate" title={image.title}>
+                    <div className="text-white font-semibold text-sm md:text-base mb-0.5 leading-tight line-clamp-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                       {image.title}
                     </div>
                   )}
                   {image.artist && (
-                    <div className="text-white/80 truncate" title={image.artist}>
+                    <div className="text-white/80 text-[10px] md:text-xs">
                       {image.artist}
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )
       })}
