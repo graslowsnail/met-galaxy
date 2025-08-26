@@ -43,6 +43,8 @@ export interface ImageItem {
   department?: string | null
   culture?: string | null
   medium?: string | null
+  creditLine?: string | null
+  description?: string | null
 }
 
 /**

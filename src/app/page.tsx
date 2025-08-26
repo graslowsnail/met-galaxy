@@ -14,6 +14,10 @@ export default function Home() {
       id: number;
       title: string | null;
       artist: string | null;
+      date?: string | null;
+      department?: string | null;
+      creditLine?: string | null;
+      description?: string | null;
       imageUrl: string | null;
       originalImageUrl: string | null;
     } | null;
@@ -39,6 +43,10 @@ export default function Home() {
         id: image.databaseId,
         title: image.title ?? null,
         artist: image.artist ?? null,
+        date: image.date ?? null,
+        department: image.department ?? null,
+        creditLine: image.creditLine ?? null,
+        description: image.description ?? null,
         imageUrl: image.src,
         originalImageUrl: image.src ?? null
       }

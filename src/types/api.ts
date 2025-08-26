@@ -12,6 +12,9 @@ export interface Artwork {
   department: string | null
   culture: string | null
   medium: string | null
+  // Enhanced metadata for focal artwork display
+  creditLine?: string | null
+  description?: string | null
   // For backward compatibility
   primaryImage?: string | null
   primaryImageSmall?: string | null
@@ -82,6 +85,11 @@ export interface FieldChunkItem {
   imageSource: 's3' | 'met_small' | 'met_original' | null
   similarity: number | null        // present for sim/drift
   source: 'sim' | 'drift' | 'rand' // provenance tag
+  // Enhanced metadata for focal artwork display
+  date?: string | null
+  department?: string | null
+  creditLine?: string | null
+  description?: string | null
 }
 
 export interface FieldChunkResponse {

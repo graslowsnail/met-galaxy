@@ -114,12 +114,27 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
   loadingChunks = new Set(),
   chunksToLoad = [],
   visibleChunks = 0,
-  chunkDataMap = new Map()
+  chunkDataMap = new Map(),
+  focalArtwork
 }: GridRendererProps & {
   loadingChunks?: Set<string>
   chunksToLoad?: import('../grid-legacy/grid/types/grid').ChunkCoordinates[]
   visibleChunks?: number
   chunkDataMap?: Map<string, import('../grid-legacy/grid/types/grid').ChunkData>
+  focalArtwork?: {
+    title: string | null
+    artist: string | null
+    dateDisplay?: string | null
+    medium?: string | null
+    dimensions?: string | null
+    creditLine?: string | null
+    accessionNumber?: string | null
+    department?: string | null
+    classification?: string | null
+    culture?: string | null
+    period?: string | null
+    dynasty?: string | null
+  }
 }) {
   
   if (DEBUG_LOGGING) {
@@ -149,6 +164,7 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
               chunk={chunk}
               onImageClick={onImageClick}
               isDragging={isDragging}
+              focalArtwork={focalArtwork}
             />
           )
         } else {

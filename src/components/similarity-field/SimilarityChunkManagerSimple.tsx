@@ -56,6 +56,10 @@ interface SimilarityChunkManagerProps {
     id: number
     title: string | null
     artist: string | null
+    date?: string | null
+    department?: string | null
+    creditLine?: string | null
+    description?: string | null
     imageUrl: string | null
     originalImageUrl: string | null
   }
@@ -691,6 +695,7 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       chunksToLoad={chunksToLoad}
       visibleChunks={visibleChunks.length}
       chunkDataMap={chunkDataMap}
+      focalArtwork={focalArtwork}
     />
   )
 })

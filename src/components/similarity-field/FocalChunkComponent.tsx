@@ -25,23 +25,38 @@ const FocalImage = memo(function FocalImage({
   image, 
   position,
   onImageClick, 
-  isDragging 
+  isDragging,
+  focalArtwork
 }: {
   image: ImageItem
   position: import('../grid-legacy/grid/types/grid').PositionedImage
   onImageClick?: (image: ImageItem, event: React.MouseEvent) => void
   isDragging?: boolean
+  focalArtwork?: {
+    title: string | null
+    artist: string | null
+    date?: string | null
+    department?: string | null
+    creditLine?: string | null
+    description?: string | null
+  }
 }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const handleClick = (event: React.MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
     
-    if (!isDragging && onImageClick) {
-      onImageClick(image, event)
+    if (!isDragging) {
+      // Toggle modal for focal image
+      setShowModal(prev => {
+        const next = !prev
+          console.log(`🖱️ Focal image clicked. showModal: ${prev} -> ${next}`)
+        return next
+      })
     }
   }
 
@@ -65,6 +80,84 @@ const FocalImage = memo(function FocalImage({
   // Position the image at the center (the image will size itself naturally)
   const imageX = centerX
   const imageY = centerY
+
+  const formatField = (label: string, value: string | null | undefined) => {
+    if (!value || value.trim() === '') return null
+    return (
+      <div key={label} className="mb-2">
+        <span className="text-white/70 text-sm">{label}:</span>
+        <span className="text-white/90 text-sm ml-2">{value}</span>
+      </div>
+    )
+  }
+
+  // If modal is open, show artwork info instead of image
+  if (showModal) {
+      console.log('🪟 Focal modal opened', { hasArtwork: !!focalArtwork, title: focalArtwork?.title })
+    const fields = focalArtwork ? [
+      formatField("Artist", focalArtwork.artist),
+      formatField("Date", focalArtwork.date),
+      formatField("Department", focalArtwork.department),
+      formatField("Credit Line", focalArtwork.creditLine),
+      formatField("Description", focalArtwork.description),
+    ].filter(Boolean) : []
+
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left: imageX,
+          top: imageY,
+          cursor: 'pointer',
+          transform: 'translate(-50%, -50%)',
+          transformOrigin: 'center center',
+          zIndex: 99999,
+          backgroundColor: 'rgba(38, 37, 36, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '16px',
+          padding: '24px',
+          minWidth: '320px',
+          maxWidth: '450px',
+          maxHeight: '600px',
+          overflowY: 'auto',
+          boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.6), 0 10px 20px -4px rgb(0 0 0 / 0.3)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}
+        onClick={handleClick}
+      >
+        {/* Title */}
+        {focalArtwork?.title ? (
+          <h3 className="text-lg font-medium text-white/95 leading-tight mb-4">
+            {focalArtwork.title}
+          </h3>
+        ) : (
+          <h3 className="text-lg font-medium text-white/90 leading-tight mb-4">
+            Artwork details
+          </h3>
+        )}
+        
+        {/* Fields */}
+        <div className="space-y-2">
+          {fields.map((field, index) => (
+            <div key={index}>
+              {field}
+            </div>
+          ))}
+        </div>
+
+        {fields.length === 0 && !focalArtwork?.title && (
+          <p className="text-white/70 text-sm italic">
+            No additional information available for this artwork.
+          </p>
+        )}
+        
+        {/* Click to close hint */}
+        <div className="mt-4 text-white/50 text-xs text-center">
+          Click to close
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -150,8 +243,18 @@ const FocalImage = memo(function FocalImage({
 const FocalChunkComponent = memo(function FocalChunkComponent({
   chunk,
   onImageClick,
-  isDragging = false
-}: ChunkComponentProps) {
+  isDragging = false,
+  focalArtwork
+}: ChunkComponentProps & {
+  focalArtwork?: {
+    title: string | null
+    artist: string | null
+    date?: string | null
+    department?: string | null
+    creditLine?: string | null
+    description?: string | null
+  }
+}) {
   const pixelX = chunk.x * CHUNK_WIDTH
   const pixelY = chunk.y * CHUNK_HEIGHT
 
@@ -181,7 +284,7 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
         width: CHUNK_WIDTH,
         height: CHUNK_HEIGHT,
         // No background - let it blend with the main background
-        pointerEvents: isDragging ? 'none' : 'auto'
+        pointerEvents: 'auto'
       }}
     >
       <FocalImage
@@ -189,25 +292,9 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
         position={focalPosition}
         onImageClick={onImageClick}
         isDragging={isDragging}
+        focalArtwork={focalArtwork}
       />
-      
-      {/* Optional focal indicator */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          color: 'white',
-          padding: '4px 8px',
-          borderRadius: 4,
-          fontSize: '12px',
-          fontWeight: 'bold',
-          pointerEvents: 'none'
-        }}
-      >
-        FOCAL
-      </div>
+
     </div>
   )
 })

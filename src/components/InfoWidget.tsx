@@ -54,6 +54,10 @@ export function InfoWidget() {
             >
               <X size={20} />
             </button>
+            {/* Powered By */}
+            <div className="mb-3  border-b border-white/10 text-center">
+              <div className="text-white font-bold text-lg">MET Backrooms</div>
+            </div>
 
             {/* Main Content */}
             <div className="text-white/90 space-y-4">
@@ -65,7 +69,7 @@ export function InfoWidget() {
               <div className="space-y-2">
                 <p className="text-white/70 text-sm font-medium">Links:</p>
                 <div className="space-y-1">
-                  <a href="#" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                  <a href="https://www.pabloar.com/" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
                     • What's Public Domain?
                   </a>
                   <a href="#" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
@@ -75,11 +79,6 @@ export function InfoWidget() {
               </div>
             </div>
 
-            {/* Powered By */}
-            <div className="mt-8 pt-4 border-t border-white/10 text-center">
-              <p className="text-white/50 text-xs mb-2">POWERED BY</p>
-              <div className="text-white font-bold text-lg">FRACTAL TECH</div>
-            </div>
           </div>
         </div>
       )}
