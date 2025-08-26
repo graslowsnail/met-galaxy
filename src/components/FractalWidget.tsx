@@ -53,7 +53,7 @@ export function FractalWidget() {
 
             {/* Modal Content */}
             <div
-              className="relative w-full sm:w-96 bg-[#26252480] backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-2xl animate-in fade-in-0 slide-in-from-left-4 sm:slide-in-from-bottom-4 duration-300"
+              className="relative w-full sm:w-[28rem] bg-[#26252480] backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-2xl animate-in fade-in-0 slide-in-from-left-4 sm:slide-in-from-bottom-4 duration-300"
               style={{ backgroundColor: "#26252480" }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -69,9 +69,19 @@ export function FractalWidget() {
             <div className="flex flex-row items-start gap-4 sm:gap-6">
               {/* Left Side - Text Content */}
               <div className="flex-1">
-                <div className="text-white/70 text-sm font-medium mb-3 tracking-wide">POWERED BY FRACTAL TECH</div>
+                <div className="text-white/70 text-sm font-medium mb-3 tracking-wide">
+                  POWERED BY {" "}
+                  <a
+                    href="https://fractalbootcamp.com/fractal-tech-hub"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-white whitespace-nowrap"
+                  >
+                    FRACTAL TECH
+                  </a>
+                </div>
                 <h2 className="text-white text-base sm:text-xl font-light leading-tight">
-                  The best place to create tech.
+                  Where tech gets built in NYC.
                 </h2>
               </div>
 

@@ -70,10 +70,10 @@ export function InfoWidget() {
                 <p className="text-white/70 text-sm font-medium">Links:</p>
                 <div className="space-y-1">
                   <a href="https://www.pabloar.com/" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                    • What&apos;s Public Domain?
+                    • Who Built This?
                   </a>
-                  <a href="#" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                    • Terms of service
+                  <a href="https://fractalbootcamp.com/" className="block text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                    • What is Fractal Tech?
                   </a>
                 </div>
               </div>
