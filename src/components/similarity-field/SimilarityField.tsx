@@ -224,6 +224,15 @@ const SimilarityField = memo(function SimilarityField({
         )}
       </div>
 
+      {/* Vignette overlay */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, rgba(0, 0, 0, 0.15) 70%, rgba(0, 0, 0, 0.3) 100%)`,
+          zIndex: 10,
+        }}
+      />
+
       {!isInitialized && (
         <div 
           style={{

@@ -175,7 +175,7 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
 
               {/* Enhanced metadata overlay */}
               {isHovered && (image.title || image.artist) && (
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2 pb-1 pt-2 pointer-events-none">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2 pb-1 pt-2 pointer-events-none rounded-b-lg">
                   {image.title && (
                     <div className="text-white font-semibold text-sm md:text-base mb-0.5 leading-tight line-clamp-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                       {image.title}
