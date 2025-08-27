@@ -95,6 +95,7 @@ export function getVisibleChunkCoords(bounds: ViewportBounds): ChunkCoordinates[
 /**
  * Calculate simple grid layout for similarity field (2x3 grid)
  * This creates a fixed grid layout without masonry for the similarity field
+ * @deprecated Use calculateSimilarityMasonryLayout from masonryLayout.ts instead
  */
 export function calculateSimpleGridLayout(
   images: { width: number; height: number }[],

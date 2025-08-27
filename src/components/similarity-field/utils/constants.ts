@@ -9,32 +9,35 @@
 // GRID LAYOUT CONSTANTS
 // ============================================================================
 
-/** Width of each column in pixels - optimized for compact but visible similarity grid */
-export const COLUMN_WIDTH = 160
+/** Width of each column in pixels - increased for better visibility with masonry layout */
+export const COLUMN_WIDTH = 240
 
 /** Gap between items in pixels - smaller gap for compact layout */
 export const GAP = 12
 
-/** Number of images per chunk */
-export const CHUNK_SIZE = 12
+/** Number of images per chunk (2 columns × 3 rows) */
+export const CHUNK_SIZE = 6
 
 /** Number of images in the focal chunk (should be 1 for single focal image) */
 export const FOCAL_CHUNK_SIZE = 1
 
 /** Number of columns per chunk */
-export const COLUMNS_PER_CHUNK = 3
+export const COLUMNS_PER_CHUNK = 2
 
-/** Number of rows per chunk */
-export const ROWS_PER_CHUNK = 4
+/** Number of rows per chunk (approximate for masonry layout) */
+export const ROWS_PER_CHUNK = 3
 
 /** Space around the axis lines in pixels */
 export const AXIS_MARGIN = 5
 
+/** Minimum image height in pixels to prevent very short images */
+export const MIN_IMAGE_HEIGHT = 120
+
 /** Width includes margins - total width of each chunk */
 export const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
 
-/** Height includes margins - total height of each chunk */
-export const CHUNK_HEIGHT = ROWS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
+/** Height includes margins - total height of each chunk (approximate for masonry) */
+export const CHUNK_HEIGHT = 800
 
 // ============================================================================
 // PERFORMANCE CONSTANTS

@@ -41,8 +41,8 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
   const { x: chunkX, y: chunkY, images, positions } = chunk
   const [hoveredImageId, setHoveredImageId] = useState<string | null>(null)
   
-  // Calculate the actual cell width used in the grid layout
-  const cellWidth = (CHUNK_WIDTH - (2 * AXIS_MARGIN) - ((COLUMNS_PER_CHUNK - 1) * GAP)) / COLUMNS_PER_CHUNK
+  // Use the column width directly for masonry layout
+  const cellWidth = COLUMN_WIDTH
   
   // Debug: log the calculated dimensions (remove this later)
   // if (chunkX === 1 && chunkY === 0 && images.length > 0) {

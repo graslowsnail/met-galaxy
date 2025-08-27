@@ -30,6 +30,7 @@ import {
   calculateOptimalChunkLayout,
 } from '../grid-legacy/grid/utils/chunkCalculations'
 import { calculateSimpleGridLayout } from './utils/chunkCalculations'
+import { calculateSimilarityMasonryLayout } from './utils/masonryLayout'
 import { 
   COLUMN_WIDTH,
   CHUNK_SIZE,
@@ -94,9 +95,9 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
   
   return filledArtworks.map((artwork, i) => {
       const aspectRatio = generateAspectRatio(chunkX, chunkY, i)
-      // For simple grid layout, use uniform dimensions based on our constants
+      // For masonry layout, use actual aspect ratios
       const width = COLUMN_WIDTH
-      const height = COLUMN_WIDTH // Use square dimensions for uniform grid appearance
+      const height = Math.round(COLUMN_WIDTH * aspectRatio)
 
       // Use primaryImageSmall if available, fallback to primaryImage
       const imageUrl = artwork.primaryImageSmall ?? artwork.primaryImage
@@ -277,13 +278,13 @@ function createChunk(
     chunkY,
   }))
 
-  // Use simple grid layout for compact 2x3 similarity grid
-  const positions = calculateSimpleGridLayout(
-    finalImages.map(img => ({ width: img.width, height: img.height })),
-    chunkX,
-    chunkY,
-    COLUMNS_PER_CHUNK,
-    ROWS_PER_CHUNK
+  // Use masonry layout for 2x3 similarity grid with actual aspect ratios
+  const positions = calculateSimilarityMasonryLayout(
+    finalImages.map(img => ({ 
+      width: img.width, 
+      height: img.height,
+      src: img.src 
+    }))
   )
 
   // Report focal artwork position if this is the focal chunk (0,0)
