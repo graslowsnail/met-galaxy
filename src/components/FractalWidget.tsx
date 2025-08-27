@@ -1,17 +1,6 @@
 "use client"
 
-import { usePostHog } from 'posthog-js/react'
-
 export function FractalWidget() {
-  const posthog = usePostHog()
-
-  const handleExternalLinkClick = (linkType: string, url: string) => {
-    posthog?.capture('external_link_clicked', {
-      link_type: linkType,
-      url: url,
-      source: 'fractal_widget'
-    })
-  }
 
   return (
     <>
@@ -24,7 +13,6 @@ export function FractalWidget() {
               href="https://pabloar.com"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => handleExternalLinkClick('portfolio', 'https://pabloar.com')}
               className="underline underline-offset-2 hover:text-white transition-colors"
             >
               Pablo
@@ -52,7 +40,6 @@ export function FractalWidget() {
                 href="https://pabloar.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => handleExternalLinkClick('portfolio', 'https://pabloar.com')}
                 className="underline underline-offset-2 hover:text-white transition-colors"
               >
                 Pablo Ramirez
@@ -62,7 +49,6 @@ export function FractalWidget() {
                 href="https://fractalbootcamp.com/fractal-tech-hub"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => handleExternalLinkClick('fractal_tech', 'https://fractalbootcamp.com/fractal-tech-hub')}
                 className="underline underline-offset-2 hover:text-white transition-colors"
               >
                 Fractal Tech

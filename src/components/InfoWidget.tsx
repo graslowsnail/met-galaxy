@@ -2,20 +2,12 @@
 
 import { useState } from "react"
 import { X } from "lucide-react"
-import { usePostHog } from 'posthog-js/react'
 
 export function InfoWidget() {
   const [isOpen, setIsOpen] = useState(true)
-  const posthog = usePostHog()
 
   const handleToggle = () => {
-    const newState = !isOpen
-    setIsOpen(newState)
-    
-    // Track info modal toggle
-    posthog?.capture('info_modal_toggled', {
-      action: newState ? 'opened' : 'closed'
-    })
+    setIsOpen(!isOpen)
   }
 
   return (
@@ -179,13 +171,7 @@ export function InfoWidget() {
               {/* Explore Button */}
               <div className="mt-6 text-center">
                 <button
-                  onClick={() => {
-                    // Track explore button click
-                    posthog?.capture('explore_button_clicked', {
-                      source: 'info_modal'
-                    })
-                    setIsOpen(false)
-                  }}
+                  onClick={() => setIsOpen(false)}
                   className="relative bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-8 rounded-lg transition-all duration-200 glow-effect"
                 >
                   {/* Button text */}
