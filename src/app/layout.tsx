@@ -15,7 +15,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "MET Galaxy",
+  title: "Open Metropolitan",
   description: "Visualize all the METs data",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
