@@ -1,9 +1,0 @@
-{
-  "functions": {
-    "app/[[...slug]]/page.tsx": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install --force"
-}
