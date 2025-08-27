@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, Info } from "lucide-react"
+import { X } from "lucide-react"
 
 export function InfoWidget() {
   const [isOpen, setIsOpen] = useState(true)
@@ -26,60 +26,63 @@ export function InfoWidget() {
         
         <button
           onClick={handleToggle}
-          className="relative bg-white/50 rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 w-14 h-14 sm:w-auto sm:h-auto sm:px-4 sm:py-3 sm:rounded-lg gap-2"
+          className="relative bg-white/50 rounded-lg shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5"
         >
           {isOpen ? (
             <>
               <X className="w-6 h-6 text-black sm:hidden" />
-              <span className="hidden sm:block text-slate-900 font-medium">Open Metropolitan</span>
-              <Info className="w-6 h-6 text-slate-900 hidden sm:block" />
+              <span className="hidden sm:block text-slate-900 font-serif font-medium sm:text-xl lg:text-2xl xl:text-3xl">Open Metropolitan</span>
             </>
           ) : (
-            <>
-              <span className="hidden sm:block text-slate-900 font-medium">Open Metropolitan</span>
-              <Info className="w-6 h-6 text-slate-900" />
-            </>
+            <span className="text-slate-900 font-serif font-medium sm:text-xl lg:text-2xl xl:text-2xl">Open Metropolitan</span>
           )}
         </button>
       </div>
 
       {/* Info Modal */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:items-center sm:justify-center"
-          onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
-        >
+        <>
+          {/* Backdrop with blur */}
+          <div 
+            className="fixed inset-0 z-40 backdrop-blur-sm bg-black/20 animate-in fade-in-0 duration-300"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Modal Container */}
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:items-center sm:justify-center"
+            onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
+          >
           <div
-            className="w-full max-w-[90vw] sm:w-80 bg-[#26252480] backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-300"
-            style={{ backgroundColor: "#26252480" }}
+            className="w-full max-w-[90vw] sm:max-w-md lg:max-w-lg bg-black/50 backdrop-blur-md rounded-2xl p-4 sm:p-8 shadow-lg shadow-black/50 animate-in fade-in-0 zoom-in-95 duration-300 border border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button - Desktop only */}
             <button
               onClick={() => setIsOpen(false)}
-              className="hidden sm:flex absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+              className="hidden sm:flex absolute top-6 right-6 text-white/70 hover:text-white transition-colors"
             >
-              <X size={20} />
+              <X size={24} />
             </button>
             {/* Powered By */}
-            <div className="mb-3  border-b border-white/10 text-center">
-              <div className="text-white font-bold text-lg">Open Metropolitan</div>
+            <div className="mb-6 border-b border-white/10 text-center pb-4">
+              <div className="text-white font-serif font-bold text-2xl sm:text-3xl lg:text-4xl">Open Metropolitan</div>
             </div>
 
             {/* Main Content */}
-            <div className="text-white/90 space-y-4">
-              <p className="text-sm leading-relaxed">
+            <div className="text-white space-y-6">
+              <p className="text-base sm:text-lg leading-relaxed text-white/95">
                 Explore The Met's vast collection through an infinite 
                 scrolling gallery. Discover 340,000+ artworks from 
                 around the world.
               </p>
 
-              <div className="space-y-2">
-                <p className="text-white/70 text-sm font-medium">How to explore:</p>
-                <ul className="space-y-1 text-sm text-white/85">
+              <div className="space-y-3">
+                <p className="text-white text-base sm:text-lg font-medium">How to explore:</p>
+                <ul className="space-y-2 text-base sm:text-lg text-white/95">
                   <li className="flex items-start">
                     <span className="text-white/85 mr-2">•</span>
-                    Scroll infinitely until something catches your eye
+                    Click and drag infinitely until something catches your eye
                   </li>
                   <li className="flex items-start">
                     <span className="text-white/85 mr-2">•</span>
@@ -87,33 +90,10 @@ export function InfoWidget() {
                   </li>
                 </ul>
               </div>
-
-              <div className="space-y-2">
-                <p className="text-sm text-white/85">
-                  Built by {" "}
-                  <a 
-                    href="https://www.pabloar.com/" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
-                  >
-                    Pablo Ramirez
-                  </a>{" "}
-                  at {" "}
-                  <a 
-                    href="https://fractalbootcamp.com/" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
-                  >
-                    Fractal Tech
-                  </a>.
-                </p>
-              </div>
             </div>
-
           </div>
         </div>
+        </>
       )}
     </>
   )
