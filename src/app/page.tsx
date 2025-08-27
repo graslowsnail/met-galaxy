@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityField } from "@/components/similarity-field"
 import NavigationOverlay, { type NavigationHistoryItem } from "@/components/similarity-field/NavigationOverlay"
+import { FractalWidget } from "@/components/FractalWidget"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
 
 export default function Home() {
@@ -187,6 +188,11 @@ export default function Home() {
           />
         </div>
       )}
+      
+      {/* Show Fractal widget always on desktop, but hide on mobile in similarity mode */}
+      <div className={similarityMode.active ? "hidden sm:block" : "block"}>
+        <FractalWidget />
+      </div>
     </>
   );
 }

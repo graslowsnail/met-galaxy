@@ -30,7 +30,6 @@ export default function RootLayout({
       <body className={`font-sans ${inter.variable} ${playfair.variable}`}>
         {children}
         <InfoWidget />
-        <FractalWidget />
       </body>
     </html>
   );

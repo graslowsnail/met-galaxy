@@ -26,7 +26,9 @@ import {
   VIEWPORT_CHANGE_THRESHOLD,
   DEBUG_LOGGING,
   CHUNK_WIDTH,
-  CHUNK_HEIGHT 
+  CHUNK_HEIGHT,
+  AXIS_MARGIN,
+  COLUMN_WIDTH 
 } from '../utils/constants'
 
 /**
@@ -131,27 +133,34 @@ export function useViewport(): UseViewportReturn {
       // Get the pixel coordinates of the target chunk's top-left corner
       const chunkPixelCoords = chunkToPixelCoords(targetChunkX, targetChunkY)
       
-      // Calculate the center of the target chunk
-      const chunkCenterX = chunkPixelCoords.x + (CHUNK_WIDTH / 2)
-      const chunkCenterY = chunkPixelCoords.y + (CHUNK_HEIGHT / 2)
+      // Check if we're on a mobile/small screen
+      const isMobile = viewportDimensions.width < 768 // sm breakpoint
       
-      // Calculate translation needed to center this chunk in the viewport
+      let chunkCenterX: number
+      let chunkCenterY: number
+      
+      if (isMobile) {
+        // On mobile, center on first image in top-left of chunk (0,0)
+        // First column: AXIS_MARGIN + COLUMN_WIDTH/2
+        // First row: AXIS_MARGIN + estimated first image center
+        chunkCenterX = chunkPixelCoords.x + AXIS_MARGIN + (COLUMN_WIDTH / 2)
+        chunkCenterY = chunkPixelCoords.y + AXIS_MARGIN + 200 // Approximate center of first image
+      } else {
+        // On desktop, use standard chunk center
+        chunkCenterX = chunkPixelCoords.x + (CHUNK_WIDTH / 2)
+        chunkCenterY = chunkPixelCoords.y + (CHUNK_HEIGHT / 2)
+      }
+      
+      // Calculate translation needed to center this point in the viewport
       const viewportCenterX = viewportDimensions.width / 2
       const viewportCenterY = viewportDimensions.height / 2
       
-      // Translation = viewport center - chunk center
+      // Translation = viewport center - target point
       const translateX = viewportCenterX - chunkCenterX
       const translateY = viewportCenterY - chunkCenterY
       
       setTranslate({ x: translateX, y: translateY })
       setIsInitialized(true)
-      
-      if (DEBUG_LOGGING) {
-        console.log(`🎯 Viewport initialized to chunk (${targetChunkX}, ${targetChunkY}) at origin:`)
-        console.log(`   Chunk pixel coords: (${chunkPixelCoords.x}, ${chunkPixelCoords.y})`)
-        console.log(`   Chunk center: (${chunkCenterX}, ${chunkCenterY})`)
-        console.log(`   Viewport translation: (${translateX}, ${translateY})`)
-      }
     }
   }, [viewportDimensions, isInitialized])
   
