@@ -1,47 +1,25 @@
 "use client"
 
-import { useState } from "react"
-import { X, Zap } from "lucide-react"
-
 export function FractalWidget() {
-  const [isOpen, setIsOpen] = useState(false)
-
-  const handleToggle = () => {
-    setIsOpen(!isOpen)
-  }
 
   return (
     <>
-      {/* Mobile Floating Icon Button */}
-      <div className="fixed top-6 right-6 z-50 sm:hidden">
-        <button
-          onClick={handleToggle}
-          className="relative w-14 h-14 bg-white/50 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center"
-        >
-          {isOpen ? (
-            <X className="w-6 h-6 text-slate-900" />
-          ) : (
-            <Zap className="w-6 h-6 text-slate-900" />
-          )}
-        </button>
-      </div>
-
-      {/* Mobile Modal */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-start justify-end pt-22 pr-4 sm:hidden"
-          onClick={() => setIsOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-[90vw] bg-[#26252480] backdrop-blur-sm rounded-2xl p-4 shadow-2xl animate-in fade-in-0 slide-in-from-right-4 duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-white/90 text-sm">
-              Built by Pablo Ramirez at Fractal Tech
-            </p>
-          </div>
+      {/* Mobile Always-Visible Widget */}
+      <div className="fixed bottom-4 right-4 z-50 sm:hidden">
+        <div className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-md">
+          <p className="text-white/70 text-xs whitespace-nowrap">
+            Built by{" "}
+            <a
+              href="https://pabloar.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-white transition-colors"
+            >
+              Pablo
+            </a>
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Desktop Always-Visible Widget */}
       <div className="hidden sm:block fixed bottom-6 right-6 z-50">
