@@ -96,8 +96,8 @@ const FocalImage = memo(function FocalImage({
     if (!value || value.trim() === '') return null
     return (
       <div key={label} className="mb-2">
-        <span className="text-white/70 text-sm">{label}:</span>
-        <span className="text-white/90 text-sm ml-2">{value}</span>
+        <span className="text-gray-500 text-sm">{label}:</span>
+        <span className="text-gray-700 text-sm ml-2">{value}</span>
       </div>
     )
   }
@@ -178,6 +178,39 @@ const FocalImage = memo(function FocalImage({
           Loading...
         </div>
       )}
+      
+      {/* Click Indicator */}
+      {isLoaded && !hasError && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '8px',
+            left: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            color: '#374151',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '3px',
+            backdropFilter: 'blur(4px)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.2s ease-out',
+            opacity: isHovered ? 1 : 0.9,
+            transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+            pointerEvents: 'none',
+            zIndex: 20
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5"/>
+            <path d="M12 16V12M12 8H12.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          View Info
+        </div>
+      )}
       </div>
 
       {/* Mobile Modal - Overlays on top of image */}
@@ -195,34 +228,34 @@ const FocalImage = memo(function FocalImage({
           <style>{`
           .focal-modal-scroll::-webkit-scrollbar {
             width: 8px;
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.05);
             border-radius: 4px;
           }
           
           .focal-modal-scroll::-webkit-scrollbar-track {
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: rgba(0, 0, 0, 0.02);
             border-radius: 4px;
             margin: 8px 0;
           }
           
           .focal-modal-scroll::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.3);
+            background-color: rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             transition: background-color 0.2s ease;
           }
           
           .focal-modal-scroll::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(255, 255, 255, 0.5);
+            background-color: rgba(0, 0, 0, 0.3);
           }
           
           .focal-modal-scroll::-webkit-scrollbar-thumb:active {
-            background-color: rgba(255, 255, 255, 0.6);
+            background-color: rgba(0, 0, 0, 0.4);
           }
           
           /* For Firefox */
           .focal-modal-scroll {
             scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+            scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
           }
           
           /* Much larger scrollbar for mobile/touch devices */
@@ -232,19 +265,19 @@ const FocalImage = memo(function FocalImage({
             }
             
             .focal-modal-scroll::-webkit-scrollbar-track {
-              background-color: rgba(255, 255, 255, 0.1);
+              background-color: rgba(0, 0, 0, 0.05);
               border-radius: 10px;
             }
             
             .focal-modal-scroll::-webkit-scrollbar-thumb {
-              background-color: rgba(255, 255, 255, 0.5);
+              background-color: rgba(0, 0, 0, 0.3);
               border-radius: 10px;
               border: 3px solid transparent;
               background-clip: padding-box;
             }
             
             .focal-modal-scroll::-webkit-scrollbar-thumb:active {
-              background-color: rgba(255, 255, 255, 0.7);
+              background-color: rgba(0, 0, 0, 0.5);
             }
           }
           
@@ -255,7 +288,7 @@ const FocalImage = memo(function FocalImage({
             }
             
             .focal-modal-scroll::-webkit-scrollbar-thumb {
-              background-color: rgba(255, 255, 255, 0.5);
+              background-color: rgba(0, 0, 0, 0.3);
               min-height: 50px; /* Ensure thumb is always grabbable */
             }
             
@@ -273,8 +306,8 @@ const FocalImage = memo(function FocalImage({
             transform: 'translate(-50%, -50%)',
             transformOrigin: 'center center',
             zIndex: 99999,
-            backgroundColor: 'rgb(0 0 0 / 0.5)',
-            backdropFilter: 'blur(12px)',
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(8px)',
             borderRadius: '16px',
             padding: '32px',
             paddingRight: '24px',
@@ -284,7 +317,7 @@ const FocalImage = memo(function FocalImage({
             overflowY: 'auto',
             overflowX: 'hidden',
             boxShadow: '0 25px 50px rgb(0 0 0 / 0.5), 0 10px 20px rgb(0 0 0 / 0.3)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(229, 231, 235, 1)',
             WebkitOverflowScrolling: 'touch',
           }}
           onClick={(e) => e.stopPropagation()}
@@ -295,18 +328,18 @@ const FocalImage = memo(function FocalImage({
         {/* Close Button */}
         <button
           onClick={() => setShowModal(false)}
-          className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors"
+          className="absolute top-6 right-6 text-gray-500 hover:text-gray-700 transition-colors"
         >
           <X size={24} />
         </button>
 
         {/* Title */}
         {focalArtwork?.title ? (
-          <h3 className="text-lg font-medium text-white/95 leading-tight mb-4">
+          <h3 className="text-lg font-medium text-gray-800 leading-tight mb-4">
             {focalArtwork.title}
           </h3>
         ) : (
-          <h3 className="text-lg font-medium text-white/90 leading-tight mb-4">
+          <h3 className="text-lg font-medium text-gray-800 leading-tight mb-4">
             Artwork details
           </h3>
         )}
@@ -321,7 +354,7 @@ const FocalImage = memo(function FocalImage({
         </div>
 
         {fields.length === 0 && !focalArtwork?.title && (
-          <p className="text-white/70 text-sm italic">
+          <p className="text-gray-500 text-sm italic">
             No additional information available for this artwork.
           </p>
         )}
@@ -336,7 +369,7 @@ const FocalImage = memo(function FocalImage({
                   window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
                 }
               }}
-              className="text-white/60 hover:text-white/80 text-xs transition-colors duration-200 flex items-center gap-1.5"
+              className="text-gray-500 hover:text-gray-700 text-xs transition-colors duration-200 flex items-center gap-1.5"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -365,27 +398,27 @@ const FocalImage = memo(function FocalImage({
             }
             
             .desktop-info-scroll::-webkit-scrollbar-thumb {
-              background-color: rgba(255, 255, 255, 0.3);
+              background-color: rgba(0, 0, 0, 0.2);
               border-radius: 4px;
               transition: background-color 0.2s ease;
             }
             
             .desktop-info-scroll::-webkit-scrollbar-thumb:hover {
-              background-color: rgba(255, 255, 255, 0.5);
+              background-color: rgba(0, 0, 0, 0.3);
             }
             
             .desktop-info-scroll::-webkit-scrollbar-thumb:active {
-              background-color: rgba(255, 255, 255, 0.6);
+              background-color: rgba(0, 0, 0, 0.4);
             }
             
             /* For Firefox */
             .desktop-info-scroll {
               scrollbar-width: thin;
-              scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+              scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
             }
           `}</style>
           <div
-            className="desktop-info-scroll absolute bg-black/50 backdrop-blur-md rounded-2xl p-8 shadow-lg shadow-black/50 animate-in fade-in-0 slide-in-from-left-5 duration-300 border border-white/10"
+            className="desktop-info-scroll absolute bg-white/85 backdrop-blur-sm rounded-2xl p-8 shadow-xl shadow-black/25 animate-in fade-in-0 slide-in-from-left-5 duration-300 border border-gray-200"
             style={{
               left: `${CHUNK_WIDTH + 20}px`, // Position to the right of focal chunk
               top: '50%',
@@ -401,52 +434,52 @@ const FocalImage = memo(function FocalImage({
           {/* Close Button */}
           <button
             onClick={() => setShowDesktopInfo(false)}
-            className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors"
+            className="absolute top-6 right-6 text-gray-500 hover:text-gray-700 transition-colors"
           >
             <X size={24} />
           </button>
 
           {/* Title with border */}
-          <div className="mb-6 border-b border-white/10 pb-4">
+          <div className="mb-6 border-b border-gray-200 pb-4">
             {focalArtwork?.title && (
-              <h3 className="text-white font-serif font-bold text-2xl lg:text-3xl leading-tight pr-8">
+              <h3 className="text-gray-800 font-serif font-bold text-2xl lg:text-3xl leading-tight pr-8">
                 {focalArtwork.title}
               </h3>
             )}
           </div>
 
           {/* Content */}
-          <div className="text-white space-y-6">
+          <div className="text-gray-700 space-y-6">
             {/* Artwork Details */}
             <div className="space-y-3">
               {focalArtwork?.artist && (
                 <div>
-                  <span className="text-white text-base font-medium">Artist</span>
-                  <p className="text-white/95 text-lg">{focalArtwork.artist}</p>
+                  <span className="text-gray-700 text-base font-medium">Artist</span>
+                  <p className="text-gray-700 text-lg">{focalArtwork.artist}</p>
                 </div>
               )}
               {focalArtwork?.date && (
                 <div>
-                  <span className="text-white/70 text-sm">Date:</span>
-                  <span className="text-white/95 text-sm ml-2">{focalArtwork.date}</span>
+                  <span className="text-gray-500 text-sm">Date:</span>
+                  <span className="text-gray-700 text-sm ml-2">{focalArtwork.date}</span>
                 </div>
               )}
               {focalArtwork?.department && (
                 <div>
-                  <span className="text-white/70 text-sm">Department:</span>
-                  <span className="text-white/95 text-sm ml-2">{focalArtwork.department}</span>
+                  <span className="text-gray-500 text-sm">Department:</span>
+                  <span className="text-gray-700 text-sm ml-2">{focalArtwork.department}</span>
                 </div>
               )}
               {focalArtwork?.creditLine && (
                 <div>
-                  <span className="text-white/70 text-sm">Credit Line:</span>
-                  <span className="text-white/95 text-sm ml-2">{focalArtwork.creditLine}</span>
+                  <span className="text-gray-500 text-sm">Credit Line:</span>
+                  <span className="text-gray-700 text-sm ml-2">{focalArtwork.creditLine}</span>
                 </div>
               )}
               {focalArtwork?.description && (
                 <div>
-                  <span className="text-white/70 text-sm">Description:</span>
-                  <p className="text-white/95 text-sm mt-1">{focalArtwork.description}</p>
+                  <span className="text-gray-500 text-sm">Description:</span>
+                  <p className="text-gray-700 text-sm mt-1">{focalArtwork.description}</p>
                 </div>
               )}
             </div>
@@ -460,7 +493,7 @@ const FocalImage = memo(function FocalImage({
                       window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
                     }
                   }}
-                  className="text-white/60 hover:text-white/80 text-xs transition-colors duration-200 flex items-center gap-1.5"
+                  className="text-gray-500 hover:text-gray-700 text-xs transition-colors duration-200 flex items-center gap-1.5"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

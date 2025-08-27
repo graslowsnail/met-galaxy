@@ -26,8 +26,8 @@ export function FocalArtworkPopup({ artwork, isOpen, onClose }: FocalArtworkPopu
     if (!value || value.trim() === '') return null
     return (
       <div key={label}>
-        <span className="text-white/70 text-sm">{label}:</span>
-        <span className="text-white/90 text-sm ml-2">{value}</span>
+        <span className="text-gray-500 text-sm">{label}:</span>
+        <span className="text-gray-700 text-sm ml-2">{value}</span>
       </div>
     )
   }
@@ -59,24 +59,23 @@ export function FocalArtworkPopup({ artwork, isOpen, onClose }: FocalArtworkPopu
       {/* Popup Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="w-full max-w-md bg-[#26252480] backdrop-blur-sm rounded-2xl p-6 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-300"
-          style={{ backgroundColor: "#26252480" }}
+          className="w-full max-w-md bg-white/85 backdrop-blur-sm rounded-2xl p-6 shadow-xl shadow-black/25 animate-in fade-in-0 zoom-in-95 duration-300 border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
           >
             <X size={20} />
           </button>
 
           {/* Main Content */}
-          <div className="text-white/90 space-y-4">
+          <div className="text-gray-700 space-y-4">
             {/* Artwork Title */}
             {artwork.title && (
               <div>
-                <h3 className="text-lg font-medium text-white/95 leading-tight">
+                <h3 className="text-lg font-medium text-gray-800 leading-tight">
                   {artwork.title}
                 </h3>
               </div>
@@ -94,7 +93,7 @@ export function FocalArtworkPopup({ artwork, isOpen, onClose }: FocalArtworkPopu
             )}
 
             {fields.length === 0 && !artwork.title && (
-              <p className="text-white/70 text-sm italic">
+              <p className="text-gray-500 text-sm italic">
                 No additional information available for this artwork.
               </p>
             )}
