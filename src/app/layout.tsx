@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "@/styles/globals.css";
 import { FractalWidget } from "@/components/FractalWidget";
 import { InfoWidget } from "@/components/InfoWidget";
+import { PostHogProviderClient } from "@/providers/posthog";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,8 +29,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${inter.variable} ${playfair.variable}`}>
-        {children}
-        <InfoWidget />
+        <PostHogProviderClient>
+          {children}
+          <InfoWidget />
+        </PostHogProviderClient>
       </body>
     </html>
   );

@@ -39,6 +39,17 @@ export default function Home() {
       src: image.src
     })
     
+    // Track artwork click event
+    posthog?.capture('artwork_clicked', {
+      source: 'main_grid',
+      artwork_id: image.databaseId,
+      object_id: image.objectId,
+      title: image.title,
+      artist: image.artist,
+      department: image.department,
+      has_database_id: !!image.databaseId
+    })
+    
     // Check if we have a database ID for similarity search
     if (image.databaseId) {
       const artworkData = {
@@ -79,7 +90,7 @@ export default function Home() {
     } else {
       alert('Similar artwork exploration requires database ID')
     }
-  }, [])
+  }, [posthog])
 
   // Handle artwork click from similarity field (for rabbit hole navigation)
   const handleSimilarityArtworkClick = useCallback((artwork: {
@@ -93,6 +104,15 @@ export default function Home() {
       title: artwork.title,
       artist: artwork.artist,
       imageUrl: artwork.imageUrl
+    })
+    
+    // Track similarity navigation event
+    posthog?.capture('similarity_artwork_clicked', {
+      source: 'similarity_field',
+      artwork_id: artwork.id,
+      title: artwork.title,
+      artist: artwork.artist,
+      navigation_depth: navigationHistory.length
     })
     
     const artworkData = {
@@ -121,17 +141,31 @@ export default function Home() {
         thumbnailUrl: artwork.imageUrl
       }
     ])
-  }, [])
+  }, [navigationHistory.length, posthog])
 
   // Handle closing similarity mode
   const handleCloseSimilarity = useCallback(() => {
+    // Track closing similarity mode
+    posthog?.capture('similarity_mode_closed', {
+      navigation_depth: navigationHistory.length
+    })
+    
     setSimilarityMode({ active: false, artworkId: null, artworkData: null })
     setNavigationHistory([])
-  }, [])
+  }, [navigationHistory.length, posthog])
   
   // Handle navigation overlay clicks (smart history truncation)
   const handleNavigateToHistoryItem = useCallback((item: NavigationHistoryItem, index: number) => {
     console.log('Navigate to history item:', { item, index })
+    
+    // Track navigation history click
+    posthog?.capture('navigation_history_clicked', {
+      target_index: index,
+      current_depth: navigationHistory.length,
+      is_main_grid: item.isMainGrid,
+      artwork_id: item.id,
+      title: item.title
+    })
     
     if (item.isMainGrid) {
       // Navigate back to main grid
@@ -157,7 +191,7 @@ export default function Home() {
     
     // Truncate history at clicked point (smart backtracking)
     setNavigationHistory(prev => prev.slice(0, index + 1))
-  }, [handleCloseSimilarity])
+  }, [handleCloseSimilarity, navigationHistory.length, posthog])
 
   return (
     <>

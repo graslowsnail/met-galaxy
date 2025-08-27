@@ -8,6 +8,7 @@
 
 import React, { memo, useState } from 'react'
 import { X } from 'lucide-react'
+import { usePostHog } from 'posthog-js/react'
 import type { ChunkComponentProps, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 
   CHUNK_WIDTH, 
@@ -51,6 +52,7 @@ const FocalImage = memo(function FocalImage({
   const [isHovered, setIsHovered] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showDesktopInfo, setShowDesktopInfo] = useState(false)
+  const posthog = usePostHog()
 
   // Check if we're on desktop
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640 // sm breakpoint
@@ -61,6 +63,15 @@ const FocalImage = memo(function FocalImage({
     
     // Prevent click during dragging OR if mouse moved significantly
     if (!isDragging && (dragDistance ?? 0) <= CLICK_MOVE_THRESHOLD) {
+      // Track focal artwork info view
+      posthog?.capture('focal_artwork_info_viewed', {
+        artwork_id: image.databaseId,
+        title: focalArtwork?.title ?? image.title,
+        artist: focalArtwork?.artist ?? image.artist,
+        device: isDesktop ? 'desktop' : 'mobile',
+        action: isDesktop ? 'toggle_side_panel' : 'toggle_modal'
+      })
+      
       if (isDesktop) {
         // On desktop, toggle side info panel
         setShowDesktopInfo(prev => !prev)
@@ -366,6 +377,14 @@ const FocalImage = memo(function FocalImage({
               onClick={(e) => {
                 e.stopPropagation()
                 if (focalArtwork?.objectUrl) {
+                  // Track external link click
+                  posthog?.capture('external_link_clicked', {
+                    link_type: 'met_museum',
+                    artwork_id: image.databaseId,
+                    title: focalArtwork?.title ?? image.title,
+                    url: focalArtwork.objectUrl,
+                    source: 'desktop_info_panel'
+                  })
                   window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
                 }
               }}
@@ -490,6 +509,14 @@ const FocalImage = memo(function FocalImage({
                 <button
                   onClick={() => {
                     if (focalArtwork.objectUrl) {
+                      // Track external link click
+                      posthog?.capture('external_link_clicked', {
+                        link_type: 'met_museum',
+                        artwork_id: image.databaseId,
+                        title: focalArtwork?.title ?? image.title,
+                        url: focalArtwork.objectUrl,
+                        source: 'mobile_modal'
+                      })
                       window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
                     }
                   }}
