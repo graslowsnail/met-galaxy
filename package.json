@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "next build",
-    "vercel-build": "TAILWINDCSS_OXIDE=0 next build",
+    "vercel-build": "TAILWIND_DISABLE_OXIDE=1 next build",
     "check": "next lint && tsc --noEmit",
     "dev": "next dev --turbo",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
