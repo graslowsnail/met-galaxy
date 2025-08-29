@@ -6,45 +6,41 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function generateFavicons() {
+async function generateFaviconsFromScreenshot() {
   const publicDir = path.join(__dirname, '..', 'public');
-  
-  // Check if we have a source image
-  const sourceImage = path.join(publicDir, 'fractalIcon.avif');
+  const sourceImage = path.join(publicDir, 'screenshot.png');
   
   try {
-    await fs.access(sourceImage);
-    console.log('Using fractalIcon.avif as source image');
-    
     // Generate different favicon sizes
     const sizes = [
       { size: 16, name: 'favicon-16x16.png' },
       { size: 32, name: 'favicon-32x32.png' },
       { size: 180, name: 'apple-touch-icon.png' },
+      { size: 192, name: 'android-chrome-192x192.png' },
+      { size: 512, name: 'android-chrome-512x512.png' },
     ];
     
     for (const { size, name } of sizes) {
       await sharp(sourceImage)
-        .resize(size, size)
+        .resize(size, size, {
+          fit: 'cover',
+          position: 'center'
+        })
         .png()
         .toFile(path.join(publicDir, name));
       console.log(`Generated ${name}`);
     }
     
-    // Generate Open Graph image (1200x630)
+    // Also generate a new favicon.ico from the high-res source
     await sharp(sourceImage)
-      .resize(1200, 630, {
-        fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 1 }
-      })
-      .png()
-      .toFile(path.join(publicDir, 'og-image.png'));
-    console.log('Generated og-image.png');
+      .resize(32, 32)
+      .toFile(path.join(publicDir, 'favicon-32.png'));
+    
+    console.log('All favicon sizes generated successfully from screenshot.png!');
     
   } catch (error) {
     console.error('Error generating favicons:', error);
-    console.log('Make sure sharp is installed: npm install sharp');
   }
 }
 
-generateFavicons();
+generateFaviconsFromScreenshot().catch(console.error);
