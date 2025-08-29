@@ -31,34 +31,6 @@ export interface RandomArtworksResponse {
   total: number
 }
 
-export interface SimilarArtwork {
-  id: number
-  objectId: number
-  title: string
-  artist: string
-  imageUrl: string
-  originalImageUrl: string
-  imageSource: "s3"
-  original: boolean
-  similarity: number
-}
-
-export interface SimilarityResponse {
-  success: boolean
-  data: SimilarArtwork[]
-  meta: {
-    targetId: number
-    targetTitle: string
-    targetArtist: string
-    count: number
-    responseTime: string
-  }
-}
-
-export interface ArtworkCountResponse {
-  count: number
-}
-
 export interface ErrorResponse {
   error: string
   message: string
@@ -134,8 +106,6 @@ export const API_CONFIG = {
   endpoints: {
     randomArtworks: '/api/artworks/random',
     chunkArtworks: '/api/artworks/chunk',
-    artworkCount: '/api/artworks/count',
-    similarArtworks: '/api/artworks/similar',
     fieldChunk: '/api/artworks/field-chunk',
     fieldChunks: '/api/artworks/field-chunks',
   }

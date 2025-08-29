@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type ErrorResponse, type BackendResponse, type FieldChunkResponse, type MultiChunkResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -89,34 +89,6 @@ export const apiClient = {
       count: params.count ?? 20,
       seed: normalizedSeed
     })
-    
-    return result
-  },
-
-  async getArtworkCount(): Promise<ArtworkCountResponse> {
-    const url = new URL(API_CONFIG.endpoints.artworkCount, API_CONFIG.baseUrl)
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    
-    return handleResponse<ArtworkCountResponse>(response)
-  },
-
-  async getSimilarArtworks(artworkId: number): Promise<SimilarityResponse> {
-    const url = new URL(`${API_CONFIG.endpoints.similarArtworks}/${artworkId}`, API_CONFIG.baseUrl)
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    
-    const result = await handleResponse<SimilarityResponse>(response)
     
     return result
   },

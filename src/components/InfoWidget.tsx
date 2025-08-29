@@ -149,7 +149,7 @@ export function InfoWidget() {
             {/* Main Content */}
             <div className="text-gray-700 space-y-6">
               <p className="text-base sm:text-lg leading-relaxed text-gray-600">
-                Explore The Met's vast collection through an infinite 
+                Explore The Met&apos;s vast collection through an infinite 
                 scrolling gallery. Discover 340,000+ artworks from 
                 around the world.
               </p>

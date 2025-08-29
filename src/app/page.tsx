@@ -51,7 +51,7 @@ export default function Home() {
         description: image.description ?? null,
         imageUrl: image.src,
         originalImageUrl: image.src ?? null,
-        objectUrl: (image as any).objectUrl ?? null
+        objectUrl: null
       }
       
       setSimilarityMode({ 
@@ -101,7 +101,7 @@ export default function Home() {
       artist: artwork.artist,
       imageUrl: artwork.imageUrl,
       originalImageUrl: artwork.imageUrl ?? null,
-      objectUrl: (artwork as any).objectUrl ?? null
+      objectUrl: null
     }
     
     // Update the focal artwork for rabbit hole navigation
@@ -146,7 +146,7 @@ export default function Home() {
       artist: item.artist,
       imageUrl: item.thumbnailUrl,
       originalImageUrl: item.thumbnailUrl ?? null,
-      objectUrl: (item as any).objectUrl ?? null
+      objectUrl: null
     }
     
     setSimilarityMode({
