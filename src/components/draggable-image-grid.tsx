@@ -41,7 +41,7 @@ export function DraggableImageGrid({
   // Connect post-drag events to trigger updates
   useEffect(() => {
     const cleanup = onPostDrag(() => {
-      console.log('🔄 Post-drag update triggered')
+      // Post-drag update triggered
     })
     return cleanup
   }, [onPostDrag])
@@ -50,7 +50,6 @@ export function DraggableImageGrid({
   const handleArtworkClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
     // Prevent click during dragging OR if mouse moved significantly
     if (isDragging || dragDistance > CLICK_MOVE_THRESHOLD) {
-      console.log('🚫 Click prevented:', { isDragging, dragDistance, threshold: CLICK_MOVE_THRESHOLD })
       return
     }
     
@@ -63,14 +62,7 @@ export function DraggableImageGrid({
       return
     }
     
-    console.log('Artwork clicked:', {
-      imageId: image.id,
-      databaseId: image.databaseId,
-      objectId: image.objectId,
-      title: image.title,
-      artist: image.artist,
-      src: image.src
-    })
+    // Artwork clicked - no external handler provided
     
     // Show simple "coming soon" alert
     alert('Similar artwork exploration coming soon!')

@@ -30,15 +30,6 @@ export default function Home() {
 
   // Handle artwork click from main grid
   const handleArtworkClick = useCallback((image: ImageItem) => {
-    console.log('Artwork clicked:', {
-      imageId: image.id,
-      databaseId: image.databaseId,
-      objectId: image.objectId,
-      title: image.title,
-      artist: image.artist,
-      src: image.src
-    })
-    
     // Check if we have a database ID for similarity search
     if (image.databaseId) {
       const artworkData = {
@@ -88,12 +79,6 @@ export default function Home() {
     artist: string | null
     imageUrl: string | null
   }) => {
-    console.log('Similarity artwork clicked:', {
-      id: artwork.id,
-      title: artwork.title,
-      artist: artwork.artist,
-      imageUrl: artwork.imageUrl
-    })
     
     const artworkData = {
       id: artwork.id,
@@ -131,7 +116,6 @@ export default function Home() {
   
   // Handle navigation overlay clicks (smart history truncation)
   const handleNavigateToHistoryItem = useCallback((item: NavigationHistoryItem, index: number) => {
-    console.log('Navigate to history item:', { item, index })
     
     if (item.isMainGrid) {
       // Navigate back to main grid

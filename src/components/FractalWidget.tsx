@@ -27,9 +27,6 @@ export function FractalWidget() {
           {/* Subtle glow effect */}
           <div
             className="absolute top-0 left-0 w-full h-full rounded-lg opacity-30 blur-[4px] scale-105 shadow-lg shadow-black/50"
-            // style={{
-            //   background: "linear-gradient(270deg, rgb(255, 59, 48) 0%, rgb(255, 149, 0) 100%)",
-            // }}
           />
           
           {/* Widget Content */}

@@ -27,12 +27,10 @@ export function useSimilarArtworks(options: UseSimilarArtworksOptions): UseSimil
     setError(null)
     
     try {
-      console.log('Fetching similar artworks for artwork ID:', artworkId)
       const response = await apiClient.getSimilarArtworks(artworkId)
       setData(response)
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch similar artworks'))
-      console.error('Error fetching similar artworks:', err)
     } finally {
       setIsLoading(false)
     }
