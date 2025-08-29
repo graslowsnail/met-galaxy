@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityField } from "@/components/similarity-field"
 import NavigationOverlay, { type NavigationHistoryItem } from "@/components/similarity-field/NavigationOverlay"

@@ -6,7 +6,7 @@
  * blank screen and provides a natural loading experience.
  */
 
-import React, { memo, useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import type { ChunkSkeletonProps } from './types/grid'
 import { 
   GRID_ORIGIN_X, 

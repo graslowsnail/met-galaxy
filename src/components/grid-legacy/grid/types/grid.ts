@@ -237,23 +237,10 @@ export interface GridRendererProps {
   chunkDataMap?: Map<string, ChunkData>
   /** Whether to show performance overlay */
   showPerformanceOverlay?: boolean
-  /** Whether to show axis lines */
-  showAxisLines?: boolean
   /** Whether to show loading indicators */
   showLoadingIndicators?: boolean
 }
 
-/**
- * Props for the main infinite artwork grid component
- */
-export interface InfiniteArtworkGridProps {
-  /** Callback when an artwork is selected for similarity view */
-  onArtworkSelect?: (artworkId: number) => void
-  /** Optional initial viewport position */
-  initialPosition?: Position
-  /** Whether to show debug information */
-  showDebugInfo?: boolean
-}
 
 // ============================================================================
 // HOOK RETURN TYPES

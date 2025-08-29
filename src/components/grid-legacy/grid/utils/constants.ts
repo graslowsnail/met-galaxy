@@ -59,8 +59,6 @@ export const GRID_ORIGIN_Y = 0
 // ASPECT RATIO CONSTANTS
 // ============================================================================
 
-/** Default aspect ratios used for layout calculations when image dimensions are unknown */
-export const DEFAULT_ASPECT_RATIOS = [0.7, 0.8, 1.0, 1.2, 1.4, 0.6, 1.6] as const
 
 /** Minimum image height in pixels */
 export const MIN_IMAGE_HEIGHT = 100
@@ -130,18 +128,6 @@ export const Z_INDEX_LOADING = 10
 /** Z-index for debug info */
 export const Z_INDEX_DEBUG = 10
 
-// ============================================================================
-// ERROR HANDLING CONSTANTS
-// ============================================================================
-
-/** Default error message for image loading failures */
-export const IMAGE_ERROR_MESSAGE = 'Image unavailable'
-
-/** Default error message for chunk loading failures */
-export const CHUNK_ERROR_MESSAGE = 'Failed to load artwork data'
-
-/** Timeout for API requests in milliseconds */
-export const API_TIMEOUT = 10000
 
 // ============================================================================
 // DEBUGGING CONSTANTS

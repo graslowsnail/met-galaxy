@@ -5,7 +5,7 @@
  * for focal chunks (coordinates 0,0) and regular ChunkComponent for others.
  */
 
-import React, { memo } from 'react'
+import { memo } from 'react'
 import SimilarityChunkComponent from './SimilarityChunkComponent'
 import SimilarityChunkSkeleton from './SimilarityChunkSkeleton'
 import FocalChunkComponent from './FocalChunkComponent'
@@ -140,9 +140,6 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
   }
 }) {
   
-  if (DEBUG_LOGGING) {
-    console.log(`🎯 SimilarityGridRenderer: Rendering ${chunks.size} chunks, dragging: ${isDragging}`)
-  }
 
   return (
     <div className="relative w-full h-full">

@@ -5,7 +5,7 @@
  * using progressive loading for better performance.
  */
 
-import React, { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useViewport } from '../grid-legacy/grid/hooks/useViewport'
 import { TRACKPAD_SPEED, DEBUG_LOGGING, CHUNK_WIDTH, CHUNK_HEIGHT } from './utils/constants'

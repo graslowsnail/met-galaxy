@@ -6,27 +6,6 @@
   --font-serif: var(--font-serif), ui-serif, Georgia, Cambria, "Times New Roman",
     Times, serif;
   
-  /* shadcn/ui color variables */
-  --background: 0 0% 100%;
-  --foreground: 224 71% 4%;
-  --primary: 220 13% 91%;
-  --primary-foreground: 220 9% 46%;
-  --secondary: 210 40% 94%;
-  --secondary-foreground: 215 13% 34%;
-  --accent: 210 40% 94%;
-  --accent-foreground: 215 13% 34%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 20% 98%;
-  --muted: 210 40% 94%;
-  --muted-foreground: 215 13% 34%;
-  --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 224 71% 4%;
-  --radius: 0.5rem;
 }
 
 /* Hide scrollbars completely for the grid interface */

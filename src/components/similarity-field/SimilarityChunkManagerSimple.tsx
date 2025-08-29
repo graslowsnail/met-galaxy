@@ -192,9 +192,6 @@ function createFocalChunk(
   const focalImage = generateFocalImage(chunkX, chunkY, focalArtwork)
   const images = [focalImage]
 
-  if (DEBUG_LOGGING) {
-    console.log(`🎯 Creating focal chunk ${chunkKey} with single image:`, focalImage.title)
-  }
 
   // Calculate position for the focal image (centered in chunk)
   const chunkCenterX = CHUNK_WIDTH / 2
@@ -219,13 +216,6 @@ function createFocalChunk(
       const worldX = chunkWorldX + focalPosition.x + (focalImage.width / 2) // Center of image
       const worldY = chunkWorldY + focalPosition.y + (focalImage.height / 2) // Center of image
       
-      if (DEBUG_LOGGING) {
-        console.log(`🎯 Focal chunk (${chunkX},${chunkY}) created with single focal image:`)
-        console.log(`   Focal image local position:`, focalPosition)
-        console.log(`   Chunk world position:`, { x: chunkWorldX, y: chunkWorldY })
-        console.log(`   Focal image world center:`, { x: worldX, y: worldY })
-        console.log(`   Focal image dimensions:`, { width: focalImage.width, height: focalImage.height })
-      }
       
       onFocalArtworkPosition({
         x: worldX,
@@ -298,14 +288,6 @@ function createChunk(
       const worldX = chunkWorldX + focalPosition.x + (focalImage.width / 2) // Center of image
       const worldY = chunkWorldY + focalPosition.y + (focalImage.height / 2) // Center of image
       
-      if (DEBUG_LOGGING) {
-        console.log(`🎯 Focal chunk (${chunkX},${chunkY}) created:`)
-        console.log(`   Chunk has ${positions.length} image positions`)
-        console.log(`   Focal artwork local position:`, focalPosition)
-        console.log(`   Chunk world position:`, { x: chunkWorldX, y: chunkWorldY })
-        console.log(`   Focal artwork world center:`, { x: worldX, y: worldY })
-        console.log(`   Focal artwork dimensions:`, { width: focalImage.width, height: focalImage.height })
-      }
       
       onFocalArtworkPosition({
         x: worldX,
@@ -423,10 +405,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       batches.push(batch)
     }
     
-    if (DEBUG_LOGGING) {
-      console.log(`📦 Grouped ${nonFocalCoords.length} non-focal chunks into ${batches.length} batches:`, 
-        batches.map(batch => `[${batch.map(c => `${c.x},${c.y}`).join(',')}]`).join(' '))
-    }
     
     return batches
   }, [])
@@ -453,15 +431,9 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
           
         if (newChunk) {
           newChunks.push(newChunk)
-          if (DEBUG_LOGGING) {
-            console.log(`✅ Similarity ${isFocalChunk ? 'focal' : 'regular'} chunk ${chunkKey} created successfully`)
-          }
         } else {
           // Remove from loading state if chunk creation failed
           loadingChunks.current.delete(chunkKey)
-          if (DEBUG_LOGGING) {
-            console.log(`⚠️ Similarity ${isFocalChunk ? 'focal' : 'regular'} chunk ${chunkKey} creation failed - removing from loading state`)
-          }
         }
       }
     }
@@ -492,9 +464,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
    * Load chunks with smart batching and deduplication
    */
   const loadChunks = useCallback(async (coords: ChunkCoordinates[]) => {
-    if (DEBUG_LOGGING) {
-      console.log(`📦 SimilarityChunkManager: Loading ${coords.length} coordinates:`, coords.map(c => `(${c.x},${c.y})`).join(', '))
-    }
     
     const chunksToFetch: ChunkCoordinates[] = []
     const chunksReadyForCreation: ChunkCoordinates[] = []
@@ -517,9 +486,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       const chunkExists = chunks.has(chunkKey)
       
       if (!chunkExists) {
-        if (DEBUG_LOGGING) {
-          console.log(`🎯 Processing focal chunk ${chunkKey}`)
-        }
         
         // Ensure focal chunk data exists - trigger fetch if needed
         const chunkData = chunkDataMap.get(chunkKey)
@@ -548,15 +514,9 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
         if (!chunkData || (!chunkData.artworks && !chunkData.loading)) {
           // Need to fetch data
           chunksToFetch.push(coord)
-          if (DEBUG_LOGGING) {
-            console.log(`🔄 Similarity chunk ${chunkKey} needs data fetch (showing skeleton)`)
-          }
         } else if (chunkData.artworks) {
           // Data is ready, create chunk immediately
           chunksReadyForCreation.push(coord)
-          if (DEBUG_LOGGING) {
-            console.log(`🏗️ Similarity chunk ${chunkKey} ready for creation`)
-          }
         }
       }
     }
@@ -568,9 +528,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
     
     // Fetch chunks using smart batching with deduplication
     if (chunksToFetch.length > 0) {
-      if (DEBUG_LOGGING) {
-        console.log(`🚀 Starting smart batching for ${chunksToFetch.length} chunks`)
-      }
       
       // Separate focal chunks from regular chunks for different handling
       const focalChunksToFetch = chunksToFetch.filter(coord => coord.x === 0 && coord.y === 0)
@@ -578,9 +535,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       
       // Handle focal chunks first with individual API calls (they contain target artwork)
       for (const focalChunk of focalChunksToFetch) {
-        if (DEBUG_LOGGING) {
-          console.log(`🎯 Fetching focal chunk ${focalChunk.x},${focalChunk.y} individually`)
-        }
         await fetchMultipleChunksStreaming([focalChunk], 'high')
       }
       
@@ -638,9 +592,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       // If data is ready and chunk doesn't exist yet, create it immediately
       if (chunkData?.artworks && !chunkExists && !chunkData.loading) {
         chunksReadyForCreation.push({ x, y })
-        if (DEBUG_LOGGING) {
-          console.log(`🎯 STREAMING: Chunk ${chunkKey} data arrived, creating immediately`)
-        }
       }
     }
     
@@ -661,9 +612,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
    */
   useEffect(() => {
     if (isInitialized && !isDragging) {
-      if (DEBUG_LOGGING) {
-        console.log('🚀 SimilarityChunkManager: Initial virtualization trigger')
-      }
       updateVirtualizationRef.current()
     }
   }, [isInitialized, isDragging])
@@ -692,9 +640,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
     y: viewport.translateY
   }
 
-  if (DEBUG_LOGGING) {
-    console.log(`🎛️ SimilarityChunkManager: Rendering ${chunks.size} chunks, ${visibleChunks.length} visible, ${chunksToLoad.length} to load`)
-  }
 
   return (
     <SimilarityGridRenderer

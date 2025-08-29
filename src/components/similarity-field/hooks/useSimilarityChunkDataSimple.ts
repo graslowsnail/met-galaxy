@@ -99,9 +99,6 @@ export function useSimilarityChunkDataSimple({
       const keysToRemove = dataKeys.slice(0, excessCount)
       keysToRemove.forEach(key => newData.delete(key))
       
-      if (DEBUG_LOGGING) {
-        console.log(`💾 Similarity data cache cleanup: removed ${keysToRemove.length} entries, keeping ${newData.size}`)
-      }
       
       return newData
     })
@@ -121,9 +118,6 @@ export function useSimilarityChunkDataSimple({
     reservedArtworkIds.current.clear()
     lastFocalId.current = focalArtworkId
     
-    if (DEBUG_LOGGING) {
-      console.log('🧹 Similarity data cache cleared completely and deduplication reset')
-    }
   }, [focalArtworkId])
   
   // ============================================================================
@@ -142,9 +136,6 @@ export function useSimilarityChunkDataSimple({
     
     // Reset everything if focal artwork changed
     if (lastFocalId.current !== focalArtworkId) {
-      if (DEBUG_LOGGING) {
-        console.log(`🔄 Focal artwork changed from ${lastFocalId.current} to ${focalArtworkId}, clearing all caches`)
-      }
       // Clear all data caches for fresh start
       setChunkDataMap(new Map())
       fetchingChunks.current.clear()
@@ -156,17 +147,11 @@ export function useSimilarityChunkDataSimple({
     // Skip if already loaded or loading
     const existingData = chunkDataMap.get(chunkKey)
     if (existingData && (existingData.loading || existingData.artworks)) {
-      if (DEBUG_LOGGING) {
-        console.log(`Similarity chunk ${chunkKey} already has data, skipping fetch`)
-      }
       return existingData.artworks
     }
     
     // Skip if already being fetched (deduplication)
     if (fetchingChunks.current.has(chunkKey)) {
-      if (DEBUG_LOGGING) {
-        console.log(`Similarity chunk ${chunkKey} already being fetched, skipping duplicate`)
-      }
       return null
     }
     
@@ -192,9 +177,6 @@ export function useSimilarityChunkDataSimple({
       
       // Handle focal chunk (0,0) - display the focal image
       if (chunkX === 0 && chunkY === 0) {
-        if (DEBUG_LOGGING) {
-          console.log(`🎯 Creating focal chunk ${chunkKey} with focal artwork ${focalArtworkId}`)
-        }
         
         if (focalArtwork) {
           // Transform focal artwork to match Artwork interface
@@ -217,9 +199,6 @@ export function useSimilarityChunkDataSimple({
             primaryImageSmall: focalArtwork.imageUrl
           }]
         } else {
-          if (DEBUG_LOGGING) {
-            console.log(`⚠️ No focal artwork provided for focal chunk`)
-          }
           artworks = []
         }
         
@@ -236,9 +215,6 @@ export function useSimilarityChunkDataSimple({
           ...Array.from(reservedArtworkIds.current)
         ]))
         
-        if (DEBUG_LOGGING) {
-          console.log(`🌍 Fetching field-chunk data for chunk ${chunkX},${chunkY} with target ${focalArtworkId}, excluding ${excludeIds.length} IDs`)
-        }
         
         const response = await apiClient.fetchFieldChunk({
           targetId: focalArtworkId,
@@ -275,10 +251,6 @@ export function useSimilarityChunkDataSimple({
           reservedArtworkIds.current.delete(artwork.id)
         })
         
-        if (DEBUG_LOGGING) {
-          console.log(`✅ Loaded ${artworks.length} artworks for similarity chunk ${chunkX},${chunkY}`)
-          console.log(`📊 Total unique artworks: ${usedArtworkIds.current.size} used, ${reservedArtworkIds.current.size} reserved`)
-        }
       }
       
       // Update with successful data
@@ -339,10 +311,6 @@ export function useSimilarityChunkDataSimple({
   ): Promise<void> => {
     if (coordinates.length === 0) return
     
-    if (DEBUG_LOGGING) {
-      console.log(`📦 Streaming fetch for ${coordinates.length} similarity chunks (${priority} priority):`, 
-        coordinates.map(c => `(${c.x},${c.y})`).join(', '))
-    }
     
     // Filter out chunks that don't need fetching
     const chunksToFetch = coordinates.filter(coord => {
@@ -354,9 +322,6 @@ export function useSimilarityChunkDataSimple({
     })
     
     if (chunksToFetch.length === 0) {
-      if (DEBUG_LOGGING) {
-        console.log('No chunks need fetching - all already loaded or loading')
-      }
       return
     }
     
@@ -398,9 +363,6 @@ export function useSimilarityChunkDataSimple({
       }
     })
     
-    if (DEBUG_LOGGING) {
-      console.log(`🚀 Started streaming fetch for ${chunksToFetch.length} chunks`)
-    }
   }, [chunkDataMap, fetchChunkData])
 
   /**
@@ -414,10 +376,6 @@ export function useSimilarityChunkDataSimple({
   ): Promise<void> => {
     if (coordinates.length === 0) return
     
-    if (DEBUG_LOGGING) {
-      console.log(`📦 Multi-chunk deduplication fetch for ${coordinates.length} chunks:`, 
-        coordinates.map(c => `(${c.x},${c.y})`).join(', '))
-    }
     
     // Filter out chunks that don't need fetching
     const chunksToFetch = coordinates.filter(coord => {
@@ -429,9 +387,6 @@ export function useSimilarityChunkDataSimple({
     })
     
     if (chunksToFetch.length === 0) {
-      if (DEBUG_LOGGING) {
-        console.log('No chunks need fetching - all already loaded or loading')
-      }
       return
     }
     
@@ -462,9 +417,6 @@ export function useSimilarityChunkDataSimple({
         excludeIds: excludeIds
       })
       
-      if (DEBUG_LOGGING) {
-        console.log(`✅ Multi-chunk response:`, response.meta)
-      }
       
       // Process each chunk's data
       const updatedChunks = new Map<string, ChunkData>()
@@ -502,9 +454,6 @@ export function useSimilarityChunkDataSimple({
           error: null
         })
         
-        if (DEBUG_LOGGING) {
-          console.log(`📦 Processed chunk ${chunkKey}: ${artworks.length} artworks`)
-        }
       }
       
       // Update all chunks at once
@@ -516,9 +465,6 @@ export function useSimilarityChunkDataSimple({
         return updated
       })
       
-      if (DEBUG_LOGGING) {
-        console.log(`✅ Multi-chunk fetch complete: ${updatedChunks.size} chunks, ${usedArtworkIds.current.size} total unique artworks`)
-      }
       
     } catch (error) {
       console.error(`❌ Error in multi-chunk fetch:`, error)
@@ -562,10 +508,6 @@ export function useSimilarityChunkDataSimple({
   const fetchMultipleChunks = useCallback(async (coordinates: ChunkCoordinates[]): Promise<void> => {
     if (coordinates.length === 0) return
     
-    if (DEBUG_LOGGING) {
-      console.log(`📦 Fetching ${coordinates.length} similarity chunks in parallel:`, 
-        coordinates.map(c => `(${c.x},${c.y})`).join(', '))
-    }
     
     // Filter out chunks that don't need fetching
     const chunksToFetch = coordinates.filter(coord => {
@@ -577,9 +519,6 @@ export function useSimilarityChunkDataSimple({
     })
     
     if (chunksToFetch.length === 0) {
-      if (DEBUG_LOGGING) {
-        console.log('No similarity chunks need fetching - all already loaded or loading')
-      }
       return
     }
     
@@ -588,9 +527,6 @@ export function useSimilarityChunkDataSimple({
       chunksToFetch.map(coord => fetchChunkData(coord.x, coord.y))
     )
     
-    if (DEBUG_LOGGING) {
-      console.log(`✅ Batch fetch complete for ${chunksToFetch.length} similarity chunks`)
-    }
   }, [chunkDataMap, fetchChunkData])
   
   // ============================================================================

@@ -6,7 +6,7 @@
  * interactions, error handling, and hover effects.
  */
 
-import React, { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect } from 'react'
 import type { ChunkComponentProps } from './types/grid'
 import { 
   GRID_ORIGIN_X, 

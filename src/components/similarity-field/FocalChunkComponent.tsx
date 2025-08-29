@@ -6,7 +6,7 @@
  * styled focal image at the center of the chunk area.
  */
 
-import React, { memo, useState } from 'react'
+import { memo, useState } from 'react'
 import { X } from 'lucide-react'
 import type { ChunkComponentProps, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 

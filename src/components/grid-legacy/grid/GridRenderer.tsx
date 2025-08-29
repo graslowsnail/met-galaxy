@@ -6,7 +6,7 @@
  * infinite scrollable grid.
  */
 
-import React, { memo } from 'react'
+import { memo } from 'react'
 import ChunkComponent from './ChunkComponent'
 import ChunkSkeleton from './ChunkSkeleton'
 import type { GridRendererProps } from './types/grid'
@@ -161,9 +161,6 @@ const GridRenderer = memo(function GridRenderer({
   showPerformanceOverlay?: boolean
 }) {
   
-  if (DEBUG_LOGGING) {
-    console.log(`🎨 GridRenderer: Rendering ${chunks.size} chunks, dragging: ${isDragging}`)
-  }
 
   return (
     <div className="relative w-full h-full">

@@ -3,7 +3,7 @@
  * Based on ChunkComponent but uses similarity field constants for correct positioning
  */
 
-import React, { memo, useState } from 'react'
+import { memo, useState } from 'react'
 import type { Chunk, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 
   CHUNK_WIDTH, 

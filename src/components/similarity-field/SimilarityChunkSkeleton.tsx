@@ -3,7 +3,7 @@
  * Based on ChunkSkeleton but uses similarity field constants for correct positioning
  */
 
-import React, { memo } from 'react'
+import { memo } from 'react'
 import { 
   CHUNK_WIDTH, 
   CHUNK_HEIGHT, 
