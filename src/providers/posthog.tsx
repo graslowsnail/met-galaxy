@@ -14,7 +14,7 @@ export function PostHogProviderClient({
     if (typeof window !== 'undefined' && env.NEXT_PUBLIC_POSTHOG_KEY) {
       posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
         api_host: env.NEXT_PUBLIC_POSTHOG_HOST,
-        person_profiles: 'identified_only',
+        person_profiles: 'always',
         capture_pageview: true,
         capture_pageleave: true,
         // Disable autocapture since we only need basic visitor tracking
