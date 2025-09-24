@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Search, Check } from "lucide-react"
+import { Search, Check, X } from "lucide-react"
 
 export function SearchWidget() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const [searchValue, setSearchValue] = useState("")
+  const [hasSearched, setHasSearched] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleToggle = () => {
@@ -29,9 +30,17 @@ export function SearchWidget() {
   const handleSubmit = () => {
     if (searchValue.trim()) {
       console.log("Search submitted:", searchValue)
+      setHasSearched(true)
       // TODO: Implement actual search functionality
       // Keep search bar open to show results/messages
-      // setIsExpanded(false) - removed to keep open
+    }
+  }
+
+  const handleClear = () => {
+    setSearchValue("")
+    setHasSearched(false)
+    if (inputRef.current) {
+      inputRef.current.focus()
     }
   }
 
@@ -190,10 +199,14 @@ export function SearchWidget() {
                 />
                 {searchValue && (
                   <button
-                    onClick={handleSubmit}
+                    onClick={hasSearched ? handleClear : handleSubmit}
                     className="text-slate-600 hover:text-slate-900 transition-colors"
                   >
-                    <Check className="w-4 h-4" />
+                    {hasSearched ? (
+                      <X className="w-4 h-4" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
                   </button>
                 )}
               </div>
