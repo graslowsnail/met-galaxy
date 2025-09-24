@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "@/styles/globals.css";
 import { InfoWidget } from "@/components/InfoWidget";
+import { SearchWidget } from "@/components/SearchWidget";
 import { PostHogProviderClient } from "@/providers/posthog";
 
 const inter = Inter({
@@ -94,6 +95,7 @@ export default function RootLayout({
         <PostHogProviderClient>
           {children}
           <InfoWidget />
+          <SearchWidget />
         </PostHogProviderClient>
         <script
           type="application/ld+json"
