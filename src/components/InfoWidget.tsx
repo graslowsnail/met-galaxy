@@ -13,7 +13,7 @@ export function InfoWidget() {
   return (
     <>
       {/* Info Icon Button */}
-      <div className="fixed top-6 left-6 sm:top-6 sm:left-6 z-40">
+      <div className="relative">
         {/* Glowing effect for button on mobile when modal is open */}
         {isOpen && (
           <div
@@ -26,7 +26,7 @@ export function InfoWidget() {
         
         <button
           onClick={handleToggle}
-          className="relative bg-white/50 rounded-lg shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5"
+          className="relative bg-white/85 backdrop-blur-sm rounded-lg shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5"
         >
           {isOpen ? (
             <>
