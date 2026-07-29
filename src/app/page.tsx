@@ -1,13 +1,13 @@
 "use client"
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityField } from "@/components/similarity-field"
 import NavigationOverlay, { type NavigationHistoryItem } from "@/components/similarity-field/NavigationOverlay"
 import { FractalWidget } from "@/components/FractalWidget"
 import { WidgetContainer } from "@/components/WidgetContainer"
-import { SearchResults } from "@/components/SearchResults"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
+import { apiClient } from "@/lib/api-client"
 import type { SearchResultItem } from "@/types/api"
 
 export default function Home() {
@@ -33,60 +33,143 @@ export default function Home() {
   const [searchState, setSearchState] = useState<{
     results: SearchResultItem[] | null;
     query: string;
-  }>({ results: null, query: "" })
+    nextCursor: string | null;
+    hasMore: boolean;
+    isLoadingMore: boolean;
+  }>({
+    results: null,
+    query: "",
+    nextCursor: null,
+    hasMore: false,
+    isLoadingMore: false,
+  })
+  const searchPageAbortRef = useRef<AbortController | null>(null)
+  const searchPageLoadingRef = useRef(false)
 
-  const handleSearchResults = useCallback((results: SearchResultItem[], query: string) => {
-    setSearchState({ results, query })
+  const handleSearchResults = useCallback((
+    results: SearchResultItem[],
+    query: string,
+    nextCursor: string | null,
+    hasMore: boolean
+  ) => {
+    searchPageAbortRef.current?.abort()
+    searchPageAbortRef.current = null
+    searchPageLoadingRef.current = false
+    setSearchState({
+      results,
+      query,
+      nextCursor,
+      hasMore,
+      isLoadingMore: false,
+    })
     setSimilarityMode({ active: false, artworkId: null, artworkData: null })
     setNavigationHistory([])
   }, [])
 
   const handleClearSearch = useCallback(() => {
-    setSearchState({ results: null, query: "" })
+    searchPageAbortRef.current?.abort()
+    searchPageAbortRef.current = null
+    searchPageLoadingRef.current = false
+    setSearchState({
+      results: null,
+      query: "",
+      nextCursor: null,
+      hasMore: false,
+      isLoadingMore: false,
+    })
   }, [])
 
-  const handleSearchArtworkClick = useCallback((artwork: SearchResultItem) => {
-    setSearchState({ results: null, query: "" })
-
-    const artworkData = {
-      id: artwork.id,
-      title: artwork.title,
-      artist: artwork.artist,
-      date: artwork.date,
-      department: artwork.department,
-      creditLine: artwork.creditLine,
-      description: artwork.description,
-      imageUrl: artwork.imageUrl,
-      originalImageUrl: artwork.originalImageUrl,
-      objectUrl: artwork.objectUrl,
+  const handleLoadMoreSearchResults = useCallback(async () => {
+    if (
+      searchPageLoadingRef.current
+      || !searchState.results
+      || !searchState.hasMore
+      || !searchState.nextCursor
+    ) {
+      return
     }
 
-    setSimilarityMode({
-      active: true,
-      artworkId: artwork.id,
-      artworkData,
-    })
+    const query = searchState.query
+    const cursor = searchState.nextCursor
+    const controller = new AbortController()
+    searchPageAbortRef.current?.abort()
+    searchPageAbortRef.current = controller
+    searchPageLoadingRef.current = true
+    setSearchState((current) => (
+      current.query === query
+        ? { ...current, isLoadingMore: true }
+        : current
+    ))
 
-    setNavigationHistory([
-      {
-        id: 'main-grid',
-        title: 'Main Grid',
-        artist: null,
-        thumbnailUrl: null,
-        isMainGrid: true,
-      },
-      {
-        id: artwork.id,
-        title: artwork.title,
-        artist: artwork.artist,
-        thumbnailUrl: artwork.imageUrl,
-      },
-    ])
+    try {
+      const response = await apiClient.searchArtworks({
+        q: query,
+        cursor,
+        signal: controller.signal,
+      })
+
+      setSearchState((current) => {
+        if (current.query !== query || !current.results) {
+          return current
+        }
+
+        const existingIds = new Set(current.results.map((artwork) => artwork.id))
+        const newResults = response.data.filter(
+          (artwork) => !existingIds.has(artwork.id)
+        )
+
+        return {
+          results: [...current.results, ...newResults],
+          query,
+          nextCursor: response.meta.nextCursor,
+          hasMore: response.meta.hasMore,
+          isLoadingMore: true,
+        }
+      })
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error("Failed to load more search results:", error)
+        setSearchState((current) => (
+          current.query === query
+            ? {
+                ...current,
+                nextCursor: null,
+                hasMore: false,
+              }
+            : current
+        ))
+      }
+    } finally {
+      if (searchPageAbortRef.current === controller) {
+        searchPageAbortRef.current = null
+        searchPageLoadingRef.current = false
+        setSearchState((current) => (
+          current.query === query
+            ? { ...current, isLoadingMore: false }
+            : current
+        ))
+      }
+    }
+  }, [searchState])
+
+  useEffect(() => {
+    return () => searchPageAbortRef.current?.abort()
   }, [])
 
   // Handle artwork click from main grid
   const handleArtworkClick = useCallback((image: ImageItem) => {
     if (image.databaseId) {
+      searchPageAbortRef.current?.abort()
+      searchPageAbortRef.current = null
+      searchPageLoadingRef.current = false
+      setSearchState({
+        results: null,
+        query: "",
+        nextCursor: null,
+        hasMore: false,
+        isLoadingMore: false,
+      })
+
       const artworkData = {
         id: image.databaseId,
         title: image.title ?? null,
@@ -195,20 +278,17 @@ export default function Home() {
         onClearSearch={handleClearSearch}
       />
 
-      {/* Search results overlay */}
-      {searchState.results && (
-        <SearchResults
-          results={searchState.results}
-          query={searchState.query}
-          onArtworkClick={handleSearchArtworkClick}
-          onClose={handleClearSearch}
-        />
-      )}
-
-      {/* Main infinite grid */}
-      {!similarityMode.active && !searchState.results && (
+      {/* Main and search result grid */}
+      {!similarityMode.active && (
         <DraggableImageGrid
+          key={searchState.results
+            ? `search-${searchState.query}`
+            : 'main-grid'}
           onArtworkClick={handleArtworkClick}
+          artworks={searchState.results ?? undefined}
+          hasMoreArtworks={searchState.hasMore}
+          isLoadingMoreArtworks={searchState.isLoadingMore}
+          onLoadMoreArtworks={handleLoadMoreSearchResults}
           showPerformanceOverlay={false}
           showLoadingIndicators={true}
         />

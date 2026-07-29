@@ -6,7 +6,12 @@ import { apiClient } from "@/lib/api-client"
 import type { SearchResultItem } from "@/types/api"
 
 interface SearchWidgetProps {
-  onSearchResults: (results: SearchResultItem[], query: string) => void
+  onSearchResults: (
+    results: SearchResultItem[],
+    query: string,
+    nextCursor: string | null,
+    hasMore: boolean
+  ) => void
   onClearSearch: () => void
 }
 
@@ -54,7 +59,12 @@ export function SearchWidget({ onSearchResults, onClearSearch }: SearchWidgetPro
         signal: controller.signal,
       })
       setHasSearched(true)
-      onSearchResults(response.data, query)
+      onSearchResults(
+        response.data,
+        query,
+        response.meta.nextCursor,
+        response.meta.hasMore
+      )
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return
       setError("Search failed. Try again.")

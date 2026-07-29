@@ -5,7 +5,12 @@ import { SearchWidget } from "./SearchWidget"
 import type { SearchResultItem } from "@/types/api"
 
 interface WidgetContainerProps {
-  onSearchResults: (results: SearchResultItem[], query: string) => void
+  onSearchResults: (
+    results: SearchResultItem[],
+    query: string,
+    nextCursor: string | null,
+    hasMore: boolean
+  ) => void
   onClearSearch: () => void
 }
 

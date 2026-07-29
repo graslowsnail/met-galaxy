@@ -153,6 +153,8 @@ export interface SearchResponse {
   meta: {
     query: string
     count: number
+    hasMore: boolean
+    nextCursor: string | null
     timing: {
       embed: string
       search: string

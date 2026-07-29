@@ -8,17 +8,26 @@ import { useViewport } from "./grid-legacy/grid/hooks/useViewport"
 import ChunkManager from "./grid-legacy/grid/ChunkManager"
 import type { ImageItem } from "./grid-legacy/grid/types/grid"
 import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants"
+import type { Artwork } from "@/types/api"
 
 // Note: Image generation functions now handled by ChunkManager
 
 interface DraggableImageGridProps {
   onArtworkClick?: (image: ImageItem) => void
+  artworks?: Artwork[]
+  hasMoreArtworks?: boolean
+  isLoadingMoreArtworks?: boolean
+  onLoadMoreArtworks?: () => Promise<void>
   showPerformanceOverlay?: boolean
   showLoadingIndicators?: boolean
 }
 
 export function DraggableImageGrid({
   onArtworkClick: externalOnArtworkClick,
+  artworks,
+  hasMoreArtworks = false,
+  isLoadingMoreArtworks = false,
+  onLoadMoreArtworks,
   showPerformanceOverlay = true,
   showLoadingIndicators: _showLoadingIndicators = true
 }: DraggableImageGridProps = {}) {
@@ -175,6 +184,10 @@ export function DraggableImageGrid({
           isDragging={isDragging}
           isInitialized={isInitialized}
           onImageClick={handleArtworkClick}
+          artworks={artworks}
+          hasMoreArtworks={hasMoreArtworks}
+          isLoadingMoreArtworks={isLoadingMoreArtworks}
+          onLoadMoreArtworks={onLoadMoreArtworks}
           showPerformanceOverlay={showPerformanceOverlay}
           movementPrediction={movementPrediction}
         />

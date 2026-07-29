@@ -194,12 +194,16 @@ export const apiClient = {
   async searchArtworks(params: {
     q: string
     count?: number
+    cursor?: string
     signal?: AbortSignal
   }): Promise<SearchResponse> {
     const url = new URL(API_CONFIG.endpoints.search, API_CONFIG.baseUrl)
     url.searchParams.set('q', params.q)
     if (params.count) {
       url.searchParams.set('count', params.count.toString())
+    }
+    if (params.cursor) {
+      url.searchParams.set('cursor', params.cursor)
     }
 
     const response = await fetch(url.toString(), {
