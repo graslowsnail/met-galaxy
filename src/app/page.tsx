@@ -5,7 +5,10 @@ import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityField } from "@/components/similarity-field"
 import NavigationOverlay, { type NavigationHistoryItem } from "@/components/similarity-field/NavigationOverlay"
 import { FractalWidget } from "@/components/FractalWidget"
+import { WidgetContainer } from "@/components/WidgetContainer"
+import { SearchResults } from "@/components/SearchResults"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
+import type { SearchResultItem } from "@/types/api"
 
 export default function Home() {
   const [similarityMode, setSimilarityMode] = useState<{
@@ -25,12 +28,64 @@ export default function Home() {
     } | null;
   }>({ active: false, artworkId: null, artworkData: null })
 
-  // Navigation history for rabbit hole exploration
   const [navigationHistory, setNavigationHistory] = useState<NavigationHistoryItem[]>([])
+
+  const [searchState, setSearchState] = useState<{
+    results: SearchResultItem[] | null;
+    query: string;
+  }>({ results: null, query: "" })
+
+  const handleSearchResults = useCallback((results: SearchResultItem[], query: string) => {
+    setSearchState({ results, query })
+    setSimilarityMode({ active: false, artworkId: null, artworkData: null })
+    setNavigationHistory([])
+  }, [])
+
+  const handleClearSearch = useCallback(() => {
+    setSearchState({ results: null, query: "" })
+  }, [])
+
+  const handleSearchArtworkClick = useCallback((artwork: SearchResultItem) => {
+    setSearchState({ results: null, query: "" })
+
+    const artworkData = {
+      id: artwork.id,
+      title: artwork.title,
+      artist: artwork.artist,
+      date: artwork.date,
+      department: artwork.department,
+      creditLine: artwork.creditLine,
+      description: artwork.description,
+      imageUrl: artwork.imageUrl,
+      originalImageUrl: artwork.originalImageUrl,
+      objectUrl: artwork.objectUrl,
+    }
+
+    setSimilarityMode({
+      active: true,
+      artworkId: artwork.id,
+      artworkData,
+    })
+
+    setNavigationHistory([
+      {
+        id: 'main-grid',
+        title: 'Main Grid',
+        artist: null,
+        thumbnailUrl: null,
+        isMainGrid: true,
+      },
+      {
+        id: artwork.id,
+        title: artwork.title,
+        artist: artwork.artist,
+        thumbnailUrl: artwork.imageUrl,
+      },
+    ])
+  }, [])
 
   // Handle artwork click from main grid
   const handleArtworkClick = useCallback((image: ImageItem) => {
-    // Check if we have a database ID for similarity search
     if (image.databaseId) {
       const artworkData = {
         id: image.databaseId,
@@ -44,14 +99,13 @@ export default function Home() {
         originalImageUrl: image.src ?? null,
         objectUrl: (image as any).objectUrl ?? null
       }
-      
-      setSimilarityMode({ 
-        active: true, 
+
+      setSimilarityMode({
+        active: true,
         artworkId: image.databaseId,
         artworkData
       })
-      
-      // Initialize navigation history with main grid + first artwork
+
       setNavigationHistory([
         {
           id: 'main-grid',
@@ -72,14 +126,12 @@ export default function Home() {
     }
   }, [])
 
-  // Handle artwork click from similarity field (for rabbit hole navigation)
   const handleSimilarityArtworkClick = useCallback((artwork: {
     id: number
     title: string | null
     artist: string | null
     imageUrl: string | null
   }) => {
-    
     const artworkData = {
       id: artwork.id,
       title: artwork.title,
@@ -88,15 +140,13 @@ export default function Home() {
       originalImageUrl: artwork.imageUrl ?? null,
       objectUrl: (artwork as any).objectUrl ?? null
     }
-    
-    // Update the focal artwork for rabbit hole navigation
-    setSimilarityMode({ 
-      active: true, 
+
+    setSimilarityMode({
+      active: true,
       artworkId: artwork.id,
       artworkData
     })
-    
-    // Add new artwork to navigation history (forward exploration)
+
     setNavigationHistory(prev => [
       ...prev,
       {
@@ -108,22 +158,17 @@ export default function Home() {
     ])
   }, [])
 
-  // Handle closing similarity mode
   const handleCloseSimilarity = useCallback(() => {
     setSimilarityMode({ active: false, artworkId: null, artworkData: null })
     setNavigationHistory([])
   }, [])
-  
-  // Handle navigation overlay clicks (smart history truncation)
+
   const handleNavigateToHistoryItem = useCallback((item: NavigationHistoryItem, index: number) => {
-    
     if (item.isMainGrid) {
-      // Navigate back to main grid
       handleCloseSimilarity()
       return
     }
-    
-    // Navigate to selected artwork and truncate history at that point
+
     const artworkData = {
       id: item.id as number,
       title: item.title,
@@ -132,22 +177,37 @@ export default function Home() {
       originalImageUrl: item.thumbnailUrl ?? null,
       objectUrl: (item as any).objectUrl ?? null
     }
-    
+
     setSimilarityMode({
       active: true,
       artworkId: item.id as number,
       artworkData
     })
-    
-    // Truncate history at clicked point (smart backtracking)
+
     setNavigationHistory(prev => prev.slice(0, index + 1))
   }, [handleCloseSimilarity])
 
   return (
     <>
+      {/* Widgets (search, info) */}
+      <WidgetContainer
+        onSearchResults={handleSearchResults}
+        onClearSearch={handleClearSearch}
+      />
+
+      {/* Search results overlay */}
+      {searchState.results && (
+        <SearchResults
+          results={searchState.results}
+          query={searchState.query}
+          onArtworkClick={handleSearchArtworkClick}
+          onClose={handleClearSearch}
+        />
+      )}
+
       {/* Main infinite grid */}
-      {!similarityMode.active && (
-        <DraggableImageGrid 
+      {!similarityMode.active && !searchState.results && (
+        <DraggableImageGrid
           onArtworkClick={handleArtworkClick}
           showPerformanceOverlay={false}
           showLoadingIndicators={true}
@@ -158,12 +218,11 @@ export default function Home() {
       {similarityMode.active && similarityMode.artworkId && similarityMode.artworkData && (
         <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
           <SimilarityField
-            key={`similarity-${similarityMode.artworkId}`} // Force remount on focal change
+            key={`similarity-${similarityMode.artworkId}`}
             focalArtworkId={similarityMode.artworkId}
             focalArtwork={similarityMode.artworkData}
             onArtworkClick={handleSimilarityArtworkClick}
           />
-          {/* Navigation overlay for rabbit hole exploration */}
           <NavigationOverlay
             navigationHistory={navigationHistory}
             currentFocalId={similarityMode.artworkId ?? 'main-grid'}
@@ -172,8 +231,7 @@ export default function Home() {
           />
         </div>
       )}
-      
-      {/* Show Fractal widget always on desktop, but hide on mobile in similarity mode */}
+
       <div className={similarityMode.active ? "hidden sm:block" : "block"}>
         <FractalWidget />
       </div>

@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse, type SearchResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -188,6 +188,28 @@ export const apiClient = {
     if (!response.ok) throw new Error(`field-chunks http ${response.status}`)
     const json = (await response.json()) as MultiChunkResponse
     if (!json.success) throw new Error(`field-chunks error: ${(json as { error?: string }).error ?? 'unknown'}`)
+    return json
+  },
+
+  async searchArtworks(params: {
+    q: string
+    count?: number
+    signal?: AbortSignal
+  }): Promise<SearchResponse> {
+    const url = new URL(API_CONFIG.endpoints.search, API_CONFIG.baseUrl)
+    url.searchParams.set('q', params.q)
+    if (params.count) {
+      url.searchParams.set('count', params.count.toString())
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      signal: params.signal,
+    })
+
+    if (!response.ok) throw new Error(`search http ${response.status}`)
+    const json = (await response.json()) as SearchResponse
+    if (!json.success) throw new Error(`search error: ${(json as { error?: string }).error ?? 'unknown'}`)
     return json
   },
 }

@@ -128,6 +128,39 @@ export interface MultiChunkResponse {
   responseTime: string
 }
 
+// Search API Types
+export interface SearchResultItem {
+  id: number
+  objectId: number
+  title: string | null
+  artist: string | null
+  date: string | null
+  department: string | null
+  culture: string | null
+  medium: string | null
+  creditLine: string | null
+  description: string | null
+  imageUrl: string | null
+  originalImageUrl: string | null
+  imageSource: string | null
+  objectUrl: string | null
+  similarity: number
+}
+
+export interface SearchResponse {
+  success: boolean
+  data: SearchResultItem[]
+  meta: {
+    query: string
+    count: number
+    timing: {
+      embed: string
+      search: string
+      total: string
+    }
+  }
+}
+
 // API Configuration
 export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080',
@@ -138,5 +171,6 @@ export const API_CONFIG = {
     similarArtworks: '/api/artworks/similar',
     fieldChunk: '/api/artworks/field-chunk',
     fieldChunks: '/api/artworks/field-chunks',
+    search: '/api/artworks/search',
   }
 } as const
