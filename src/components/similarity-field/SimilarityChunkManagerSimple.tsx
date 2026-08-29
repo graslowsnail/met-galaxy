@@ -137,13 +137,15 @@ function generateFocalImage(chunkX: number, chunkY: number, focalArtwork: Artwor
   const width = CHUNK_WIDTH * 0.8 // Use 80% of chunk width
   const height = CHUNK_HEIGHT * 0.8 // Use 80% of chunk height
 
-  // Use primaryImageSmall if available, fallback to primaryImage
-  const imageUrl = focalArtwork.primaryImageSmall ?? focalArtwork.primaryImage
+  const imageUrl = focalArtwork.originalImageUrl
+    ?? focalArtwork.primaryImage
+    ?? focalArtwork.primaryImageSmall
   const src = imageUrl!
 
   return {
     id: generateImageId('artwork', chunkX, chunkY, 0, focalArtwork.id),
     src,
+    originalImageUrl: focalArtwork.originalImageUrl ?? src,
     width,
     height,
     aspectRatio,

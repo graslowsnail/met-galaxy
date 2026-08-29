@@ -88,6 +88,8 @@ export function DraggableImageGrid({
     if (!container) return
     
     let rafId = 0
+    let pendingDeltaX = 0
+    let pendingDeltaY = 0
     
     const handleWheelEvent = (e: WheelEvent) => {
       // Ignore browser pinch-zoom
@@ -107,19 +109,17 @@ export function DraggableImageGrid({
       if (isTrackpadGesture) {
         // Enable trackpad navigation with natural direction
         const speed = TRACKPAD_SPEED
-        const deltaX = -e.deltaX * speed  // Invert X for natural movement
-        const deltaY = -e.deltaY * speed  // Invert Y for natural movement
-        
-        // Cancel previous RAF to prevent stacking
-        if (rafId) cancelAnimationFrame(rafId)
-        
-        // Update translate position with RAF throttling
-        rafId = requestAnimationFrame(() => {
-          // Guard against tiny/noop deltas to avoid extra renders
-          if (deltaX !== 0 || deltaY !== 0) {
-            updatePositionRef.current(deltaX, deltaY)
-          }
-        })
+        pendingDeltaX += -e.deltaX * speed
+        pendingDeltaY += -e.deltaY * speed
+
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            updatePositionRef.current(pendingDeltaX, pendingDeltaY)
+            pendingDeltaX = 0
+            pendingDeltaY = 0
+            rafId = 0
+          })
+        }
       }
       // Mouse wheel events are blocked (no movement)
     }
@@ -170,12 +170,10 @@ export function DraggableImageGrid({
       onTouchStart={handleTouchStart}
     >
       <div
-        className={`relative ${
-          isDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'
-        }`}
+        className="relative"
         style={{
           transform: `translate(${translate.x}px, ${translate.y}px)`,
-          willChange: isDragging ? 'transform' : 'auto', // Optimize for smooth dragging
+          willChange: 'transform',
         }}
       >
         {/* All grid rendering now handled by ChunkManager */}

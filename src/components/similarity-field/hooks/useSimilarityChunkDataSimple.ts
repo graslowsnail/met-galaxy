@@ -195,7 +195,7 @@ export function useSimilarityChunkDataSimple({
             creditLine: focalArtwork.creditLine ?? null,
             description: focalArtwork.description ?? null,
             objectUrl: focalArtwork.objectUrl,
-            primaryImage: focalArtwork.imageUrl,
+            primaryImage: focalArtwork.originalImageUrl || focalArtwork.imageUrl,
             primaryImageSmall: focalArtwork.imageUrl
           }]
         } else {

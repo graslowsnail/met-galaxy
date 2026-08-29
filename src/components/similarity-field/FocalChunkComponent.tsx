@@ -137,6 +137,9 @@ const FocalImage = memo(function FocalImage({
           onLoad={handleLoad}
           onError={handleError}
           loading="eager"
+          decoding="async"
+          width={image.width}
+          height={image.height}
           draggable={false}
         />
       ) : (

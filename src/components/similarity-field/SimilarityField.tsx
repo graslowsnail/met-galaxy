@@ -94,6 +94,8 @@ const SimilarityField = memo(function SimilarityField({
     const container = containerRef.current
     if (!container) return
     let rafId = 0
+    let pendingDeltaX = 0
+    let pendingDeltaY = 0
 
     const handleWheelEvent = (e: WheelEvent) => {
       if (e.ctrlKey) return
@@ -109,10 +111,16 @@ const SimilarityField = memo(function SimilarityField({
         const deltaX = -e.deltaX * speed
         const deltaY = -e.deltaY * speed
 
-        if (rafId) cancelAnimationFrame(rafId)
-        rafId = requestAnimationFrame(() => {
-          if (deltaX !== 0 || deltaY !== 0) updatePositionRef.current(deltaX, deltaY)
-        })
+        pendingDeltaX += deltaX
+        pendingDeltaY += deltaY
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            updatePositionRef.current(pendingDeltaX, pendingDeltaY)
+            pendingDeltaX = 0
+            pendingDeltaY = 0
+            rafId = 0
+          })
+        }
       }
     }
 
@@ -204,10 +212,10 @@ const SimilarityField = memo(function SimilarityField({
       onTouchStart={handleTouchStart}
     >
       <div
-        className={isDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'}
+        className="relative"
         style={{
           transform: `translate3d(${translate.x}px, ${translate.y}px, 0)`,
-          willChange: isDragging ? 'transform' : 'auto',
+          willChange: 'transform',
         }}
       >
         {isInitialized && (

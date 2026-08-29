@@ -169,6 +169,9 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
                   }}
                   draggable={false}
                   loading="lazy"
+                  decoding="async"
+                  width={image.width}
+                  height={position.height}
                   onError={handleError}
                 />
               </div>

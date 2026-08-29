@@ -105,6 +105,7 @@ function generateChunkImagesFromArtworks(
       return {
         id: generateImageId('artwork', chunkX, chunkY, i, artwork.id),
         src,
+        originalImageUrl: artwork.originalImageUrl ?? src,
         width,
         height,
         aspectRatio,

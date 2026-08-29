@@ -20,6 +20,8 @@ export interface ImageItem {
   id: string
   /** Image source URL */
   src: string
+  /** Full-resolution image URL for detail views */
+  originalImageUrl?: string | null
   /** Image width in pixels */
   width: number
   /** Image height in pixels */
@@ -366,7 +368,6 @@ export interface UseVirtualizationReturn {
 // ============================================================================
 // UTILITY TYPES
 // ============================================================================
-
 
 
 

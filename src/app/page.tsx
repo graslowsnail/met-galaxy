@@ -179,7 +179,7 @@ export default function Home() {
         creditLine: image.creditLine ?? null,
         description: image.description ?? null,
         imageUrl: image.src,
-        originalImageUrl: image.src ?? null,
+        originalImageUrl: image.originalImageUrl ?? image.src,
         objectUrl: (image as any).objectUrl ?? null
       }
 
