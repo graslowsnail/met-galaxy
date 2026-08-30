@@ -37,13 +37,14 @@ export function DraggableImageGrid({
     isInitialized, 
     isDragging, 
     dragDistance,
-    handleMouseDown, 
-    handleTouchStart,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     containerRef,
     viewport,
     onPostDrag,
     updatePosition,
-    movementPrediction
   } = useViewport()
 
   // Connect post-drag events to trigger updates
@@ -163,11 +164,14 @@ export function DraggableImageGrid({
         backgroundColor: GRID_BACKGROUND_COLOR,
         overscrollBehavior: 'none', // Prevent overscroll
         touchAction: 'none', // Prevent touch scrolling
+        userSelect: 'none',
         msOverflowStyle: 'none', // IE and Edge
         scrollbarWidth: 'none' // Firefox
       }}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div
         className="relative"
@@ -187,7 +191,6 @@ export function DraggableImageGrid({
           isLoadingMoreArtworks={isLoadingMoreArtworks}
           onLoadMoreArtworks={onLoadMoreArtworks}
           showPerformanceOverlay={showPerformanceOverlay}
-          movementPrediction={movementPrediction}
         />
       </div>
     </div>

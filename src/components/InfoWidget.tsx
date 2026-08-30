@@ -1,10 +1,27 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { X } from "lucide-react"
 
+const INTRO_SEEN_KEY = "open-metropolitan-intro-seen"
+
 export function InfoWidget() {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const searchParams = new URL(window.location.href).searchParams
+    const isSharedExploration = searchParams.has("path") || searchParams.has("artwork")
+    if (isSharedExploration) return
+
+    try {
+      if (!window.localStorage.getItem(INTRO_SEEN_KEY)) {
+        setIsOpen(true)
+        window.localStorage.setItem(INTRO_SEEN_KEY, "true")
+      }
+    } catch {
+      setIsOpen(true)
+    }
+  }, [])
 
   const handleToggle = () => {
     setIsOpen(!isOpen)

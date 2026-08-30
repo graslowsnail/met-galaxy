@@ -300,10 +300,11 @@ export interface UseViewportReturn {
   isDragging: boolean
   /** Distance moved during current drag operation */
   dragDistance: number
-  /** Function to handle mouse down events */
-  handleMouseDown: (event: React.MouseEvent) => void
-  /** Function to handle touch start events */
-  handleTouchStart: (event: React.TouchEvent) => void
+  /** Functions to handle mouse, pen, and touch dragging */
+  handlePointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
+  handlePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void
+  handlePointerUp: (event: React.PointerEvent<HTMLDivElement>) => void
+  handlePointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void
   /** Function to get viewport bounds */
   getViewportBounds: (includeBuffer?: boolean) => ViewportBounds
   /** Function to check if viewport has changed significantly */
@@ -368,6 +369,5 @@ export interface UseVirtualizationReturn {
 // ============================================================================
 // UTILITY TYPES
 // ============================================================================
-
 
 

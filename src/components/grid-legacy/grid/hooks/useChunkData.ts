@@ -37,6 +37,7 @@ export function useChunkData(): UseChunkDataReturn {
   
   /** Track which chunks are currently being fetched to prevent duplicates */
   const fetchingChunks = useRef<Set<string>>(new Set())
+  const gridSeed = useRef(Math.floor(Math.random() * 2_147_483_647))
   
   /** Track overall loading state */
   const [isLoading, setIsLoading] = useState(false)
@@ -213,34 +214,56 @@ export function useChunkData(): UseChunkDataReturn {
       return
     }
     
-    // Start all chunks immediately without waiting (streaming approach)
-    // Higher priority chunks get fetched first by sorting
     const sortedChunks = priority === 'high' 
-      ? chunksToFetch  // High priority: fetch in order
-      : [...chunksToFetch].reverse()  // Low priority: reverse order to fetch less critical chunks last
-    
-    // Fire and forget - don't await the individual fetches
-    sortedChunks.forEach((coord, index) => {
-      // Add small delay for low priority chunks to not overwhelm the API
-      const delay = priority === 'low' ? index * 50 : 0
-      
-      if (delay > 0) {
-        setTimeout(() => {
-          fetchChunkData(coord.x, coord.y).catch(error => {
-            console.warn(`Failed to fetch chunk ${coord.x},${coord.y}:`, error)
-          })
-        }, delay)
-      } else {
-        fetchChunkData(coord.x, coord.y).catch(error => {
-          console.warn(`Failed to fetch chunk ${coord.x},${coord.y}:`, error)
-        })
-      }
+      ? chunksToFetch
+      : [...chunksToFetch].reverse()
+
+    sortedChunks.forEach((coord) => fetchingChunks.current.add(getChunkKey(coord.x, coord.y)))
+    setChunkDataMap((previous) => {
+      const next = new Map(previous)
+      sortedChunks.forEach((coord) => next.set(getChunkKey(coord.x, coord.y), {
+        artworks: null,
+        loading: true,
+        error: null,
+      }))
+      return next
     })
-    
-    if (DEBUG_LOGGING) {
-      console.log(`🚀 Started streaming fetch for ${chunksToFetch.length} chunks`)
+    setIsLoading(true)
+
+    try {
+      const result = await apiClient.getChunkArtworksBatch({
+        chunks: sortedChunks,
+        count: CHUNK_SIZE,
+        seed: gridSeed.current,
+      })
+      setChunkDataMap((previous) => {
+        const next = new Map(previous)
+        sortedChunks.forEach((coord) => {
+          const chunkKey = getChunkKey(coord.x, coord.y)
+          next.set(chunkKey, {
+            artworks: result[chunkKey] ?? [],
+            loading: false,
+            error: null,
+          })
+        })
+        return next
+      })
+      cleanupDataCache()
+    } catch (error) {
+      setChunkDataMap((previous) => {
+        const next = new Map(previous)
+        sortedChunks.forEach((coord) => next.set(getChunkKey(coord.x, coord.y), {
+          artworks: null,
+          loading: false,
+          error: error instanceof Error ? error : new Error('Failed to fetch chunks'),
+        }))
+        return next
+      })
+    } finally {
+      sortedChunks.forEach((coord) => fetchingChunks.current.delete(getChunkKey(coord.x, coord.y)))
+      setIsLoading(fetchingChunks.current.size > 0)
     }
-  }, [chunkDataMap, fetchChunkData])
+  }, [chunkDataMap, cleanupDataCache])
 
   /**
    * Fetch a single chunk with streaming approach (convenience method)

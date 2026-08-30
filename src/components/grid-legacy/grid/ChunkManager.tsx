@@ -52,12 +52,6 @@ interface ChunkManagerProps {
   isLoadingMoreArtworks?: boolean
   /** Load the next page of the finite artwork set */
   onLoadMoreArtworks?: () => Promise<void>
-  /** Movement prediction for intelligent prefetching */
-  movementPrediction?: {
-    direction: Position
-    speed: number
-    predictedChunks: Array<{ x: number; y: number; priority: number }>
-  }
 }
 
 /**
@@ -224,7 +218,6 @@ const ChunkManager = memo(function ChunkManager({
   hasMoreArtworks = false,
   isLoadingMoreArtworks = false,
   onLoadMoreArtworks,
-  movementPrediction = { direction: { x: 0, y: 0 }, speed: 0, predictedChunks: [] }
 }: ChunkManagerProps) {
   
   // Use data management hook with streaming capabilities
@@ -291,8 +284,6 @@ const ChunkManager = memo(function ChunkManager({
   const renderedChunksToLoad = isStaticGrid && hasMoreArtworks
     ? chunksToLoad
     : loadableChunks
-
-  // Movement prediction is passed as a prop for intelligent prefetching
 
   // Performance tracking
   const loadingChunks = useRef<Set<string>>(new Set())
@@ -456,39 +447,6 @@ const ChunkManager = memo(function ChunkManager({
       createChunksFromCoordinates(chunksReadyForCreation)
     }
   }, [chunkDataMap, chunks, createChunksFromCoordinates])
-
-  /**
-   * INTELLIGENT PREFETCHING: Load predicted chunks based on movement direction
-   * This anticipates user movement for seamless navigation
-   */
-  useEffect(() => {
-    // Only prefetch if user is moving significantly and not dragging
-    if (isStaticGrid || isDragging || !isInitialized || movementPrediction.predictedChunks.length === 0) {
-      return
-    }
-    
-    // Filter predicted chunks to only those that aren't already loaded/loading
-    const chunksToPreload: ChunkCoordinates[] = []
-    
-    for (const prediction of movementPrediction.predictedChunks) {
-      const chunkKey = `${prediction.x},${prediction.y}`
-      const chunkData = chunkDataMap.get(chunkKey)
-      const chunkExists = chunks.has(chunkKey)
-      const chunkLoading = loadingChunks.current.has(chunkKey)
-      
-      // Skip if already exists, loading, or already in current chunksToLoad
-      const alreadyInBuffer = chunksToLoad.some(coord => coord.x === prediction.x && coord.y === prediction.y)
-      
-      if (!chunkExists && !chunkLoading && !chunkData && !alreadyInBuffer) {
-        chunksToPreload.push({ x: prediction.x, y: prediction.y })
-      }
-    }
-    
-    // Start prefetching with low priority (doesn't wait)
-    if (chunksToPreload.length > 0) {
-      void fetchChunksWithPriority([], chunksToPreload) // Empty array for visible, predicted chunks as buffer
-    }
-  }, [isStaticGrid, movementPrediction, isDragging, isInitialized, chunks, chunkDataMap, loadingChunks, chunksToLoad, fetchChunksWithPriority])
 
   /**
    * Store updateVirtualization in ref to avoid dependency cycles

@@ -26,9 +26,50 @@ export interface BackendResponse {
   data: Artwork[]
 }
 
+export interface ArtworkResponse {
+  success: boolean
+  data: Artwork
+}
+
+export interface ArtworksResponse {
+  success: boolean
+  data: Artwork[]
+}
+
+export interface ArtworkLikeState {
+  artworkId: number
+  liked: boolean
+  likeCount: number
+}
+
+export interface ArtworkLikeResponse {
+  success: boolean
+  data: ArtworkLikeState
+}
+
+export interface MostLikedArtwork extends Artwork {
+  liked: boolean
+  likeCount: number
+}
+
+export interface MostLikedResponse {
+  success: boolean
+  data: MostLikedArtwork[]
+}
+
 export interface RandomArtworksResponse {
   artworks: Artwork[]
   total: number
+}
+
+export interface RandomChunksResponse {
+  success: boolean
+  data: Record<string, Artwork[]>
+  meta: {
+    chunkCount: number
+    count: number
+    responseTime: string
+  }
 }
 
 export interface SimilarArtwork {
@@ -168,6 +209,10 @@ export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080',
   endpoints: {
     randomArtworks: '/api/artworks/random',
+    randomChunks: '/api/artworks/random-chunks',
+    artwork: '/api/artworks',
+    artworksByIds: '/api/artworks/by-ids',
+    likes: '/api/artworks/likes',
     chunkArtworks: '/api/artworks/chunk',
     artworkCount: '/api/artworks/count',
     similarArtworks: '/api/artworks/similar',

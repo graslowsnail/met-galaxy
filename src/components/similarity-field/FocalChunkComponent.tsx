@@ -322,7 +322,9 @@ const FocalImage = memo(function FocalImage({
             boxShadow: '0 25px 50px rgb(0 0 0 / 0.5), 0 10px 20px rgb(0 0 0 / 0.3)',
             border: '1px solid rgba(229, 231, 235, 1)',
             WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
           }}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           onScroll={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}

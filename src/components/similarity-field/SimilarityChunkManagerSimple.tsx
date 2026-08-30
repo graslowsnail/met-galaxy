@@ -328,7 +328,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
   // Use simplified similarity data management hook with streaming support
   const { 
     chunkDataMap, 
-    fetchChunkData,
     fetchMultipleChunksStreaming,
     fetchMultipleChunksWithDeduplication
   } = useSimilarityChunkDataSimple({
@@ -354,62 +353,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
 
   // Performance tracking - same as draggable grid
   const loadingChunks = useRef<Set<string>>(new Set())
-  
-  // ============================================================================
-  // SMART BATCHING LOGIC
-  // ============================================================================
-  
-  /**
-   * Group chunks into batches for efficient deduplication
-   * Groups nearby chunks together to minimize duplicates
-   * IMPORTANT: Excludes focal chunk (0,0) from batching
-   */
-  const groupChunksForBatching = useCallback((coords: ChunkCoordinates[]): ChunkCoordinates[][] => {
-    if (coords.length === 0) return []
-    
-    // Filter out focal chunk (0,0) - it's handled separately
-    const nonFocalCoords = coords.filter(coord => !(coord.x === 0 && coord.y === 0))
-    
-    if (nonFocalCoords.length === 0) return []
-    
-    // Sort by distance from origin for better grouping
-    const sortedCoords = [...nonFocalCoords].sort((a, b) => {
-      const distA = Math.hypot(a.x, a.y)
-      const distB = Math.hypot(b.x, b.y)
-      return distA - distB
-    })
-    
-    const batches: ChunkCoordinates[][] = []
-    const processed = new Set<string>()
-    
-    for (const coord of sortedCoords) {
-      const key = `${coord.x},${coord.y}`
-      if (processed.has(key)) continue
-      
-      const batch: ChunkCoordinates[] = [coord]
-      processed.add(key)
-      
-      // Find nearby chunks to batch together (3x3 grouping)
-      for (const other of sortedCoords) {
-        if (batch.length >= 9) break // Increased batch size for better deduplication
-        
-        const otherKey = `${other.x},${other.y}`
-        if (processed.has(otherKey)) continue
-        
-        // Check if chunks are adjacent (distance <= 1.5)
-        const distance = Math.hypot(coord.x - other.x, coord.y - other.y)
-        if (distance <= 1.5) {
-          batch.push(other)
-          processed.add(otherKey)
-        }
-      }
-      
-      batches.push(batch)
-    }
-    
-    
-    return batches
-  }, [])
   
   // ============================================================================
   // CHUNK CREATION LOGIC
@@ -540,23 +483,15 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
         await fetchMultipleChunksStreaming([focalChunk], 'high')
       }
       
-      // Group regular chunks into batches for deduplication
       if (regularChunksToFetch.length > 0) {
-        const batches = groupChunksForBatching(regularChunksToFetch)
-        
-        // Process batches with deduplication, single chunks with streaming
-        for (const batch of batches) {
-          if (batch.length > 1) {
-            // Use deduplication API for multi-chunk batches
-            await fetchMultipleChunksWithDeduplication(batch)
-          } else {
-            // Use streaming API for single chunks (fire and forget)
-            await fetchMultipleChunksStreaming(batch, 'high')
-          }
+        for (let offset = 0; offset < regularChunksToFetch.length; offset += 16) {
+          await fetchMultipleChunksWithDeduplication(
+            regularChunksToFetch.slice(offset, offset + 16)
+          )
         }
       }
     }
-  }, [chunks, chunkDataMap, fetchMultipleChunksStreaming, fetchMultipleChunksWithDeduplication, groupChunksForBatching])
+  }, [chunks, chunkDataMap, fetchMultipleChunksStreaming, fetchMultipleChunksWithDeduplication])
   
   // Store loadChunks in a ref to avoid dependency issues
   const loadChunksRef = useRef(loadChunks)

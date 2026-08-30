@@ -6,6 +6,7 @@
  */
 
 import React, { memo } from 'react'
+import { Check, Heart, Loader2, Share2 } from 'lucide-react'
 
 export interface NavigationHistoryItem {
   id: number | 'main-grid'
@@ -22,6 +23,12 @@ interface NavigationOverlayProps {
   currentFocalId: number | 'main-grid'
   /** Callback when user clicks a history item */
   onNavigateToHistoryItem: (item: NavigationHistoryItem, index: number) => void
+  onSharePath?: () => void
+  shareStatus?: 'idle' | 'copied'
+  liked?: boolean
+  likeCount?: number
+  isLikeLoading?: boolean
+  onToggleLike?: () => void
   /** Whether the overlay should be visible */
   isVisible?: boolean
 }
@@ -142,6 +149,12 @@ const NavigationOverlay = memo(function NavigationOverlay({
   navigationHistory,
   currentFocalId,
   onNavigateToHistoryItem,
+  onSharePath,
+  shareStatus = 'idle',
+  liked = false,
+  likeCount = 0,
+  isLikeLoading = false,
+  onToggleLike,
   isVisible = true
 }: NavigationOverlayProps) {
   if (!isVisible || navigationHistory.length === 0) {
@@ -225,6 +238,66 @@ const NavigationOverlay = memo(function NavigationOverlay({
         >
           +{navigationHistory.length - 10} more
         </div>
+      )}
+
+      {onSharePath && currentFocalId !== 'main-grid' && (
+        <button
+          type="button"
+          onClick={onSharePath}
+          aria-label="Copy path link"
+          title={shareStatus === 'copied' ? 'Link copied' : 'Copy path link'}
+          style={{
+            minWidth: '40px',
+            height: '40px',
+            padding: shareStatus === 'copied' ? '0 12px' : '0',
+            marginLeft: '4px',
+            borderRadius: '8px',
+            border: '1px solid rgba(0, 0, 0, 0.15)',
+            backgroundColor: shareStatus === 'copied' ? 'rgba(74, 222, 128, 0.18)' : 'rgba(255, 255, 255, 0.75)',
+            color: shareStatus === 'copied' ? '#15803d' : '#374151',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+          }}
+        >
+          {shareStatus === 'copied' ? (
+            <>
+              <Check size={18} />
+              <span style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>Link copied</span>
+            </>
+          ) : <Share2 size={18} />}
+        </button>
+      )}
+
+      {onToggleLike && currentFocalId !== 'main-grid' && (
+        <button
+          type="button"
+          onClick={onToggleLike}
+          disabled={isLikeLoading}
+          aria-label={liked ? 'Unlike this artwork' : 'Like this artwork'}
+          title={liked ? 'Unlike this artwork' : 'Like this artwork'}
+          style={{
+            minWidth: '48px',
+            height: '40px',
+            padding: '0 10px',
+            borderRadius: '8px',
+            border: '1px solid rgba(0, 0, 0, 0.15)',
+            backgroundColor: liked ? 'rgba(244, 63, 94, 0.14)' : 'rgba(255, 255, 255, 0.75)',
+            color: liked ? '#e11d48' : '#374151',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px',
+            cursor: isLikeLoading ? 'wait' : 'pointer',
+          }}
+        >
+          {isLikeLoading
+            ? <Loader2 size={18} className="animate-spin" />
+            : <Heart size={18} fill={liked ? 'currentColor' : 'none'} />}
+          <span style={{ fontSize: '12px', fontWeight: 600 }}>{likeCount}</span>
+        </button>
       )}
     </div>
   )

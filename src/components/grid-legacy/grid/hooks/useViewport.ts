@@ -35,7 +35,7 @@ import {
  * Custom hook for viewport and drag management
  * 
  * Features:
- * - Mouse and touch drag handling
+ * - Mouse, pen, and touch drag handling
  * - Viewport dimension tracking
  * - Coordinate transformation utilities
  * - Smooth drag performance with optimized updates
@@ -56,7 +56,6 @@ export function useViewport(): UseViewportReturn {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 })
   const [dragDistance, setDragDistance] = useState(0)
-  const [initialMousePos, setInitialMousePos] = useState<Position>({ x: 0, y: 0 })
   
   // ============================================================================
   // MOVEMENT PREDICTION STATE
@@ -89,8 +88,14 @@ export function useViewport(): UseViewportReturn {
   /** Track last viewport state for change detection */
   const lastViewport = useRef({ x: 0, y: 0, width: 0, height: 0 })
   
-  /** RAF ID for throttled updates */
+  /** RAF ID for throttled drag updates */
   const rafId = useRef<number | undefined>(undefined)
+
+  const activePointerId = useRef<number | null>(null)
+  const pointerCaptureTarget = useRef<Element | null>(null)
+  const dragStartRef = useRef<Position>({ x: 0, y: 0 })
+  const initialPointerPosition = useRef<Position>({ x: 0, y: 0 })
+  const pendingTranslate = useRef<Position | null>(null)
   
   /** Callbacks to trigger after drag ends */
   const postDragCallbacks = useRef<Array<() => void>>([])
@@ -287,156 +292,100 @@ export function useViewport(): UseViewportReturn {
   }, [calculateVelocity, updateMovementPrediction])
   
   // ============================================================================
-  // DRAG HANDLING - MOUSE
+  // DRAG HANDLING
   // ============================================================================
-  
-  /**
-   * Handle mouse down event to start dragging
-   */
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.isPrimary || activePointerId.current !== null) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+
+    activePointerId.current = e.pointerId
+    pointerCaptureTarget.current = e.target as Element
+    pointerCaptureTarget.current.setPointerCapture(e.pointerId)
+
+    const start = {
+      x: e.clientX - translate.x,
+      y: e.clientY - translate.y,
+    }
+
+    dragStartRef.current = start
+    initialPointerPosition.current = { x: e.clientX, y: e.clientY }
+    pendingTranslate.current = null
     setIsDragging(true)
-    setDragStart({ 
-      x: e.clientX - translate.x, 
-      y: e.clientY - translate.y 
-    })
-    setInitialMousePos({ x: e.clientX, y: e.clientY })
+    setDragStart(start)
     setDragDistance(0)
-    
+
     if (DEBUG_LOGGING) {
-      console.log(`🖱️ Mouse drag started at (${e.clientX}, ${e.clientY})`)
+      console.log(`Pointer drag started at (${e.clientX}, ${e.clientY})`)
     }
   }, [translate])
-  
-  /**
-   * Handle mouse move during drag
-   */
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return
-    
-    // Calculate distance from initial mouse position
-    const distance = Math.sqrt(
-      Math.pow(e.clientX - initialMousePos.x, 2) + 
-      Math.pow(e.clientY - initialMousePos.y, 2)
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== activePointerId.current) return
+
+    const initial = initialPointerPosition.current
+    const distance = Math.hypot(
+      e.clientX - initial.x,
+      e.clientY - initial.y,
     )
     setDragDistance(distance)
-    
-    const newTranslate = {
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
+
+    const start = dragStartRef.current
+    pendingTranslate.current = {
+      x: e.clientX - start.x,
+      y: e.clientY - start.y,
     }
-    
-    setTranslate(newTranslate)
-    trackMovement(newTranslate)
-  }, [isDragging, dragStart, initialMousePos, trackMovement])
-  
-  /**
-   * Handle mouse up to end dragging
-   */
-  const handleMouseUp = useCallback(() => {
-    if (!isDragging) return
-    
+
+    if (rafId.current === undefined) {
+      rafId.current = requestAnimationFrame(() => {
+        const nextTranslate = pendingTranslate.current
+        if (nextTranslate) {
+          setTranslate(nextTranslate)
+          trackMovement(nextTranslate)
+        }
+        rafId.current = undefined
+      })
+    }
+  }, [trackMovement])
+
+  const finishPointerDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== activePointerId.current) return
+
+    if (rafId.current !== undefined) {
+      cancelAnimationFrame(rafId.current)
+      rafId.current = undefined
+    }
+
+    const finalTranslate = pendingTranslate.current
+    if (finalTranslate) {
+      setTranslate(finalTranslate)
+      trackMovement(finalTranslate)
+    }
+
+    const captureTarget = pointerCaptureTarget.current
+    if (captureTarget?.hasPointerCapture(e.pointerId)) {
+      captureTarget.releasePointerCapture(e.pointerId)
+    }
+
+    activePointerId.current = null
+    pointerCaptureTarget.current = null
+    pendingTranslate.current = null
     setIsDragging(false)
-    
+
     if (DEBUG_LOGGING) {
-      console.log('🖱️ Mouse drag ended')
+      console.log('Pointer drag ended')
     }
-    
-    // Trigger post-drag callbacks with delay for smooth UX
+
     setTimeout(() => {
       postDragCallbacks.current.forEach(callback => callback())
     }, POST_DRAG_UPDATE_DELAY)
-  }, [isDragging])
-  
-  // ============================================================================
-  // DRAG HANDLING - TOUCH
-  // ============================================================================
-  
-  /**
-   * Handle touch start event to start dragging
-   */
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    if (!touch) return
-    
-    setIsDragging(true)
-    setDragStart({ 
-      x: touch.clientX - translate.x, 
-      y: touch.clientY - translate.y 
-    })
-    setInitialMousePos({ x: touch.clientX, y: touch.clientY })
-    setDragDistance(0)
-    
-    if (DEBUG_LOGGING) {
-      console.log(`👆 Touch drag started at (${touch.clientX}, ${touch.clientY})`)
-    }
-  }, [translate])
-  
-  /**
-   * Handle touch move during drag
-   */
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!isDragging) return
-    e.preventDefault()
-    
-    const touch = e.touches[0]
-    if (!touch) return
-    
-    // Calculate distance from initial touch position
-    const distance = Math.sqrt(
-      Math.pow(touch.clientX - initialMousePos.x, 2) + 
-      Math.pow(touch.clientY - initialMousePos.y, 2)
-    )
-    setDragDistance(distance)
-    
-    const newTranslate = {
-      x: touch.clientX - dragStart.x,
-      y: touch.clientY - dragStart.y,
-    }
-    
-    setTranslate(newTranslate)
-    trackMovement(newTranslate)
-  }, [isDragging, dragStart, initialMousePos, trackMovement])
-  
-  /**
-   * Handle touch end to end dragging
-   */
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging) return
-    
-    setIsDragging(false)
-    
-    if (DEBUG_LOGGING) {
-      console.log('👆 Touch drag ended')
-    }
-    
-    // Trigger post-drag callbacks with delay for smooth UX
-    setTimeout(() => {
-      postDragCallbacks.current.forEach(callback => callback())
-    }, POST_DRAG_UPDATE_DELAY)
-  }, [isDragging])
-  
-  // ============================================================================
-  // EVENT LISTENERS
-  // ============================================================================
-  
-  /**
-   * Set up global event listeners for drag handling
-   */
+  }, [trackMovement])
+
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-      document.addEventListener("touchmove", handleTouchMove, { passive: false })
-      document.addEventListener("touchend", handleTouchEnd)
-    }
-    
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-      document.removeEventListener("touchmove", handleTouchMove)
-      document.removeEventListener("touchend", handleTouchEnd)
+      if (rafId.current !== undefined) cancelAnimationFrame(rafId.current)
     }
-  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
+  }, [])
   
   /**
    * Set up resize listener for viewport dimension tracking
@@ -586,8 +535,10 @@ export function useViewport(): UseViewportReturn {
     dragDistance,
     
     // Event handlers
-    handleMouseDown,
-    handleTouchStart,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp: finishPointerDrag,
+    handlePointerCancel: finishPointerDrag,
     
     // Utility functions
     getViewportBounds,

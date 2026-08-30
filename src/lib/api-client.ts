@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type ArtworkCountResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse, type SearchResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type RandomChunksResponse, type ArtworkCountResponse, type ArtworkResponse, type ArtworksResponse, type ArtworkLikeResponse, type MostLikedResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse, type SearchResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -65,32 +65,40 @@ export const apiClient = {
   },
 
   async getChunkArtworks(params: { chunkX: number; chunkY: number; count?: number }): Promise<RandomArtworksResponse> {
-    // Use the random endpoint with a deterministic seed based on chunk coordinates
-    // Create unique seeds for negative coordinates by using a proper hash function
-    const x = params.chunkX
-    const y = params.chunkY
-    
-    // Create a unique seed that works with negative coordinates
-    // Mix the coordinates with prime numbers to avoid collisions
-    let hash = ((x + 1000) * 73856093) ^ ((y + 1000) * 19349663)
-    
-    // Ensure positive hash
-    hash = Math.abs(hash)
-    
-    // Add some variation based on coordinate sign to differentiate quadrants
-    if (x < 0) hash += 1000000
-    if (y < 0) hash += 2000000
-    
-    // Convert to seed between 0 and 1 for PostgreSQL setseed() compatibility
-    // Use modulo to keep it reasonable, then normalize to 0-1 range
-    const normalizedSeed = (hash % 1000000) / 1000000
-    
-    const result = await this.getRandomArtworks({
-      count: params.count ?? 20,
-      seed: normalizedSeed
+    const result = await this.getChunkArtworksBatch({
+      chunks: [{ x: params.chunkX, y: params.chunkY }],
+      count: params.count,
     })
-    
-    return result
+    const artworks = result[`${params.chunkX},${params.chunkY}`] ?? []
+    return { artworks, total: artworks.length }
+  },
+
+  async getChunkArtworksBatch(params: {
+    chunks: Array<{ x: number; y: number }>
+    count?: number
+    seed?: number
+  }): Promise<Record<string, RandomArtworksResponse['artworks']>> {
+    const url = new URL(API_CONFIG.endpoints.randomChunks, API_CONFIG.baseUrl)
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chunks: params.chunks,
+        count: params.count ?? 20,
+        seed: params.seed ?? 0,
+      }),
+    })
+    const result = await handleResponse<RandomChunksResponse>(response)
+    return Object.fromEntries(
+      Object.entries(result.data).map(([key, artworks]) => [
+        key,
+        artworks.map((artwork) => ({
+          ...artwork,
+          primaryImage: artwork.imageUrl,
+          primaryImageSmall: artwork.imageUrl,
+        })),
+      ]),
+    )
   },
 
   async getArtworkCount(): Promise<ArtworkCountResponse> {
@@ -104,6 +112,54 @@ export const apiClient = {
     })
     
     return handleResponse<ArtworkCountResponse>(response)
+  },
+
+  async getArtwork(artworkId: number, signal?: AbortSignal): Promise<ArtworkResponse> {
+    const url = new URL(`${API_CONFIG.endpoints.artwork}/${artworkId}`, API_CONFIG.baseUrl)
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    return handleResponse<ArtworkResponse>(response)
+  },
+
+  async getArtworks(artworkIds: number[], signal?: AbortSignal): Promise<ArtworksResponse> {
+    const url = new URL(API_CONFIG.endpoints.artworksByIds, API_CONFIG.baseUrl)
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: artworkIds }),
+    })
+
+    return handleResponse<ArtworksResponse>(response)
+  },
+
+  async getArtworkLikeState(artworkId: number, voterId: string, signal?: AbortSignal): Promise<ArtworkLikeResponse> {
+    const url = new URL(`${API_CONFIG.endpoints.likes}/${artworkId}`, API_CONFIG.baseUrl)
+    url.searchParams.set('voterId', voterId)
+    const response = await fetch(url.toString(), { signal })
+    return handleResponse<ArtworkLikeResponse>(response)
+  },
+
+  async setArtworkLiked(artworkId: number, voterId: string, liked: boolean): Promise<ArtworkLikeResponse> {
+    const url = new URL(`${API_CONFIG.endpoints.likes}/${artworkId}`, API_CONFIG.baseUrl)
+    const response = await fetch(url.toString(), {
+      method: liked ? 'POST' : 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voterId }),
+    })
+    return handleResponse<ArtworkLikeResponse>(response)
+  },
+
+  async getMostLikedArtworks(voterId: string, count = 20, signal?: AbortSignal): Promise<MostLikedResponse> {
+    const url = new URL(`${API_CONFIG.endpoints.likes}/most`, API_CONFIG.baseUrl)
+    url.searchParams.set('voterId', voterId)
+    url.searchParams.set('count', String(count))
+    const response = await fetch(url.toString(), { signal })
+    return handleResponse<MostLikedResponse>(response)
   },
 
   async getSimilarArtworks(artworkId: number): Promise<SimilarityResponse> {
@@ -185,7 +241,15 @@ export const apiClient = {
       body: JSON.stringify(requestBody)
     })
 
-    if (!response.ok) throw new Error(`field-chunks http ${response.status}`)
+    if (!response.ok) {
+      const error = await response.json().catch(() => null) as {
+        error?: string
+        details?: string
+      } | null
+      throw new Error(
+        error?.details ?? error?.error ?? `field-chunks http ${response.status}`
+      )
+    }
     const json = (await response.json()) as MultiChunkResponse
     if (!json.success) throw new Error(`field-chunks error: ${(json as { error?: string }).error ?? 'unknown'}`)
     return json

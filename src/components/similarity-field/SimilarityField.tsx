@@ -54,8 +54,10 @@ const SimilarityField = memo(function SimilarityField({
     dragDistance,
     isInitialized,
     containerRef,
-    handleMouseDown,
-    handleTouchStart,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     translate,
     updatePosition
   } = useViewport()
@@ -206,10 +208,13 @@ const SimilarityField = memo(function SimilarityField({
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none',
+        userSelect: 'none',
         backgroundColor: '#f5f5f5'
       }}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div
         className="relative"
