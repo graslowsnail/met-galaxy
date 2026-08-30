@@ -6,14 +6,14 @@ export function FractalWidget() {
     <>
       {/* Mobile Always-Visible Widget */}
       <div className="fixed bottom-4 right-4 z-50 sm:hidden">
-        <div className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-md">
-          <p className="text-white/70 text-xs whitespace-nowrap">
+        <div className="flex h-[30px] items-center rounded-[12px] border border-white/40 bg-white/55 px-3 text-xs font-medium text-[#3c3931] shadow-sm backdrop-blur-[12px]">
+          <p className="whitespace-nowrap">
             Built by{" "}
             <a
               href="https://pabloar.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-white transition-colors"
+              className="underline underline-offset-2 transition-colors hover:text-[#0f1524]"
             >
               Pablo
             </a>
@@ -23,21 +23,14 @@ export function FractalWidget() {
 
       {/* Desktop Always-Visible Widget */}
       <div className="hidden sm:block fixed bottom-6 right-6 z-50">
-        <div className="relative">
-          {/* Subtle glow effect */}
-          <div
-            className="absolute top-0 left-0 w-full h-full rounded-lg opacity-30 blur-[4px] scale-105 shadow-lg shadow-black/50"
-          />
-          
-          {/* Widget Content */}
-          <div className="relative bg-black/40 shadow-lg shadow-black/50 backdrop-blur-sm rounded-lg px-6 py-3 ">
-            <p className="text-white/90 text-sm whitespace-nowrap">
+        <div className="flex h-[30px] items-center rounded-[12px] border border-white/40 bg-white/55 px-3 text-xs font-medium text-[#3c3931] shadow-sm backdrop-blur-[12px]">
+            <p className="whitespace-nowrap">
               Built by{" "}
               <a
                 href="https://pabloar.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline underline-offset-2 hover:text-white transition-colors"
+                className="underline underline-offset-2 transition-colors hover:text-[#0f1524]"
               >
                 Pablo Ramirez
               </a>{" "}
@@ -46,12 +39,11 @@ export function FractalWidget() {
                 href="https://fractalbootcamp.com/fractal-tech-hub"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline underline-offset-2 hover:text-white transition-colors"
+                className="underline underline-offset-2 transition-colors hover:text-[#0f1524]"
               >
                 Fractal Tech
               </a>
             </p>
-          </div>
         </div>
       </div>
     </>

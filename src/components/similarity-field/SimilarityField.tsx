@@ -12,6 +12,7 @@ import { TRACKPAD_SPEED, DEBUG_LOGGING, CHUNK_WIDTH, CHUNK_HEIGHT } from './util
 import { chunkToPixelCoords } from './utils/chunkCalculations'
 import type { ImageItem } from '../grid-legacy/grid/types/grid'
 import type { Artwork } from '@/types/api'
+import type { TimelineRange } from '@/types/api'
 
 // Dynamically import the chunk manager to avoid SSR issues
 const SimilarityChunkManagerSimple = dynamic(
@@ -40,13 +41,15 @@ interface SimilarityFieldProps {
     imageUrl: string | null
   }) => void
   className?: string
+  timelineRange?: TimelineRange | null
 }
 
 const SimilarityField = memo(function SimilarityField({
   focalArtworkId,
   focalArtwork,
   onArtworkClick,
-  className = ''
+  className = '',
+  timelineRange
 }: SimilarityFieldProps) {
   const {
     viewport,
@@ -233,6 +236,7 @@ const SimilarityField = memo(function SimilarityField({
             focalArtwork={focalArtwork}
             onImageClick={handleImageClick}
             onFocalArtworkPosition={handleFocalArtworkPosition}
+            timelineRange={timelineRange}
           />
         )}
       </div>

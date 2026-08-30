@@ -5,8 +5,9 @@
  * allowing them to backtrack to any previous focal image with smart history truncation.
  */
 
-import React, { memo } from 'react'
-import { Check, Heart, Loader2, Share2 } from 'lucide-react'
+import React, { memo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Check, Heart, Loader2, Share } from 'lucide-react'
 
 export interface NavigationHistoryItem {
   id: number | 'main-grid'
@@ -38,107 +39,156 @@ interface NavigationOverlayProps {
  */
 const NavigationThumbnail = memo(function NavigationThumbnail({
   item,
-  index,
   isCurrentFocal,
   onClick
 }: {
   item: NavigationHistoryItem
-  index: number
   isCurrentFocal: boolean
   onClick: () => void
 }) {
-  const thumbnailSize = isCurrentFocal ? 70 : 60
-  
+  const [isHovered, setIsHovered] = useState(false)
+  const [previewRect, setPreviewRect] = useState<DOMRect | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const selectedBorder = '2px solid rgba(212, 161, 26, 0.72)'
+  const selectedGlow = '0 0 0 3px rgba(232, 160, 32, 0.18), 0 8px 20px -10px rgba(160, 109, 22, 0.55)'
+
+  const showPreview = () => {
+    setIsHovered(true)
+    if (!item.isMainGrid && item.thumbnailUrl) {
+      setPreviewRect(buttonRef.current?.getBoundingClientRect() ?? null)
+    }
+  }
+
+  const hidePreview = () => {
+    setIsHovered(false)
+    setPreviewRect(null)
+  }
+
   return (
-    <div
-      onClick={onClick}
-      style={{
-        position: 'relative',
-        width: thumbnailSize,
-        height: thumbnailSize,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease-out',
-        opacity: isCurrentFocal ? 1 : 0.8
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.opacity = '1'
-        e.currentTarget.style.transform = 'scale(1.05)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.opacity = isCurrentFocal ? '1' : '0.8'
-        e.currentTarget.style.transform = 'scale(1)'
-      }}
-    >
-      {item.isMainGrid ? (
-        // Special icon for "Back to Main Grid"
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={onClick}
+        onMouseEnter={showPreview}
+        onMouseLeave={hidePreview}
+        onFocus={showPreview}
+        onBlur={hidePreview}
+        aria-label={item.isMainGrid ? 'Return to main gallery' : `Return to ${item.title ?? 'artwork'}`}
+        title={item.isMainGrid ? 'Main gallery' : item.title ?? 'Artwork'}
+        style={{
+          position: 'relative',
+          width: '36px',
+          minWidth: '36px',
+          height: '36px',
+          padding: 0,
+          border: 0,
+          borderRadius: '10px',
+          background: 'transparent',
+          cursor: 'pointer',
+          transition: 'opacity 160ms ease',
+          opacity: isCurrentFocal || isHovered ? 1 : 0.82
+        }}
+      >
+        {item.isMainGrid ? (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              backgroundColor: '#efece4',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#3c3931',
+              fontSize: '14px',
+              fontWeight: 600,
+              border: isCurrentFocal ? selectedBorder : '2px solid transparent',
+              boxShadow: isCurrentFocal ? selectedGlow : 'none'
+            }}
+          >
+            ⌂
+          </div>
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              border: isCurrentFocal ? selectedBorder : '2px solid transparent',
+              backgroundColor: '#efece4',
+              boxShadow: isCurrentFocal ? selectedGlow : 'none'
+            }}
+          >
+            {item.thumbnailUrl ? (
+              <img
+                src={item.thumbnailUrl}
+                alt={item.title ?? 'Artwork'}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.style.display = 'none'
+                  const parent = target.parentElement
+                  if (parent) {
+                    parent.innerHTML = '<div style="width: 100%; height: 100%; background: #efece4; display: flex; align-items: center; justify-content: center; color: #6f6b62; font-size: 8px;">No Image</div>'
+                  }
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: '#efece4',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#6f6b62',
+                  fontSize: '8px'
+                }}
+              >
+                No Image
+              </div>
+            )}
+          </div>
+        )}
+      </button>
+
+      {previewRect && item.thumbnailUrl && typeof document !== 'undefined' && createPortal(
         <div
+          aria-hidden="true"
+          className="path-thumbnail-preview"
           style={{
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontSize: '24px',
-            fontWeight: 'bold',
-            border: isCurrentFocal ? '2px solid #4ade80' : '2px solid rgba(255, 255, 255, 0.3)'
-          }}
-        >
-          ⌂
-        </div>
-      ) : (
-        // Artwork thumbnail
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            borderRadius: '8px',
+            position: 'fixed',
+            top: `${previewRect.bottom - 56}px`,
+            left: `${previewRect.left + previewRect.width / 2}px`,
+            zIndex: 1200,
+            width: '56px',
+            height: '56px',
             overflow: 'hidden',
-            border: isCurrentFocal ? '2px solid #4ade80' : '2px solid rgba(255, 255, 255, 0.3)',
-            backgroundColor: '#f5f5f5'
+            pointerEvents: 'none',
+            borderRadius: '14px',
+            border: isCurrentFocal ? selectedBorder : '1px solid rgba(15, 21, 36, 0.08)',
+            backgroundColor: '#efece4',
+            boxShadow: isCurrentFocal ? `${selectedGlow}, 0 10px 24px -10px rgba(15, 21, 36, 0.45)` : '0 10px 24px -10px rgba(15, 21, 36, 0.45)',
+            transformOrigin: 'center bottom',
+            animation: 'path-thumbnail-magnify 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both'
           }}
         >
-          {item.thumbnailUrl ? (
-            <img
-              src={item.thumbnailUrl}
-              alt={item.title ?? 'Artwork'}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-              onError={(e) => {
-                // Fallback if image fails to load
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-                const parent = target.parentElement
-                if (parent) {
-                  parent.innerHTML = '<div style="width: 100%; height: 100%; background: #ddd; display: flex; align-items: center; justify-content: center; color: #666; font-size: 12px;">No Image</div>'
-                }
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                backgroundColor: '#ddd',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#666',
-                fontSize: '12px'
-              }}
-            >
-              No Image
-            </div>
-          )}
-        </div>
+          <img
+            src={item.thumbnailUrl}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </div>,
+        document.body
       )}
-      
-    </div>
+    </>
   )
 })
 
@@ -168,31 +218,32 @@ const NavigationOverlay = memo(function NavigationOverlay({
     <div
       style={{
         position: 'fixed',
-        bottom: '20px',
+        bottom: 'var(--timeline-path-bottom, 18px)',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 1000,
-        backgroundColor: 'rgba(245, 245, 245, 0.9)',
-        backdropFilter: 'blur(8px)',
-        borderRadius: '12px',
-        padding: '12px 16px',
+        maxWidth: 'calc(100vw - 24px)',
+        overflowX: 'auto',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(14px)',
+        borderRadius: '16px',
+        padding: '8px 12px',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-        border: '1px solid rgba(255, 255, 255, 0.2)'
+        boxShadow: '0 2px 6px rgba(15, 21, 36, 0.08), 0 12px 30px -20px rgba(15, 21, 36, 0.35)',
+        border: '1px solid rgba(15, 21, 36, 0.05)'
       }}
     >
       {/* Navigation breadcrumb text */}
       <div
         style={{
-          fontSize: '12px',
-          color: 'rgba(0, 0, 0, 0.6)',
-          marginRight: '8px',
+          fontSize: '13px',
+          color: '#8d887e',
           whiteSpace: 'nowrap'
         }}
       >
-        Path:
+        Path
       </div>
       
       {/* Thumbnail navigation items */}
@@ -205,7 +256,6 @@ const NavigationOverlay = memo(function NavigationOverlay({
           <React.Fragment key={`${item.id}-${actualIndex}`}>
             <NavigationThumbnail
               item={item}
-              index={actualIndex}
               isCurrentFocal={isCurrentFocal}
               onClick={() => onNavigateToHistoryItem(item, actualIndex)}
             />
@@ -214,9 +264,9 @@ const NavigationOverlay = memo(function NavigationOverlay({
             {index < visibleHistory.length - 1 && (
               <div
                 style={{
-                  fontSize: '12px',
-                  color: 'rgba(0, 0, 0, 0.4)',
-                  margin: '0 -2px'
+                  fontSize: '14px',
+                  color: '#b3ada2',
+                  margin: '0 -4px'
                 }}
               >
                 →
@@ -230,7 +280,7 @@ const NavigationOverlay = memo(function NavigationOverlay({
       {navigationHistory.length > 10 && (
         <div
           style={{
-            fontSize: '10px',
+            fontSize: '11px',
             color: 'rgba(0, 0, 0, 0.5)',
             marginLeft: '8px',
             whiteSpace: 'nowrap'
@@ -241,20 +291,23 @@ const NavigationOverlay = memo(function NavigationOverlay({
       )}
 
       {onSharePath && currentFocalId !== 'main-grid' && (
+        <div aria-hidden="true" style={{ width: '1px', minWidth: '1px', height: '22px', backgroundColor: '#eae7e0' }} />
+      )}
+
+      {onSharePath && currentFocalId !== 'main-grid' && (
         <button
           type="button"
           onClick={onSharePath}
           aria-label="Copy path link"
           title={shareStatus === 'copied' ? 'Link copied' : 'Copy path link'}
           style={{
-            minWidth: '40px',
-            height: '40px',
-            padding: shareStatus === 'copied' ? '0 12px' : '0',
-            marginLeft: '4px',
+            minWidth: shareStatus === 'copied' ? '96px' : '36px',
+            height: '36px',
+            padding: shareStatus === 'copied' ? '0 8px' : '0',
             borderRadius: '8px',
-            border: '1px solid rgba(0, 0, 0, 0.15)',
-            backgroundColor: shareStatus === 'copied' ? 'rgba(74, 222, 128, 0.18)' : 'rgba(255, 255, 255, 0.75)',
-            color: shareStatus === 'copied' ? '#15803d' : '#374151',
+            border: 0,
+            backgroundColor: shareStatus === 'copied' ? 'rgba(74, 222, 128, 0.14)' : 'transparent',
+            color: shareStatus === 'copied' ? '#15803d' : '#6f6b62',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -264,10 +317,10 @@ const NavigationOverlay = memo(function NavigationOverlay({
         >
           {shareStatus === 'copied' ? (
             <>
-              <Check size={18} />
-              <span style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>Link copied</span>
+              <Check size={17} />
+              <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>Link copied</span>
             </>
-          ) : <Share2 size={18} />}
+          ) : <Share size={18} />}
         </button>
       )}
 
@@ -280,12 +333,12 @@ const NavigationOverlay = memo(function NavigationOverlay({
           title={liked ? 'Unlike this artwork' : 'Like this artwork'}
           style={{
             minWidth: '48px',
-            height: '40px',
-            padding: '0 10px',
+            height: '36px',
+            padding: '0 4px',
             borderRadius: '8px',
-            border: '1px solid rgba(0, 0, 0, 0.15)',
-            backgroundColor: liked ? 'rgba(244, 63, 94, 0.14)' : 'rgba(255, 255, 255, 0.75)',
-            color: liked ? '#e11d48' : '#374151',
+            border: 0,
+            backgroundColor: liked ? 'rgba(244, 63, 94, 0.1)' : 'transparent',
+            color: liked ? '#e11d48' : '#b3ada2',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -294,9 +347,9 @@ const NavigationOverlay = memo(function NavigationOverlay({
           }}
         >
           {isLikeLoading
-            ? <Loader2 size={18} className="animate-spin" />
+            ? <Loader2 size={17} className="animate-spin" />
             : <Heart size={18} fill={liked ? 'currentColor' : 'none'} />}
-          <span style={{ fontSize: '12px', fontWeight: 600 }}>{likeCount}</span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: liked ? '#e11d48' : '#6f6b62' }}>{likeCount}</span>
         </button>
       )}
     </div>

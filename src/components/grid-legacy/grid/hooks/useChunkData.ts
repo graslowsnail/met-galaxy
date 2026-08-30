@@ -9,6 +9,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { apiClient } from '@/lib/api-client'
 import type { Artwork } from '@/types/api'
+import type { TimelineRange } from '@/types/api'
 import type { 
   ChunkData, 
   ChunkCoordinates, 
@@ -27,7 +28,7 @@ import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../utils/constants'
  * - Error handling and retry logic
  * - Memory-efficient cleanup
  */
-export function useChunkData(): UseChunkDataReturn {
+export function useChunkData(timelineRange?: TimelineRange | null): UseChunkDataReturn {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
@@ -235,6 +236,7 @@ export function useChunkData(): UseChunkDataReturn {
         chunks: sortedChunks,
         count: CHUNK_SIZE,
         seed: gridSeed.current,
+        timelineRange,
       })
       setChunkDataMap((previous) => {
         const next = new Map(previous)
@@ -263,7 +265,7 @@ export function useChunkData(): UseChunkDataReturn {
       sortedChunks.forEach((coord) => fetchingChunks.current.delete(getChunkKey(coord.x, coord.y)))
       setIsLoading(fetchingChunks.current.size > 0)
     }
-  }, [chunkDataMap, cleanupDataCache])
+  }, [chunkDataMap, cleanupDataCache, timelineRange])
 
   /**
    * Fetch a single chunk with streaming approach (convenience method)

@@ -6,6 +6,9 @@ export interface Artwork {
   title: string | null
   artist: string | null
   date: string | null
+  objectBeginDate?: number | null
+  objectEndDate?: number | null
+  timelineYear?: number | null
   imageUrl: string | null
   originalImageUrl: string | null
   imageSource: string | null
@@ -24,6 +27,12 @@ export interface Artwork {
 export interface BackendResponse {
   success: boolean
   data: Artwork[]
+}
+
+export interface TimelineRange { fromYear: number; toYear: number }
+export interface TimelineSummaryResponse {
+  success: boolean
+  data: { minYear: number; maxYear: number; total: number; selectedCount: number; buckets: Array<{ fromYear: number; count: number }>; deepTimeBuckets: Array<{ fromYear: number; count: number }> }
 }
 
 export interface ArtworkResponse {

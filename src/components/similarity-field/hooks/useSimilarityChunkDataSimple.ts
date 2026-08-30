@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { apiClient } from '@/lib/api-client'
-import type { Artwork, FieldChunkItem, MultiChunkResponse } from '@/types/api'
+import type { Artwork, FieldChunkItem, MultiChunkResponse, TimelineRange } from '@/types/api'
 import type { 
   ChunkData, 
   ChunkCoordinates, 
@@ -31,6 +31,7 @@ interface UseSimilarityChunkDataProps {
     originalImageUrl: string | null
     objectUrl?: string | null
   }
+  timelineRange?: TimelineRange | null
 }
 
 // Extend the return type to include streaming fetch
@@ -50,7 +51,8 @@ interface UseSimilarityChunkDataReturn extends UseChunkDataReturn {
  */
 export function useSimilarityChunkDataSimple({
   focalArtworkId,
-  focalArtwork
+  focalArtwork,
+  timelineRange
 }: UseSimilarityChunkDataProps): UseSimilarityChunkDataReturn {
   // ============================================================================
   // STATE MANAGEMENT - Same as before + optimistic deduplication
@@ -222,7 +224,8 @@ export function useSimilarityChunkDataSimple({
           chunkY,
           count: CHUNK_SIZE,
           excludeIds: excludeIds,
-          signal: abortController.signal
+          signal: abortController.signal,
+          timelineRange
         })
         
         // Transform FieldChunkItem to Artwork format
@@ -415,6 +418,7 @@ export function useSimilarityChunkDataSimple({
         chunks: chunksToFetch,
         count: CHUNK_SIZE,
         excludeIds: excludeIds
+        , timelineRange
       })
       
       

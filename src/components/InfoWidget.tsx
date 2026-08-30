@@ -1,239 +1,115 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { X } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Info, X } from "lucide-react"
 
-const INTRO_SEEN_KEY = "open-metropolitan-intro-seen"
+const CLOSE_ANIMATION_MS = 220
 
 export function InfoWidget() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
+  const [isClosing, setIsClosing] = useState(false)
+  const widgetRef = useRef<HTMLDivElement>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const closePanel = useCallback(() => {
+    if (!isOpen || isClosing) return
+    setIsClosing(true)
+    closeTimerRef.current = setTimeout(() => {
+      setIsOpen(false)
+      setIsClosing(false)
+      closeTimerRef.current = null
+    }, CLOSE_ANIMATION_MS)
+  }, [isClosing, isOpen])
 
   useEffect(() => {
-    const searchParams = new URL(window.location.href).searchParams
-    const isSharedExploration = searchParams.has("path") || searchParams.has("artwork")
-    if (isSharedExploration) return
+    if (!isOpen) return
 
-    try {
-      if (!window.localStorage.getItem(INTRO_SEEN_KEY)) {
-        setIsOpen(true)
-        window.localStorage.setItem(INTRO_SEEN_KEY, "true")
-      }
-    } catch {
-      setIsOpen(true)
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!widgetRef.current?.contains(event.target as Node)) closePanel()
     }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePanel()
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true)
+    document.addEventListener("wheel", closePanel, { passive: true, capture: true })
+    document.addEventListener("touchmove", closePanel, { passive: true, capture: true })
+    document.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true)
+      document.removeEventListener("wheel", closePanel, true)
+      document.removeEventListener("touchmove", closePanel, true)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [closePanel, isOpen])
+
+  useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
   }, [])
 
   const handleToggle = () => {
-    setIsOpen(!isOpen)
+    if (isOpen) {
+      closePanel()
+      return
+    }
+    setIsClosing(false)
+    setIsOpen(true)
   }
 
   return (
-    <>
-      {/* Info Icon Button */}
-      <div className="relative">
-        {/* Glowing effect for button on mobile when modal is open */}
-        {isOpen && (
-          <div
-            className="absolute top-0 left-0 w-full h-full rounded-full opacity-40 blur-[6px] scale-110 sm:hidden"
-            style={{
-              background: "linear-gradient(270deg, rgb(85, 254, 254) 0%, rgb(191, 73, 238) 100%)",
-            }}
-          ></div>
-        )}
-        
-        <button
-          onClick={handleToggle}
-          className="relative bg-white/85 backdrop-blur-sm rounded-lg shadow-lg flex items-center justify-center hover:shadow-xl transition-all duration-300 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5"
-        >
-          {isOpen ? (
-            <>
-              <X className="w-6 h-6 text-black sm:hidden" />
-              <span className="hidden sm:block text-slate-900 font-serif font-medium sm:text-xl lg:text-2xl xl:text-3xl">Open Metropolitan</span>
-            </>
-          ) : (
-            <span className="text-slate-900 font-serif font-medium sm:text-xl lg:text-2xl xl:text-2xl">Open Metropolitan</span>
-          )}
-        </button>
-      </div>
+    <div ref={widgetRef} className="relative">
+      <style jsx>{`
+        @keyframes open-met-expand {
+          from { opacity: 0; transform: translate(-8px, -8px) scale(.72); filter: blur(2px); }
+          to { opacity: 1; transform: translate(0, 0) scale(1); filter: blur(0); }
+        }
+        @keyframes open-met-recess {
+          from { opacity: 1; transform: translate(0, 0) scale(1); filter: blur(0); }
+          to { opacity: 0; transform: translate(-8px, -8px) scale(.72); filter: blur(2px); }
+        }
+        .open-met-expand { animation: open-met-expand 280ms cubic-bezier(.22, 1, .36, 1) both; }
+        .open-met-recess { animation: open-met-recess ${CLOSE_ANIMATION_MS}ms cubic-bezier(.4, 0, 1, 1) both; }
+        @media (prefers-reduced-motion: reduce) {
+          .open-met-expand, .open-met-recess { animation-duration: 1ms; }
+        }
+      `}</style>
 
-      {/* Info Modal */}
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-label={isOpen ? "Close Open Metropolitan introduction" : "About Open Metropolitan"}
+        aria-expanded={isOpen}
+        title="About Open Metropolitan"
+        className="relative flex h-[30px] items-center justify-center gap-1.5 rounded-[12px] border border-white/40 bg-white/55 px-3 text-xs font-medium text-[#3c3931] shadow-sm backdrop-blur-[12px] transition-colors hover:bg-white/75"
+      >
+        {isOpen ? <X size={15} /> : <Info size={15} />}
+        <span>Open Metropolitan</span>
+      </button>
+
       {isOpen && (
-        <>
-          <style jsx>{`
-            @keyframes float-star {
-              0% {
-                opacity: 0;
-                transform: translateY(0) translateX(-50%) scale(0) rotate(0deg);
-              }
-              20% {
-                opacity: 1;
-                transform: translateY(-10px) translateX(-50%) scale(1) rotate(72deg);
-              }
-              100% {
-                opacity: 0;
-                transform: translateY(-60px) translateX(var(--drift)) scale(0.3) rotate(360deg);
-              }
-            }
-            
-            .star {
-              position: absolute;
-              width: 12px;
-              height: 12px;
-              bottom: 50%;
-              left: 50%;
-              transform: translateX(-50%);
-              animation: float-star 2.5s ease-out infinite;
-              pointer-events: none;
-            }
-            
-            .star svg {
-              width: 100%;
-              height: 100%;
-              fill: #1f2937;
-            }
-            
-            .star:nth-child(1) {
-              animation-delay: 0s;
-              --drift: -30px;
-            }
-            
-            .star:nth-child(2) {
-              animation-delay: 0.4s;
-              --drift: 25px;
-            }
-            
-            .star:nth-child(3) {
-              animation-delay: 0.8s;
-              --drift: -20px;
-            }
-            
-            .star:nth-child(4) {
-              animation-delay: 1.2s;
-              --drift: 35px;
-            }
-            
-            .star:nth-child(5) {
-              animation-delay: 1.6s;
-              --drift: -15px;
-            }
-            
-            .star:nth-child(6) {
-              animation-delay: 2s;
-              --drift: 0px;
-            }
-            
-            @keyframes pulse-glow {
-              0%, 100% {
-                box-shadow: 0 0 0 0 rgba(31, 41, 55, 0.4);
-              }
-              50% {
-                box-shadow: 0 0 20px 5px rgba(31, 41, 55, 0.2);
-              }
-            }
-            
-            .glow-effect {
-              animation: pulse-glow 2s ease-in-out infinite;
-            }
-          `}</style>
-          
-          {/* Backdrop with blur */}
-          <div 
-            className="fixed inset-0 z-40 backdrop-blur-sm bg-black/20 animate-in fade-in-0 duration-300"
-            onClick={() => setIsOpen(false)}
-          />
-          
-          {/* Modal Container */}
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:items-center sm:justify-center"
-            onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
-          >
-          <div
-            className="w-full max-w-[90vw] sm:max-w-md lg:max-w-lg bg-white/85 backdrop-blur-sm rounded-2xl p-4 sm:p-8 shadow-xl shadow-black/25 animate-in fade-in-0 zoom-in-95 duration-300 border border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button - Desktop only */}
-            <button
-              onClick={() => setIsOpen(false)}
-              className="hidden sm:flex absolute top-6 right-6 text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <X size={24} />
-            </button>
-            {/* Powered By */}
-            <div className="mb-6 border-b border-gray-200 text-center pb-4">
-              <div className="text-gray-800 font-serif font-bold text-2xl sm:text-3xl lg:text-4xl">Open Metropolitan</div>
-            </div>
-
-            {/* Main Content */}
-            <div className="text-gray-700 space-y-6">
-              <p className="text-base sm:text-lg leading-relaxed text-gray-600">
-                Explore The Met's vast collection through an infinite 
-                scrolling gallery. Discover 340,000+ artworks from 
-                around the world.
-              </p>
-
-              <div className="space-y-3">
-                <p className="text-gray-700 text-base sm:text-lg font-medium">How to explore:</p>
-                <ul className="space-y-2 text-base sm:text-lg text-gray-600">
-                  <li className="flex items-start">
-                    <span className="text-gray-500 mr-2">•</span>
-                    Click and drag infinitely until something catches your eye
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-gray-500 mr-2">•</span>
-                    Click any artwork to see more like it
-                  </li>
-                </ul>
-              </div>
-
-              {/* Explore Button */}
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="relative bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-8 rounded-lg transition-all duration-200 glow-effect"
-                >
-                  {/* Button text */}
-                  <span className="relative z-10">Explore</span>
-                  
-                  {/* Floating Stars */}
-                  <div className="absolute inset-0 pointer-events-none overflow-visible">
-                    <span className="star">
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12,1 L14.5,8.5 L22,8.5 L16,13 L18.5,20.5 L12,16 L5.5,20.5 L8,13 L2,8.5 L9.5,8.5 Z"/>
-                      </svg>
-                    </span>
-                    <span className="star">
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12,1 L14.5,8.5 L22,8.5 L16,13 L18.5,20.5 L12,16 L5.5,20.5 L8,13 L2,8.5 L9.5,8.5 Z"/>
-                      </svg>
-                    </span>
-                    <span className="star">
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12,1 L14.5,8.5 L22,8.5 L16,13 L18.5,20.5 L12,16 L5.5,20.5 L8,13 L2,8.5 L9.5,8.5 Z"/>
-                      </svg>
-                    </span>
-                    <span className="star">
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12,1 L14.5,8.5 L22,8.5 L16,13 L18.5,20.5 L12,16 L5.5,20.5 L8,13 L2,8.5 L9.5,8.5 Z"/>
-                      </svg>
-                    </span>
-                    <span className="star">
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12,1 L14.5,8.5 L22,8.5 L16,13 L18.5,20.5 L12,16 L5.5,20.5 L8,13 L2,8.5 L9.5,8.5 Z"/>
-                      </svg>
-                    </span>
-                    <span className="star">
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12,1 L14.5,8.5 L22,8.5 L16,13 L18.5,20.5 L12,16 L5.5,20.5 L8,13 L2,8.5 L9.5,8.5 Z"/>
-                      </svg>
-                    </span>
-                  </div>
-                </button>
-              </div>
+        <section
+          aria-label="About Open Metropolitan"
+          className={`absolute left-0 top-[calc(100%+8px)] z-[60] w-[min(360px,calc(100vw-24px))] origin-top-left rounded-[16px] border border-white/60 bg-white/88 p-4 text-[#4d5666] shadow-[0_18px_45px_-22px_rgba(15,21,36,.5)] backdrop-blur-[16px] ${isClosing ? "open-met-recess" : "open-met-expand"}`}
+        >
+          <div className="border-b border-[#e8e5dd] pb-3">
+            <div>
+              <h2 className="font-serif text-xl font-semibold leading-none text-[#1f2937]">Open Metropolitan</h2>
+              <p className="mt-1.5 text-xs text-[#77736b]">Explore more than 340,000 artworks from The Met.</p>
             </div>
           </div>
-        </div>
-        </>
+
+          <div className="mt-3 space-y-2 text-[13px] leading-relaxed">
+            <p className="font-semibold text-[#3c3931]">How to explore</p>
+            <ul className="space-y-1.5 text-[#656158]">
+              <li>Drag the gallery until something catches your eye.</li>
+              <li>Select any artwork to discover more like it.</li>
+              <li>Use Search and Time Machine to jump across ideas and eras.</li>
+            </ul>
+          </div>
+
+        </section>
       )}
-    </>
+    </div>
   )
 }

@@ -9,7 +9,7 @@ import { WidgetContainer } from "@/components/WidgetContainer"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
 import { apiClient } from "@/lib/api-client"
 import { getVoterId } from "@/lib/likes"
-import type { MostLikedArtwork, SearchResultItem } from "@/types/api"
+import type { MostLikedArtwork, SearchResultItem, TimelineRange } from "@/types/api"
 
 const updatePathUrl = (artworkIds: number[], mode: 'push' | 'replace' = 'push') => {
   const url = new URL(window.location.href)
@@ -38,7 +38,18 @@ const readPathFromUrl = () => {
   return ids
 }
 
+const readTimelineFromUrl = (): TimelineRange | null => {
+  const url = new URL(window.location.href)
+  const fromValue = url.searchParams.get('fromYear')
+  const toValue = url.searchParams.get('toYear')
+  if (fromValue === null || toValue === null) return null
+  const fromYear = Number(fromValue)
+  const toYear = Number(toValue)
+  return Number.isSafeInteger(fromYear) && Number.isSafeInteger(toYear) && fromYear <= toYear ? { fromYear, toYear } : null
+}
+
 export default function Home() {
+  const [timelineRange, setTimelineRange] = useState<TimelineRange | null>(null)
   const [similarityMode, setSimilarityMode] = useState<{
     active: boolean;
     artworkId: number | null;
@@ -73,6 +84,8 @@ export default function Home() {
   })
   const searchPageAbortRef = useRef<AbortController | null>(null)
   const searchPageLoadingRef = useRef(false)
+  const [searchResultsRevision, setSearchResultsRevision] = useState(0)
+  const [isFilteringSearch, setIsFilteringSearch] = useState(false)
   const sharedArtworkRequestRef = useRef<AbortController | null>(null)
   const shareStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
@@ -95,15 +108,14 @@ export default function Home() {
       hasMore,
       isLoadingMore: false,
     })
-    setSimilarityMode({ active: false, artworkId: null, artworkData: null })
-    setNavigationHistory([])
-    updatePathUrl([])
+    setSearchResultsRevision((current) => current + 1)
   }, [])
 
   const handleClearSearch = useCallback(() => {
     searchPageAbortRef.current?.abort()
     searchPageAbortRef.current = null
     searchPageLoadingRef.current = false
+    setIsFilteringSearch(false)
     setSearchState({
       results: null,
       query: "",
@@ -140,6 +152,7 @@ export default function Home() {
         q: query,
         cursor,
         signal: controller.signal,
+        timelineRange,
       })
 
       setSearchState((current) => {
@@ -184,7 +197,74 @@ export default function Home() {
         ))
       }
     }
-  }, [searchState])
+  }, [searchState, timelineRange])
+
+  const handleTimelineChange = useCallback(async (range: TimelineRange | null) => {
+    const query = searchState.query
+
+    searchPageAbortRef.current?.abort()
+    searchPageAbortRef.current = null
+    searchPageLoadingRef.current = Boolean(query)
+    setIsFilteringSearch(Boolean(query))
+
+    if (query) {
+      setSearchState((current) => (
+        current.query === query
+          ? {
+              ...current,
+              nextCursor: null,
+              hasMore: false,
+              isLoadingMore: true,
+            }
+          : current
+      ))
+    }
+
+    setTimelineRange(range)
+    const url = new URL(window.location.href)
+    if (range) { url.searchParams.set('fromYear', String(range.fromYear)); url.searchParams.set('toYear', String(range.toYear)) }
+    else { url.searchParams.delete('fromYear'); url.searchParams.delete('toYear') }
+    window.history.pushState({}, '', url)
+
+    if (!query) return
+
+    const controller = new AbortController()
+    searchPageAbortRef.current = controller
+
+    try {
+      const response = await apiClient.searchArtworks({
+        q: query,
+        timelineRange: range,
+        signal: controller.signal,
+      })
+
+      if (searchPageAbortRef.current !== controller) return
+
+      setSearchState({
+        results: response.data,
+        query,
+        nextCursor: response.meta.nextCursor,
+        hasMore: response.meta.hasMore,
+        isLoadingMore: false,
+      })
+      setSearchResultsRevision((current) => current + 1)
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error('Failed to filter search by timeline:', error)
+      }
+    } finally {
+      if (searchPageAbortRef.current === controller) {
+        searchPageAbortRef.current = null
+        searchPageLoadingRef.current = false
+        setIsFilteringSearch(false)
+        setSearchState((current) => (
+          current.query === query
+            ? { ...current, isLoadingMore: false }
+            : current
+        ))
+      }
+    }
+  }, [searchState.query])
 
   useEffect(() => {
     return () => searchPageAbortRef.current?.abort()
@@ -222,27 +302,34 @@ export default function Home() {
         artworkId: image.databaseId,
         artworkData
       })
-      updatePathUrl([image.databaseId])
-
-      setNavigationHistory([
-        {
-          id: 'main-grid',
-          title: 'Main Grid',
-          artist: null,
-          thumbnailUrl: null,
-          isMainGrid: true
-        },
-        {
+      const nextHistory = navigationHistory.length > 0
+        ? [...navigationHistory, {
           id: image.databaseId,
           title: image.title ?? null,
           artist: image.artist ?? null,
           thumbnailUrl: image.src
-        }
-      ])
+        }]
+        : [
+          {
+            id: 'main-grid' as const,
+            title: 'Main Grid',
+            artist: null,
+            thumbnailUrl: null,
+            isMainGrid: true
+          },
+          {
+            id: image.databaseId,
+            title: image.title ?? null,
+            artist: image.artist ?? null,
+            thumbnailUrl: image.src
+          }
+        ]
+      setNavigationHistory(nextHistory)
+      updatePathUrl(nextHistory.flatMap((item) => typeof item.id === 'number' ? [item.id] : []))
     } else {
       alert('Similar artwork exploration requires database ID')
     }
-  }, [])
+  }, [navigationHistory])
 
   const handleMostLikedArtworkClick = useCallback((artwork: MostLikedArtwork) => {
     searchPageAbortRef.current?.abort()
@@ -359,6 +446,7 @@ export default function Home() {
 
   useEffect(() => {
     const openArtworkFromUrl = async () => {
+      setTimelineRange(readTimelineFromUrl())
       const pathIds = readPathFromUrl()
       sharedArtworkRequestRef.current?.abort()
       if (pathIds?.length === 0) {
@@ -514,15 +602,19 @@ export default function Home() {
       <WidgetContainer
         onSearchResults={handleSearchResults}
         onClearSearch={handleClearSearch}
+        searchQuery={searchState.query}
         onMostLikedArtworkClick={handleMostLikedArtworkClick}
+        timelineRange={timelineRange}
+        onTimelineChange={handleTimelineChange}
+        showStartPrompt={!similarityMode.active}
       />
 
       {/* Main and search result grid */}
-      {!similarityMode.active && (
+      {(!similarityMode.active || searchState.results) && (
         <DraggableImageGrid
           key={searchState.results
-            ? `search-${searchState.query}`
-            : 'main-grid'}
+            ? `search-${searchState.query}-${searchResultsRevision}`
+            : `main-grid-${timelineRange?.fromYear ?? 'all'}-${timelineRange?.toYear ?? 'all'}`}
           onArtworkClick={handleArtworkClick}
           artworks={searchState.results ?? undefined}
           hasMoreArtworks={searchState.hasMore}
@@ -530,31 +622,44 @@ export default function Home() {
           onLoadMoreArtworks={handleLoadMoreSearchResults}
           showPerformanceOverlay={false}
           showLoadingIndicators={true}
+          timelineRange={searchState.results ? null : timelineRange}
         />
       )}
 
+      {isFilteringSearch && (
+        <div className="pointer-events-auto fixed inset-0 z-30 flex items-center justify-center bg-white/10 backdrop-blur-[1px]">
+          <div className="rounded-full bg-white/95 px-4 py-2 text-xs font-semibold text-[#3c3931] shadow-lg">
+            Searching this era…
+          </div>
+        </div>
+      )}
+
       {/* Similarity exploration mode */}
-      {similarityMode.active && similarityMode.artworkId && similarityMode.artworkData && (
+      {similarityMode.active && !searchState.results && similarityMode.artworkId && similarityMode.artworkData && (
         <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
           <SimilarityField
-            key={`similarity-${similarityMode.artworkId}`}
+            key={`similarity-${similarityMode.artworkId}-${timelineRange ? `${timelineRange.fromYear}-${timelineRange.toYear}` : 'all'}`}
             focalArtworkId={similarityMode.artworkId}
             focalArtwork={similarityMode.artworkData}
             onArtworkClick={handleSimilarityArtworkClick}
-          />
-          <NavigationOverlay
-            navigationHistory={navigationHistory}
-            currentFocalId={similarityMode.artworkId ?? 'main-grid'}
-            onNavigateToHistoryItem={handleNavigateToHistoryItem}
-            onSharePath={handleSharePath}
-            shareStatus={shareStatus}
-            liked={likeState.liked}
-            likeCount={likeState.likeCount}
-            isLikeLoading={isLikeLoading}
-            onToggleLike={handleToggleLike}
-            isVisible={true}
+            timelineRange={timelineRange}
           />
         </div>
+      )}
+
+      {similarityMode.active && navigationHistory.length > 0 && (
+        <NavigationOverlay
+          navigationHistory={navigationHistory}
+          currentFocalId={similarityMode.artworkId ?? 'main-grid'}
+          onNavigateToHistoryItem={handleNavigateToHistoryItem}
+          onSharePath={handleSharePath}
+          shareStatus={shareStatus}
+          liked={likeState.liked}
+          likeCount={likeState.likeCount}
+          isLikeLoading={isLikeLoading}
+          onToggleLike={handleToggleLike}
+          isVisible={true}
+        />
       )}
 
       <div className={similarityMode.active ? "hidden sm:block" : "block"}>

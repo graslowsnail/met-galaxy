@@ -41,7 +41,7 @@ import {
   FOCAL_CHUNK_SIZE,
   DEBUG_LOGGING
 } from './utils/constants'
-import type { Artwork } from '@/types/api'
+import type { Artwork, TimelineRange } from '@/types/api'
 
 interface SimilarityChunkManagerProps {
   /** Current viewport state from useViewport hook */
@@ -50,6 +50,7 @@ interface SimilarityChunkManagerProps {
   isDragging: boolean
   /** Distance dragged to distinguish clicks from drags */
   dragDistance: number
+  timelineRange?: TimelineRange | null
   /** Whether viewport is initialized */
   isInitialized: boolean
   /** Focal artwork ID that user clicked */
@@ -322,7 +323,8 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
   focalArtworkId,
   focalArtwork,
   onImageClick,
-  onFocalArtworkPosition
+  onFocalArtworkPosition,
+  timelineRange
 }: SimilarityChunkManagerProps) {
   
   // Use simplified similarity data management hook with streaming support
@@ -332,7 +334,8 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
     fetchMultipleChunksWithDeduplication
   } = useSimilarityChunkDataSimple({
     focalArtworkId,
-    focalArtwork
+    focalArtwork,
+    timelineRange
   })
   
   // Core chunk state - same as draggable grid

@@ -32,6 +32,7 @@ import {
   DEBUG_LOGGING
 } from './utils/constants'
 import type { Artwork } from '@/types/api'
+import type { TimelineRange } from '@/types/api'
 
 interface ChunkManagerProps {
   /** Current viewport state from useViewport hook */
@@ -52,6 +53,7 @@ interface ChunkManagerProps {
   isLoadingMoreArtworks?: boolean
   /** Load the next page of the finite artwork set */
   onLoadMoreArtworks?: () => Promise<void>
+  timelineRange?: TimelineRange | null
 }
 
 /**
@@ -218,13 +220,14 @@ const ChunkManager = memo(function ChunkManager({
   hasMoreArtworks = false,
   isLoadingMoreArtworks = false,
   onLoadMoreArtworks,
+  timelineRange,
 }: ChunkManagerProps) {
   
   // Use data management hook with streaming capabilities
   const {
     chunkDataMap: fetchedChunkDataMap,
     fetchChunksWithPriority,
-  } = useChunkData()
+  } = useChunkData(timelineRange)
 
   const staticChunkDataMap = useMemo(() => {
     const data = new Map<string, ChunkData>()

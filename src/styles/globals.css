@@ -52,3 +52,35 @@ body.no-scroll::-webkit-scrollbar {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+:root {
+  --timeline-path-bottom: 78px;
+}
+
+html[data-timeline-open="true"] {
+  --timeline-path-bottom: 144px;
+}
+
+@media (max-width: 639px) {
+  html[data-timeline-open="true"] {
+    --timeline-path-bottom: 186px;
+  }
+}
+
+@keyframes path-thumbnail-magnify {
+  from {
+    opacity: 0.82;
+    transform: translateX(-50%) scale(0.54);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .path-thumbnail-preview {
+    animation: none !important;
+    transform: translateX(-50%);
+  }
+}

@@ -1,4 +1,4 @@
-import { API_CONFIG, type RandomArtworksResponse, type RandomChunksResponse, type ArtworkCountResponse, type ArtworkResponse, type ArtworksResponse, type ArtworkLikeResponse, type MostLikedResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse, type SearchResponse } from '@/types/api'
+import { API_CONFIG, type RandomArtworksResponse, type RandomChunksResponse, type ArtworkCountResponse, type ArtworkResponse, type ArtworksResponse, type ArtworkLikeResponse, type MostLikedResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse, type SearchResponse, type TimelineRange, type TimelineSummaryResponse } from '@/types/api'
 
 class ApiError extends Error {
   constructor(
@@ -77,6 +77,7 @@ export const apiClient = {
     chunks: Array<{ x: number; y: number }>
     count?: number
     seed?: number
+    timelineRange?: TimelineRange | null
   }): Promise<Record<string, RandomArtworksResponse['artworks']>> {
     const url = new URL(API_CONFIG.endpoints.randomChunks, API_CONFIG.baseUrl)
     const response = await fetch(url.toString(), {
@@ -86,6 +87,7 @@ export const apiClient = {
         chunks: params.chunks,
         count: params.count ?? 20,
         seed: params.seed ?? 0,
+        ...(params.timelineRange ?? {}),
       }),
     })
     const result = await handleResponse<RandomChunksResponse>(response)
@@ -154,10 +156,11 @@ export const apiClient = {
     return handleResponse<ArtworkLikeResponse>(response)
   },
 
-  async getMostLikedArtworks(voterId: string, count = 20, signal?: AbortSignal): Promise<MostLikedResponse> {
+  async getMostLikedArtworks(voterId: string, count = 20, signal?: AbortSignal, timelineRange?: TimelineRange | null): Promise<MostLikedResponse> {
     const url = new URL(`${API_CONFIG.endpoints.likes}/most`, API_CONFIG.baseUrl)
     url.searchParams.set('voterId', voterId)
     url.searchParams.set('count', String(count))
+    if (timelineRange) { url.searchParams.set('fromYear', String(timelineRange.fromYear)); url.searchParams.set('toYear', String(timelineRange.toYear)) }
     const response = await fetch(url.toString(), { signal })
     return handleResponse<MostLikedResponse>(response)
   },
@@ -185,6 +188,7 @@ export const apiClient = {
     excludeIds?: number[]
     seed?: number
     signal?: AbortSignal
+    timelineRange?: TimelineRange | null
   }): Promise<FieldChunkResponse> {
     const qs = new URLSearchParams({
       targetId: String(params.targetId),
@@ -195,6 +199,7 @@ export const apiClient = {
       ...(params.excludeIds?.length
         ? { exclude: params.excludeIds.join(',') }
         : {}),
+      ...(params.timelineRange ? { fromYear: String(params.timelineRange.fromYear), toYear: String(params.timelineRange.toYear) } : {}),
     })
 
     const url = new URL(API_CONFIG.endpoints.fieldChunk, API_CONFIG.baseUrl)
@@ -221,6 +226,7 @@ export const apiClient = {
     excludeIds?: number[]
     seed?: number
     signal?: AbortSignal
+    timelineRange?: TimelineRange | null
   }): Promise<MultiChunkResponse> {
     const url = new URL(API_CONFIG.endpoints.fieldChunks, API_CONFIG.baseUrl)
     
@@ -230,6 +236,7 @@ export const apiClient = {
       count: params.count ?? 20,
       ...(params.excludeIds?.length ? { excludeIds: params.excludeIds } : {}),
       ...(params.seed ? { seed: params.seed } : {})
+      , ...(params.timelineRange ?? {})
     }
     
     const response = await fetch(url.toString(), {
@@ -260,6 +267,7 @@ export const apiClient = {
     count?: number
     cursor?: string
     signal?: AbortSignal
+    timelineRange?: TimelineRange | null
   }): Promise<SearchResponse> {
     const url = new URL(API_CONFIG.endpoints.search, API_CONFIG.baseUrl)
     url.searchParams.set('q', params.q)
@@ -269,6 +277,7 @@ export const apiClient = {
     if (params.cursor) {
       url.searchParams.set('cursor', params.cursor)
     }
+    if (params.timelineRange) { url.searchParams.set('fromYear', String(params.timelineRange.fromYear)); url.searchParams.set('toYear', String(params.timelineRange.toYear)) }
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -279,5 +288,11 @@ export const apiClient = {
     const json = (await response.json()) as SearchResponse
     if (!json.success) throw new Error(`search error: ${(json as { error?: string }).error ?? 'unknown'}`)
     return json
+  },
+
+  async getTimelineSummary(timelineRange?: TimelineRange | null, signal?: AbortSignal): Promise<TimelineSummaryResponse> {
+    const url = new URL('/api/artworks/timeline-summary', API_CONFIG.baseUrl)
+    if (timelineRange) { url.searchParams.set('fromYear', String(timelineRange.fromYear)); url.searchParams.set('toYear', String(timelineRange.toYear)) }
+    return handleResponse<TimelineSummaryResponse>(await fetch(url, { signal }))
   },
 }

@@ -9,6 +9,7 @@ import ChunkManager from "./grid-legacy/grid/ChunkManager"
 import type { ImageItem } from "./grid-legacy/grid/types/grid"
 import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants"
 import type { Artwork } from "@/types/api"
+import type { TimelineRange } from "@/types/api"
 
 // Note: Image generation functions now handled by ChunkManager
 
@@ -20,6 +21,7 @@ interface DraggableImageGridProps {
   onLoadMoreArtworks?: () => Promise<void>
   showPerformanceOverlay?: boolean
   showLoadingIndicators?: boolean
+  timelineRange?: TimelineRange | null
 }
 
 export function DraggableImageGrid({
@@ -30,6 +32,7 @@ export function DraggableImageGrid({
   onLoadMoreArtworks,
   showPerformanceOverlay = true,
   showLoadingIndicators: _showLoadingIndicators = true
+  , timelineRange
 }: DraggableImageGridProps = {}) {
   // Use refactored viewport hook
   const { 
@@ -191,6 +194,7 @@ export function DraggableImageGrid({
           isLoadingMoreArtworks={isLoadingMoreArtworks}
           onLoadMoreArtworks={onLoadMoreArtworks}
           showPerformanceOverlay={showPerformanceOverlay}
+          timelineRange={timelineRange}
         />
       </div>
     </div>

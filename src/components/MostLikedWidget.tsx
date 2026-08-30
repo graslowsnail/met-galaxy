@@ -4,13 +4,14 @@ import { useEffect, useState } from "react"
 import { Heart, Loader2, X } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { getVoterId } from "@/lib/likes"
-import type { MostLikedArtwork } from "@/types/api"
+import type { MostLikedArtwork, TimelineRange } from "@/types/api"
 
 interface MostLikedWidgetProps {
   onArtworkClick: (artwork: MostLikedArtwork) => void
+  timelineRange: TimelineRange | null
 }
 
-export function MostLikedWidget({ onArtworkClick }: MostLikedWidgetProps) {
+export function MostLikedWidget({ onArtworkClick, timelineRange }: MostLikedWidgetProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [artworks, setArtworks] = useState<MostLikedArtwork[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -22,11 +23,11 @@ export function MostLikedWidget({ onArtworkClick }: MostLikedWidgetProps) {
     const controller = new AbortController()
     setIsLoading(true)
     setError(null)
-    void apiClient.getMostLikedArtworks(getVoterId(), 24, controller.signal)
+    void apiClient.getMostLikedArtworks(getVoterId(), 24, controller.signal, timelineRange)
       .then((response) => setArtworks(response.data))
       .catch((requestError) => {
         if (!(requestError instanceof DOMException && requestError.name === 'AbortError')) {
-          setError('Could not load the most liked artworks.')
+          setError('Could not load the Hall of Fame.')
         }
       })
       .finally(() => {
@@ -34,18 +35,19 @@ export function MostLikedWidget({ onArtworkClick }: MostLikedWidgetProps) {
       })
 
     return () => controller.abort()
-  }, [isOpen])
+  }, [isOpen, timelineRange])
 
   return (
     <>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        aria-label="Open most liked artworks"
-        className="relative bg-white/85 backdrop-blur-sm rounded-lg shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all duration-300 w-12 h-12 sm:w-auto sm:h-auto sm:px-5 sm:py-4"
+        aria-label="Open Hall of Fame"
+        title="Hall of Fame"
+        className="relative flex h-[30px] items-center justify-center gap-1.5 rounded-[12px] border border-white/40 bg-white/55 px-3 text-xs font-medium text-[#3c3931] shadow-sm backdrop-blur-[12px] transition-colors hover:bg-white/75"
       >
-        <Heart className="w-5 h-5 text-rose-600" fill="currentColor" />
-        <span className="hidden sm:inline text-slate-900 font-medium">Most Liked</span>
+        <Heart size={15} className="text-[#e11d48]" fill="currentColor" />
+        <span>Hall of Fame</span>
       </button>
 
       {isOpen && (
@@ -60,14 +62,14 @@ export function MostLikedWidget({ onArtworkClick }: MostLikedWidgetProps) {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              aria-label="Close most liked artworks"
+              aria-label="Close Hall of Fame"
               className="absolute top-5 right-5 text-gray-500 hover:text-gray-800"
             >
               <X size={24} />
             </button>
 
             <div className="mb-6 pr-10">
-              <h2 className="font-serif text-3xl font-bold text-gray-900">Most Liked</h2>
+              <h2 className="font-serif text-3xl font-bold text-gray-900">Hall of Fame</h2>
               <p className="mt-1 text-sm text-gray-500">The collection favorites chosen by visitors.</p>
             </div>
 
@@ -85,7 +87,9 @@ export function MostLikedWidget({ onArtworkClick }: MostLikedWidgetProps) {
             {!isLoading && !error && artworks.length === 0 && (
               <div className="py-16 text-center">
                 <Heart className="mx-auto mb-3 text-gray-300" size={36} />
-                <p className="text-gray-600">No likes yet. Be the first to choose a favorite.</p>
+                <p className="text-gray-600">
+                  {timelineRange ? 'No likes in this period yet.' : 'No likes yet. Be the first to choose a favorite.'}
+                </p>
               </div>
             )}
 
