@@ -305,6 +305,8 @@ export interface UseViewportReturn {
   handlePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void
   handlePointerUp: (event: React.PointerEvent<HTMLDivElement>) => void
   handlePointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void
+  /** Capture-phase click handler that swallows the click which caught a glide */
+  handleClickCapture: (event: React.MouseEvent<HTMLDivElement>) => void
   /** Function to get viewport bounds */
   getViewportBounds: (includeBuffer?: boolean) => ViewportBounds
   /** Function to check if viewport has changed significantly */

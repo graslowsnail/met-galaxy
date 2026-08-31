@@ -3,9 +3,10 @@ import { API_CONFIG, type ArtworkResponse } from '@/types/api'
 
 export const runtime = 'nodejs'
 
-const CARD_WIDTH = 1200
-const CARD_HEIGHT = 630
-const CARD_BACKGROUND = { r: 0xef, g: 0xec, b: 0xe4, alpha: 1 }
+// No canvas, no letterbox: the artwork keeps its own aspect ratio and is only
+// capped on its long edge, so previews stay sharp without getting heavy.
+const MAX_EDGE = 1200
+const FLATTEN_BACKGROUND = { r: 255, g: 255, b: 255, alpha: 1 }
 const UPSTREAM_TIMEOUT_MS = 8_000
 const CARD_CACHE_CONTROL = 'public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800'
 
@@ -37,8 +38,8 @@ export async function GET(
     if (!upstream.ok) return fallback
 
     const card = await sharp(Buffer.from(await upstream.arrayBuffer()))
-      .resize(CARD_WIDTH, CARD_HEIGHT, { fit: 'contain', background: CARD_BACKGROUND })
-      .flatten({ background: CARD_BACKGROUND })
+      .resize(MAX_EDGE, MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: FLATTEN_BACKGROUND })
       .jpeg({ quality: 85, mozjpeg: true })
       .toBuffer()
 

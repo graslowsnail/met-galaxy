@@ -61,6 +61,7 @@ const SimilarityField = memo(function SimilarityField({
     handlePointerMove,
     handlePointerUp,
     handlePointerCancel,
+    handleClickCapture,
     translate,
     updatePosition
   } = useViewport()
@@ -218,6 +219,7 @@ const SimilarityField = memo(function SimilarityField({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onClickCapture={handleClickCapture}
     >
       <div
         className="relative"

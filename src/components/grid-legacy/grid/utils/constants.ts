@@ -17,8 +17,13 @@ export const COLUMN_WIDTH = 280
 /** Gap between items in pixels */
 export const GAP = 16
 
-/** Mobile-only gallery scale so more artwork remains visible at once */
-export const MOBILE_GRID_SCALE = 0.72
+/**
+ * World scale per breakpoint. Images visible on screen grows as 1/scale^2, so
+ * dividing a scale by sqrt(2) (~0.707) roughly doubles the artwork on screen.
+ */
+export const MOBILE_GRID_SCALE = 0.51
+
+export const DESKTOP_GRID_SCALE = 0.71
 
 /** Number of images per chunk */
 export const CHUNK_SIZE = 20
@@ -43,10 +48,10 @@ export const CHUNK_HEIGHT = 1600
 export const VIEWPORT_BUFFER = 100
 
 /** Maximum chunks to render simultaneously (keep this small for performance!) */
-export const MAX_RENDERED_CHUNKS = 12
+export const MAX_RENDERED_CHUNKS = 24
 
 /** Maximum chunk data to cache (can be larger than rendered chunks) */
-export const MAX_DATA_CACHE = 100
+export const MAX_DATA_CACHE = 150
 
 // ============================================================================
 // GRID POSITIONING CONSTANTS
@@ -84,6 +89,39 @@ export const CLICK_MOVE_THRESHOLD = 5
 
 /** Trackpad scroll sensitivity multiplier */
 export const TRACKPAD_SPEED = 1.0
+
+// ============================================================================
+// GLIDE (POST-DRAG MOMENTUM) CONSTANTS
+// ============================================================================
+
+/**
+ * Fraction of the glide velocity retained per 60fps frame. Lower = shorter
+ * glide. The decay is applied as FRICTION^(elapsedMs / 16.67) so the feel is
+ * identical on 60Hz and 120Hz displays.
+ */
+export const GLIDE_FRICTION = 0.96
+
+/** Release speed in px/s below which no glide starts (a slow drag just stops) */
+export const GLIDE_MIN_START_SPEED = 120
+
+/**
+ * Speed in px/s at which the glide is considered finished. Measured on device:
+ * at 15 the last ~800ms of a flick only travels ~36px, which reads as the grid
+ * crawling rather than settling, so it stops once the motion stops being useful.
+ */
+export const GLIDE_MIN_STOP_SPEED = 40
+
+/** Upper bound on glide speed in px/s, so a hard flick can't teleport the viewport */
+export const GLIDE_MAX_SPEED = 4500
+
+/** Window in ms of recent pointer samples used to measure release velocity */
+export const GLIDE_VELOCITY_WINDOW = 100
+
+/**
+ * Largest frame delta in ms the glide will integrate. Guards against the jump
+ * that a paused rAF (backgrounded tab) would otherwise produce on resume.
+ */
+export const GLIDE_MAX_FRAME_DELTA = 64
 
 
 

@@ -28,8 +28,18 @@ import {
   CHUNK_WIDTH,
   CHUNK_HEIGHT,
   AXIS_MARGIN,
-  COLUMN_WIDTH 
+  COLUMN_WIDTH,
+  DESKTOP_GRID_SCALE,
+  GLIDE_FRICTION,
+  GLIDE_MIN_START_SPEED,
+  GLIDE_MIN_STOP_SPEED,
+  GLIDE_MAX_SPEED,
+  GLIDE_VELOCITY_WINDOW,
+  GLIDE_MAX_FRAME_DELTA
 } from '../utils/constants'
+
+/** Reference frame duration used to keep glide friction display-rate independent */
+const GLIDE_REFERENCE_FRAME_MS = 1000 / 60
 
 /**
  * Custom hook for viewport and drag management
@@ -41,7 +51,7 @@ import {
  * - Smooth drag performance with optimized updates
  * - Post-drag update callbacks
  */
-export function useViewport(mobileScale = 1): UseViewportReturn {
+export function useViewport(mobileScale = DESKTOP_GRID_SCALE): UseViewportReturn {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
@@ -96,6 +106,21 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
   const dragStartRef = useRef<Position>({ x: 0, y: 0 })
   const initialPointerPosition = useRef<Position>({ x: 0, y: 0 })
   const pendingTranslate = useRef<Position | null>(null)
+
+  /** Always-current translate, so pointer and glide math never read a stale render */
+  const translateRef = useRef<Position>({ x: 0, y: 0 })
+
+  /** Recent pointer positions used to measure release velocity */
+  const pointerSamples = useRef<Array<{ x: number; y: number; t: number }>>([])
+
+  /** Glide (post-drag momentum) state */
+  const glideRafId = useRef<number | null>(null)
+  const glideVelocity = useRef<Position>({ x: 0, y: 0 })
+  const glideLastFrameTime = useRef(0)
+  const isGlidingRef = useRef(false)
+
+  /** Set when a pointer down interrupts a glide, so that tap doesn't also open an artwork */
+  const suppressClickRef = useRef(false)
   
   /** Callbacks to trigger after drag ends */
   const postDragCallbacks = useRef<Array<() => void>>([])
@@ -111,6 +136,14 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
   // VIEWPORT DIMENSION MANAGEMENT
   // ============================================================================
   
+  /**
+   * Commit a new translation, keeping the ref mirror in sync
+   */
+  const applyTranslate = useCallback((next: Position) => {
+    translateRef.current = next
+    setTranslate(next)
+  }, [])
+
   /**
    * Update viewport dimensions based on container size
    */
@@ -140,7 +173,7 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
       
       // Check if we're on a mobile/small screen
       const isMobile = viewportDimensions.width < 768 // sm breakpoint
-      const scale = isMobile ? mobileScale : 1
+      const scale = isMobile ? mobileScale : DESKTOP_GRID_SCALE
       
       let chunkCenterX: number
       let chunkCenterY: number
@@ -165,10 +198,10 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
       const translateX = viewportCenterX - chunkCenterX * scale
       const translateY = viewportCenterY - chunkCenterY * scale
       
-      setTranslate({ x: translateX, y: translateY })
+      applyTranslate({ x: translateX, y: translateY })
       setIsInitialized(true)
     }
-  }, [viewportDimensions, isInitialized, mobileScale])
+  }, [viewportDimensions, isInitialized, mobileScale, applyTranslate])
   
   // ============================================================================
   // MOVEMENT PREDICTION LOGIC
@@ -296,22 +329,118 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
   // DRAG HANDLING
   // ============================================================================
 
+  /** trackMovement changes identity every frame; the glide loop reads it through a ref */
+  const trackMovementRef = useRef(trackMovement)
+  trackMovementRef.current = trackMovement
+
+  const schedulePostDragCallbacks = useCallback(() => {
+    setTimeout(() => {
+      postDragCallbacks.current.forEach(callback => callback())
+    }, POST_DRAG_UPDATE_DELAY)
+  }, [])
+
+  /**
+   * Cancel an in-flight glide. Does not run post-drag callbacks - the caller
+   * either starts a new gesture or moves the viewport itself.
+   */
+  const stopGlide = useCallback(() => {
+    if (glideRafId.current !== null) {
+      cancelAnimationFrame(glideRafId.current)
+      glideRafId.current = null
+    }
+    isGlidingRef.current = false
+  }, [])
+
+  /**
+   * Measure the pointer velocity (px/s) over the last GLIDE_VELOCITY_WINDOW ms.
+   * Returns zero when the pointer was resting before release, so holding still
+   * before lifting stops the viewport instead of flinging it.
+   */
+  const readReleaseVelocity = useCallback((now: number): Position => {
+    const samples = pointerSamples.current
+    const last = samples[samples.length - 1]
+    if (!last || now - last.t > GLIDE_VELOCITY_WINDOW) return { x: 0, y: 0 }
+
+    let first = last
+    for (let i = samples.length - 2; i >= 0; i--) {
+      const sample = samples[i]!
+      if (last.t - sample.t > GLIDE_VELOCITY_WINDOW) break
+      first = sample
+    }
+
+    const elapsed = last.t - first.t
+    if (elapsed <= 0) return { x: 0, y: 0 }
+
+    return {
+      x: ((last.x - first.x) / elapsed) * 1000,
+      y: ((last.y - first.y) / elapsed) * 1000,
+    }
+  }, [])
+
+  /**
+   * Continue panning after release, decaying the release velocity by
+   * GLIDE_FRICTION per reference frame until it falls below GLIDE_MIN_STOP_SPEED.
+   */
+  const startGlide = useCallback((velocity: Position): boolean => {
+    const speed = Math.hypot(velocity.x, velocity.y)
+    if (speed < GLIDE_MIN_START_SPEED) return false
+
+    const clamp = speed > GLIDE_MAX_SPEED ? GLIDE_MAX_SPEED / speed : 1
+    glideVelocity.current = { x: velocity.x * clamp, y: velocity.y * clamp }
+    glideLastFrameTime.current = performance.now()
+    isGlidingRef.current = true
+
+    const step = () => {
+      const now = performance.now()
+      const elapsed = Math.min(now - glideLastFrameTime.current, GLIDE_MAX_FRAME_DELTA)
+      glideLastFrameTime.current = now
+
+      const current = glideVelocity.current
+      const next = {
+        x: translateRef.current.x + (current.x * elapsed) / 1000,
+        y: translateRef.current.y + (current.y * elapsed) / 1000,
+      }
+      applyTranslate(next)
+      trackMovementRef.current(next)
+
+      const retained = Math.pow(GLIDE_FRICTION, elapsed / GLIDE_REFERENCE_FRAME_MS)
+      glideVelocity.current = { x: current.x * retained, y: current.y * retained }
+
+      if (Math.hypot(glideVelocity.current.x, glideVelocity.current.y) < GLIDE_MIN_STOP_SPEED) {
+        glideRafId.current = null
+        isGlidingRef.current = false
+        schedulePostDragCallbacks()
+        return
+      }
+
+      glideRafId.current = requestAnimationFrame(step)
+    }
+
+    glideRafId.current = requestAnimationFrame(step)
+    return true
+  }, [applyTranslate, schedulePostDragCallbacks])
+
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!e.isPrimary || activePointerId.current !== null) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
+
+    // A press during a glide catches the viewport rather than activating artwork
+    suppressClickRef.current = isGlidingRef.current
+    stopGlide()
 
     activePointerId.current = e.pointerId
     pointerCaptureTarget.current = e.target as Element
     pointerCaptureTarget.current.setPointerCapture(e.pointerId)
 
     const start = {
-      x: e.clientX - translate.x,
-      y: e.clientY - translate.y,
+      x: e.clientX - translateRef.current.x,
+      y: e.clientY - translateRef.current.y,
     }
 
     dragStartRef.current = start
     initialPointerPosition.current = { x: e.clientX, y: e.clientY }
     pendingTranslate.current = null
+    pointerSamples.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }]
     setIsDragging(true)
     setDragStart(start)
     setDragDistance(0)
@@ -319,7 +448,7 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
     if (DEBUG_LOGGING) {
       console.log(`Pointer drag started at (${e.clientX}, ${e.clientY})`)
     }
-  }, [translate])
+  }, [stopGlide])
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerId !== activePointerId.current) return
@@ -331,6 +460,13 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
     )
     setDragDistance(distance)
 
+    const now = performance.now()
+    const samples = pointerSamples.current
+    samples.push({ x: e.clientX, y: e.clientY, t: now })
+    while (samples.length > 2 && now - samples[0]!.t > GLIDE_VELOCITY_WINDOW) {
+      samples.shift()
+    }
+
     const start = dragStartRef.current
     pendingTranslate.current = {
       x: e.clientX - start.x,
@@ -341,15 +477,18 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
       rafId.current = requestAnimationFrame(() => {
         const nextTranslate = pendingTranslate.current
         if (nextTranslate) {
-          setTranslate(nextTranslate)
+          applyTranslate(nextTranslate)
           trackMovement(nextTranslate)
         }
         rafId.current = undefined
       })
     }
-  }, [trackMovement])
+  }, [applyTranslate, trackMovement])
 
-  const finishPointerDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const finishPointerDrag = useCallback((
+    e: React.PointerEvent<HTMLDivElement>,
+    allowGlide: boolean,
+  ) => {
     if (e.pointerId !== activePointerId.current) return
 
     if (rafId.current !== undefined) {
@@ -359,7 +498,7 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
 
     const finalTranslate = pendingTranslate.current
     if (finalTranslate) {
-      setTranslate(finalTranslate)
+      applyTranslate(finalTranslate)
       trackMovement(finalTranslate)
     }
 
@@ -373,18 +512,43 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
     pendingTranslate.current = null
     setIsDragging(false)
 
+    const glided = allowGlide && startGlide(readReleaseVelocity(performance.now()))
+    pointerSamples.current = []
+
     if (DEBUG_LOGGING) {
-      console.log('Pointer drag ended')
+      console.log(glided ? 'Pointer drag ended, gliding' : 'Pointer drag ended')
     }
 
-    setTimeout(() => {
-      postDragCallbacks.current.forEach(callback => callback())
-    }, POST_DRAG_UPDATE_DELAY)
-  }, [trackMovement])
+    // A glide runs the post-drag callbacks once it settles
+    if (!glided) {
+      schedulePostDragCallbacks()
+    }
+  }, [applyTranslate, trackMovement, startGlide, readReleaseVelocity, schedulePostDragCallbacks])
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    finishPointerDrag(e, true)
+  }, [finishPointerDrag])
+
+  /** A cancelled gesture was interrupted rather than released, so it never glides */
+  const handlePointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    finishPointerDrag(e, false)
+  }, [finishPointerDrag])
+
+  /**
+   * Swallow the click produced by the press that caught a glide, so grabbing a
+   * moving grid never opens the artwork under the finger.
+   */
+  const handleClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) return
+    suppressClickRef.current = false
+    e.stopPropagation()
+    e.preventDefault()
+  }, [])
 
   useEffect(() => {
     return () => {
       if (rafId.current !== undefined) cancelAnimationFrame(rafId.current)
+      if (glideRafId.current !== null) cancelAnimationFrame(glideRafId.current)
     }
   }, [])
   
@@ -417,7 +581,7 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
    * Get current viewport state
    */
   const getViewportState = useCallback((): ViewportState => {
-    const scale = viewportDimensions.width < 768 ? mobileScale : 1
+    const scale = viewportDimensions.width < 768 ? mobileScale : DESKTOP_GRID_SCALE
 
     return {
       width: viewportDimensions.width / scale,
@@ -462,13 +626,14 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
    * Manually set viewport position (useful for programmatic navigation)
    */
   const setViewportPosition = useCallback((position: Position) => {
-    setTranslate(position)
+    stopGlide()
+    applyTranslate(position)
     trackMovement(position)
     
     if (DEBUG_LOGGING) {
       console.log(`📍 Viewport position set to (${position.x}, ${position.y})`)
     }
-  }, [trackMovement])
+  }, [stopGlide, applyTranslate, trackMovement])
   
   /**
    * Reset viewport to default chunk position
@@ -502,19 +667,19 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
    * Update position by delta amount (for trackpad/wheel navigation)
    */
   const updatePosition = useCallback((deltaX: number, deltaY: number) => {
-    setTranslate(prev => {
-      const newPosition = {
-        x: prev.x + deltaX,
-        y: prev.y + deltaY
-      }
-      trackMovement(newPosition)
-      return newPosition
-    })
+    stopGlide()
+
+    const newPosition = {
+      x: translateRef.current.x + deltaX,
+      y: translateRef.current.y + deltaY
+    }
+    applyTranslate(newPosition)
+    trackMovement(newPosition)
     
     if (DEBUG_LOGGING) {
       console.log(`🖱️ Position updated by delta (${deltaX}, ${deltaY})`)
     }
-  }, [trackMovement])
+  }, [stopGlide, applyTranslate, trackMovement])
   
   // ============================================================================
   // RETURN INTERFACE
@@ -540,8 +705,9 @@ export function useViewport(mobileScale = 1): UseViewportReturn {
     // Event handlers
     handlePointerDown,
     handlePointerMove,
-    handlePointerUp: finishPointerDrag,
-    handlePointerCancel: finishPointerDrag,
+    handlePointerUp,
+    handlePointerCancel,
+    handleClickCapture,
     
     // Utility functions
     getViewportBounds,

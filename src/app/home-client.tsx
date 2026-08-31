@@ -9,6 +9,7 @@ import { WidgetContainer } from "@/components/WidgetContainer"
 import type { ImageItem } from "@/components/grid-legacy/grid/types/grid"
 import { apiClient } from "@/lib/api-client"
 import { getVoterId } from "@/lib/likes"
+import { track } from "@/lib/analytics"
 import type { MostLikedArtwork, SearchResultItem, TimelineRange } from "@/types/api"
 
 const updatePathUrl = (artworkIds: number[], mode: 'push' | 'replace' = 'push') => {
@@ -22,6 +23,10 @@ const updatePathUrl = (artworkIds: number[], mode: 'push' | 'replace' = 'push') 
   if (url.toString() === window.location.href) return
   window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url)
 }
+
+const artworkIdsOf = (history: NavigationHistoryItem[]) => (
+  history.flatMap((item) => (typeof item.id === 'number' ? [item.id] : []))
+)
 
 const readPathFromUrl = () => {
   const url = new URL(window.location.href)
@@ -68,6 +73,10 @@ export default function HomeClient() {
   }>({ active: false, artworkId: null, artworkData: null })
 
   const [navigationHistory, setNavigationHistory] = useState<NavigationHistoryItem[]>([])
+  // The popstate handler is mounted once, so it needs a live view of the path
+  // depth rather than the value captured at mount.
+  const navigationHistoryRef = useRef<NavigationHistoryItem[]>([])
+  navigationHistoryRef.current = navigationHistory
 
   const [searchState, setSearchState] = useState<{
     results: SearchResultItem[] | null;
@@ -109,13 +118,20 @@ export default function HomeClient() {
       isLoadingMore: false,
     })
     setSearchResultsRevision((current) => current + 1)
-  }, [])
+    track('search_performed', {
+      query,
+      query_length: query.length,
+      result_count: results.length,
+      has_timeline_filter: timelineRange !== null,
+    })
+  }, [timelineRange])
 
   const handleClearSearch = useCallback(() => {
     searchPageAbortRef.current?.abort()
     searchPageAbortRef.current = null
     searchPageLoadingRef.current = false
     setIsFilteringSearch(false)
+    track('search_cleared', { query: searchState.query })
     setSearchState({
       results: null,
       query: "",
@@ -123,7 +139,7 @@ export default function HomeClient() {
       hasMore: false,
       isLoadingMore: false,
     })
-  }, [])
+  }, [searchState.query])
 
   const handleLoadMoreSearchResults = useCallback(async () => {
     if (
@@ -153,6 +169,12 @@ export default function HomeClient() {
         cursor,
         signal: controller.signal,
         timelineRange,
+      })
+
+      track('search_paginated', {
+        query,
+        page_size: response.data.length,
+        total_loaded: (searchState.results?.length ?? 0) + response.data.length,
       })
 
       setSearchState((current) => {
@@ -221,6 +243,12 @@ export default function HomeClient() {
     }
 
     setTimelineRange(range)
+    track('timeline_filter_changed', {
+      from_year: range?.fromYear ?? null,
+      to_year: range?.toYear ?? null,
+      cleared: range === null,
+      had_search: Boolean(query),
+    })
     const url = new URL(window.location.href)
     if (range) { url.searchParams.set('fromYear', String(range.fromYear)); url.searchParams.set('toYear', String(range.toYear)) }
     else { url.searchParams.delete('fromYear'); url.searchParams.delete('toYear') }
@@ -325,11 +353,20 @@ export default function HomeClient() {
           }
         ]
       setNavigationHistory(nextHistory)
-      updatePathUrl(nextHistory.flatMap((item) => typeof item.id === 'number' ? [item.id] : []))
+      const pathIds = artworkIdsOf(nextHistory)
+      updatePathUrl(pathIds)
+      track('artwork_opened', {
+        artwork_id: image.databaseId,
+        title: image.title ?? null,
+        artist: image.artist ?? null,
+        department: image.department ?? null,
+        source: searchState.results ? 'search_results' : 'main_grid',
+        depth: pathIds.length,
+      })
     } else {
       alert('Similar artwork exploration requires database ID')
     }
-  }, [navigationHistory])
+  }, [navigationHistory, searchState.results])
 
   const handleMostLikedArtworkClick = useCallback((artwork: MostLikedArtwork) => {
     searchPageAbortRef.current?.abort()
@@ -374,6 +411,14 @@ export default function HomeClient() {
       },
     ])
     updatePathUrl([artwork.id])
+    track('artwork_opened', {
+      artwork_id: artwork.id,
+      title: artwork.title,
+      artist: artwork.artist,
+      department: artwork.department,
+      source: 'most_liked',
+      depth: 1,
+    })
   }, [])
 
   const handleSimilarityArtworkClick = useCallback((artwork: {
@@ -406,12 +451,21 @@ export default function HomeClient() {
       }
     ]
     setNavigationHistory(nextHistory)
-    updatePathUrl(nextHistory.flatMap((item) => (
-      typeof item.id === 'number' ? [item.id] : []
-    )))
+    const pathIds = artworkIdsOf(nextHistory)
+    updatePathUrl(pathIds)
+    track('artwork_opened', {
+      artwork_id: artwork.id,
+      title: artwork.title,
+      artist: artwork.artist,
+      source: 'similarity_field',
+      depth: pathIds.length,
+    })
   }, [navigationHistory])
 
   const handleCloseSimilarity = useCallback(() => {
+    track('similarity_exited', {
+      depth_reached: artworkIdsOf(navigationHistoryRef.current).length,
+    })
     setSimilarityMode({ active: false, artworkId: null, artworkData: null })
     setNavigationHistory([])
     updatePathUrl([])
@@ -439,17 +493,25 @@ export default function HomeClient() {
     })
     const nextHistory = navigationHistory.slice(0, index + 1)
     setNavigationHistory(nextHistory)
-    updatePathUrl(nextHistory.flatMap((historyItem) => (
-      typeof historyItem.id === 'number' ? [historyItem.id] : []
-    )))
+    const pathIds = artworkIdsOf(nextHistory)
+    updatePathUrl(pathIds)
+    track('artwork_opened', {
+      artwork_id: item.id as number,
+      title: item.title,
+      artist: item.artist,
+      source: 'breadcrumb',
+      depth: pathIds.length,
+    })
   }, [handleCloseSimilarity, navigationHistory])
 
   useEffect(() => {
-    const openArtworkFromUrl = async () => {
+    const openArtworkFromUrl = async (isInitialLoad: boolean) => {
       setTimelineRange(readTimelineFromUrl())
       const pathIds = readPathFromUrl()
       sharedArtworkRequestRef.current?.abort()
       if (pathIds?.length === 0) {
+        const depthReached = artworkIdsOf(navigationHistoryRef.current).length
+        if (depthReached > 0) track('similarity_exited', { depth_reached: depthReached })
         setSimilarityMode({ active: false, artworkId: null, artworkData: null })
         setNavigationHistory([])
         return
@@ -510,6 +572,18 @@ export default function HomeClient() {
           })),
         ])
         updatePathUrl(pathIds, 'replace')
+
+        if (isInitialLoad) {
+          track('shared_path_opened', { artwork_id: artwork.id, depth: pathIds.length })
+        }
+        track('artwork_opened', {
+          artwork_id: artwork.id,
+          title: artwork.title,
+          artist: artwork.artist,
+          department: artwork.department,
+          source: isInitialLoad ? 'shared_link' : 'browser_history',
+          depth: pathIds.length,
+        })
       } catch (error) {
         if (!controller.signal.aborted) {
           console.error('Failed to open shared artwork path:', error)
@@ -518,10 +592,11 @@ export default function HomeClient() {
       }
     }
 
-    void openArtworkFromUrl()
-    window.addEventListener('popstate', openArtworkFromUrl)
+    void openArtworkFromUrl(true)
+    const handlePopstate = () => void openArtworkFromUrl(false)
+    window.addEventListener('popstate', handlePopstate)
     return () => {
-      window.removeEventListener('popstate', openArtworkFromUrl)
+      window.removeEventListener('popstate', handlePopstate)
       sharedArtworkRequestRef.current?.abort()
     }
   }, [])
@@ -566,26 +641,30 @@ export default function HomeClient() {
         !likeState.liked,
       )
       setLikeState(response.data)
+      track('artwork_like_toggled', {
+        artwork_id: artworkId,
+        liked: response.data.liked,
+        like_count: response.data.likeCount,
+      })
     } catch (error) {
       console.error('Failed to update artwork like:', error)
     } finally {
       setIsLikeLoading(false)
     }
-  }, [isLikeLoading, likeState.liked, similarityMode.artworkId])
+  }, [isLikeLoading, likeState.liked, similarityMode.artworkId, similarityMode.artworkData])
 
   const handleSharePath = useCallback(async () => {
     const artwork = similarityMode.artworkData
     if (!artwork) return
 
-    const pathIds = navigationHistory.flatMap((item) => (
-      typeof item.id === 'number' ? [item.id] : []
-    ))
+    const pathIds = artworkIdsOf(navigationHistory)
     const url = new URL(window.location.href)
     url.searchParams.delete('artwork')
     url.searchParams.set('path', pathIds.join(','))
 
     try {
       await navigator.clipboard.writeText(url.toString())
+      track('path_shared', { artwork_id: artwork.id, depth: pathIds.length })
       setShareStatus('copied')
       if (shareStatusTimerRef.current) clearTimeout(shareStatusTimerRef.current)
       shareStatusTimerRef.current = setTimeout(() => setShareStatus('idle'), 2000)

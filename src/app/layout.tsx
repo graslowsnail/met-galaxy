@@ -102,11 +102,6 @@ export default function RootLayout({
               name: "Open Metropolitan",
               description: "Explore The Metropolitan Museum of Art collection through an interactive visual galaxy",
               url: "https://www.openmetropolitan.com",
-              potentialAction: {
-                "@type": "SearchAction",
-                target: "https://www.openmetropolitan.com/search?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              },
               publisher: {
                 "@type": "Organization",
                 name: "Open Metropolitan",

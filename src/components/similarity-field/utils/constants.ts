@@ -9,35 +9,44 @@
 // GRID LAYOUT CONSTANTS
 // ============================================================================
 
-/** Width of each column in pixels - increased for better visibility with masonry layout */
-export const COLUMN_WIDTH = 240
+/** Width of each column in pixels - drives the effective "zoom" of the field */
+export const COLUMN_WIDTH = 160
 
 /** Gap between items in pixels - smaller gap for compact layout */
 export const GAP = 12
 
-/** Number of images per chunk (2 columns × 3 rows) */
-export const CHUNK_SIZE = 6
-
-/** Number of images in the focal chunk (should be 1 for single focal image) */
-export const FOCAL_CHUNK_SIZE = 1
-
 /** Number of columns per chunk */
-export const COLUMNS_PER_CHUNK = 2
+export const COLUMNS_PER_CHUNK = 3
 
 /** Number of rows per chunk (approximate for masonry layout) */
 export const ROWS_PER_CHUNK = 3
+
+/** Number of images per chunk */
+export const CHUNK_SIZE = COLUMNS_PER_CHUNK * ROWS_PER_CHUNK
+
+/** Number of images in the focal chunk (should be 1 for single focal image) */
+export const FOCAL_CHUNK_SIZE = 1
 
 /** Space around the axis lines in pixels */
 export const AXIS_MARGIN = 5
 
 /** Minimum image height in pixels to prevent very short images */
-export const MIN_IMAGE_HEIGHT = 120
+export const MIN_IMAGE_HEIGHT = Math.round(COLUMN_WIDTH * 0.5)
 
 /** Width includes margins - total width of each chunk */
 export const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
 
-/** Height includes margins - total height of each chunk (approximate for masonry) */
-export const CHUNK_HEIGHT = 800
+/**
+ * Mean of the aspect ratio table in generateAspectRatio (grid-legacy chunkCalculations).
+ * Used to size chunks so a full chunk of images roughly fills its height without the
+ * masonry gap-fill pass having to stretch images.
+ */
+const AVG_ASPECT_RATIO = 1.15
+
+/** Height includes margins - derived so masonry columns naturally fill the chunk */
+export const CHUNK_HEIGHT = Math.round(
+  ROWS_PER_CHUNK * (COLUMN_WIDTH * AVG_ASPECT_RATIO + GAP) + (2 * AXIS_MARGIN)
+)
 
 // ============================================================================
 // PERFORMANCE CONSTANTS
@@ -47,10 +56,10 @@ export const CHUNK_HEIGHT = 800
 export const VIEWPORT_BUFFER = 200
 
 /** Maximum chunks to render simultaneously (keep this small for performance!) */
-export const MAX_RENDERED_CHUNKS = 20
+export const MAX_RENDERED_CHUNKS = 40
 
 /** Maximum chunk data to cache (can be larger than rendered chunks) */
-export const MAX_DATA_CACHE = 100
+export const MAX_DATA_CACHE = 200
 
 // ============================================================================
 // ANIMATION & INTERACTION CONSTANTS

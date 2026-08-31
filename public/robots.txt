@@ -2,18 +2,9 @@
 User-agent: *
 Allow: /
 
-# Sitemap location
-Sitemap: https://www.openmetropolitan.com/sitemap.xml
-
-# Crawl-delay for responsible crawling
-Crawl-delay: 1
-
-# Disallow access to API routes if any
+# API routes hold no indexable content, except the share-card images that
+# crawlers must fetch to render link previews.
 Disallow: /api/
+Allow: /api/og/
 
-# Allow search engines to index images
-User-agent: Googlebot-Image
-Allow: /
-
-User-agent: bingbot
-Allow: /
+Sitemap: https://www.openmetropolitan.com/sitemap.xml

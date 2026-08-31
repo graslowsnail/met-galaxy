@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import HomeClient from "./home-client"
 import { API_CONFIG, type Artwork, type ArtworkResponse } from "@/types/api"
+import { artworkLabel, SHARE_HEADLINE, shareDescription } from "@/lib/share"
 
 const SHARED_ARTWORK_REVALIDATE_SECONDS = 86_400
 
@@ -45,17 +46,11 @@ export async function generateMetadata({ searchParams }: {
   const artwork = await fetchSharedArtwork(pathIds.at(-1)!)
   if (!artwork?.originalImageUrl && !artwork?.imageUrl) return {}
 
-  const title = artwork.title ?? 'Untitled'
-  const heading = artwork.artist ? `${title} — ${artwork.artist}` : title
-  const description = [artwork.date, artwork.medium, artwork.department]
-    .filter(Boolean)
-    .join(' · ')
-    || 'Explore this artwork and its neighbours in The Met collection.'
+  const heading = artworkLabel(artwork)
+  const description = shareDescription(artwork)
 
   const images = [{
     url: `/api/og/${artwork.id}`,
-    width: 1200,
-    height: 630,
     alt: heading,
   }]
 
@@ -73,13 +68,13 @@ export async function generateMetadata({ searchParams }: {
       type: 'article',
       locale: 'en_US',
       siteName: 'Open Metropolitan',
-      title: heading,
+      title: SHARE_HEADLINE,
       description,
       images,
     },
     twitter: {
       card: 'summary_large_image',
-      title: heading,
+      title: SHARE_HEADLINE,
       description,
       images: images.map((image) => image.url),
       creator: '@openmetropolitan',
