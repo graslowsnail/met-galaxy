@@ -1,5 +1,10 @@
 import { API_CONFIG, type RandomArtworksResponse, type RandomChunksResponse, type ArtworkCountResponse, type ArtworkResponse, type ArtworksResponse, type ArtworkLikeResponse, type MostLikedResponse, type ErrorResponse, type BackendResponse, type SimilarityResponse, type FieldChunkResponse, type MultiChunkResponse, type SearchResponse, type TimelineRange, type TimelineSummaryResponse } from '@/types/api'
 
+// Required by the backend on like mutations; a cross-origin caller cannot set it
+// without first passing our CORS preflight.
+const CLIENT_HEADER = 'X-Met-Galaxy-Client'
+const CLIENT_HEADER_VALUE = 'web'
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -150,7 +155,10 @@ export const apiClient = {
     const url = new URL(`${API_CONFIG.endpoints.likes}/${artworkId}`, API_CONFIG.baseUrl)
     const response = await fetch(url.toString(), {
       method: liked ? 'POST' : 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [CLIENT_HEADER]: CLIENT_HEADER_VALUE,
+      },
       body: JSON.stringify({ voterId }),
     })
     return handleResponse<ArtworkLikeResponse>(response)
