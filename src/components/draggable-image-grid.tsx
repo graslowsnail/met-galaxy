@@ -7,7 +7,7 @@ import { useEffect, useCallback, useRef } from "react"
 import { useViewport } from "./grid-legacy/grid/hooks/useViewport"
 import ChunkManager from "./grid-legacy/grid/ChunkManager"
 import type { ImageItem } from "./grid-legacy/grid/types/grid"
-import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED } from "./grid-legacy/grid/utils/constants"
+import { GRID_BACKGROUND_COLOR, CLICK_MOVE_THRESHOLD, TRACKPAD_SPEED, MOBILE_GRID_SCALE } from "./grid-legacy/grid/utils/constants"
 import type { Artwork } from "@/types/api"
 import type { TimelineRange } from "@/types/api"
 
@@ -48,7 +48,12 @@ export function DraggableImageGrid({
     viewport,
     onPostDrag,
     updatePosition,
-  } = useViewport()
+    viewportDimensions,
+  } = useViewport(MOBILE_GRID_SCALE)
+
+  const gridScale = viewportDimensions.width > 0 && viewportDimensions.width < 768
+    ? MOBILE_GRID_SCALE
+    : 1
 
   // Connect post-drag events to trigger updates
   useEffect(() => {
@@ -179,7 +184,8 @@ export function DraggableImageGrid({
       <div
         className="relative"
         style={{
-          transform: `translate(${translate.x}px, ${translate.y}px)`,
+          transform: `translate(${translate.x}px, ${translate.y}px) scale(${gridScale})`,
+          transformOrigin: 'top left',
           willChange: 'transform',
         }}
       >

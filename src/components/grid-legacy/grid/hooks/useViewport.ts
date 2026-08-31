@@ -41,7 +41,7 @@ import {
  * - Smooth drag performance with optimized updates
  * - Post-drag update callbacks
  */
-export function useViewport(): UseViewportReturn {
+export function useViewport(mobileScale = 1): UseViewportReturn {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
@@ -140,6 +140,7 @@ export function useViewport(): UseViewportReturn {
       
       // Check if we're on a mobile/small screen
       const isMobile = viewportDimensions.width < 768 // sm breakpoint
+      const scale = isMobile ? mobileScale : 1
       
       let chunkCenterX: number
       let chunkCenterY: number
@@ -161,13 +162,13 @@ export function useViewport(): UseViewportReturn {
       const viewportCenterY = viewportDimensions.height / 2
       
       // Translation = viewport center - target point
-      const translateX = viewportCenterX - chunkCenterX
-      const translateY = viewportCenterY - chunkCenterY
+      const translateX = viewportCenterX - chunkCenterX * scale
+      const translateY = viewportCenterY - chunkCenterY * scale
       
       setTranslate({ x: translateX, y: translateY })
       setIsInitialized(true)
     }
-  }, [viewportDimensions, isInitialized])
+  }, [viewportDimensions, isInitialized, mobileScale])
   
   // ============================================================================
   // MOVEMENT PREDICTION LOGIC
@@ -416,13 +417,15 @@ export function useViewport(): UseViewportReturn {
    * Get current viewport state
    */
   const getViewportState = useCallback((): ViewportState => {
+    const scale = viewportDimensions.width < 768 ? mobileScale : 1
+
     return {
-      width: viewportDimensions.width,
-      height: viewportDimensions.height,
-      translateX: translate.x,
-      translateY: translate.y,
+      width: viewportDimensions.width / scale,
+      height: viewportDimensions.height / scale,
+      translateX: translate.x / scale,
+      translateY: translate.y / scale,
     }
-  }, [viewportDimensions, translate])
+  }, [viewportDimensions, translate, mobileScale])
   
   /**
    * Get current viewport bounds in world coordinates

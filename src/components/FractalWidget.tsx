@@ -4,23 +4,6 @@ export function FractalWidget() {
 
   return (
     <>
-      {/* Mobile Always-Visible Widget */}
-      <div className="fixed bottom-4 right-4 z-50 sm:hidden">
-        <div className="flex h-[30px] items-center rounded-[12px] border border-white/40 bg-white/55 px-3 text-xs font-medium text-[#3c3931] shadow-sm backdrop-blur-[12px]">
-          <p className="whitespace-nowrap">
-            Built by{" "}
-            <a
-              href="https://pabloar.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 transition-colors hover:text-[#0f1524]"
-            >
-              Pablo
-            </a>
-          </p>
-        </div>
-      </div>
-
       {/* Desktop Always-Visible Widget */}
       <div className="hidden sm:block fixed bottom-6 right-6 z-50">
         <div className="flex h-[30px] items-center rounded-[12px] border border-white/40 bg-white/55 px-3 text-xs font-medium text-[#3c3931] shadow-sm backdrop-blur-[12px]">

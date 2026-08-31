@@ -257,7 +257,7 @@ export function TimelineWidget({ range, onChange, open, onOpenChange, compact = 
     <div className="relative">
       <button type="button" onClick={() => onOpenChange(!open)} aria-label={open ? "Close Time Machine" : range ? "Open Time Machine, filter active" : "Open Time Machine"} title={range ? "Time Machine active" : "Time Machine"} className={`flex h-[30px] min-w-0 items-center gap-2 whitespace-nowrap rounded-[12px] px-3 text-xs shadow-sm transition-colors motion-reduce:transition-none ${range ? "font-semibold" : "font-medium"} ${open ? "bg-[#0f1524] text-white" : "bg-[#f5f3ed] text-[#3c3931] hover:bg-[#efece4]"}`}>
         <Clock3 className={open || range ? "text-[#e8a020]" : "text-slate-800"} size={16} />
-        {!compact && <span>Time Machine{range ? " active" : ""}</span>}
+        {!compact && <span className="hidden sm:inline">Time Machine{range ? " active" : ""}</span>}
       </button>
     </div>
 

@@ -606,7 +606,6 @@ export default function Home() {
         onMostLikedArtworkClick={handleMostLikedArtworkClick}
         timelineRange={timelineRange}
         onTimelineChange={handleTimelineChange}
-        showStartPrompt={!similarityMode.active}
       />
 
       {/* Main and search result grid */}

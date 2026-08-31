@@ -17,6 +17,9 @@ export const COLUMN_WIDTH = 280
 /** Gap between items in pixels */
 export const GAP = 16
 
+/** Mobile-only gallery scale so more artwork remains visible at once */
+export const MOBILE_GRID_SCALE = 0.72
+
 /** Number of images per chunk */
 export const CHUNK_SIZE = 20
 
@@ -138,5 +141,3 @@ export const DEBUG_LOGGING = false
 
 /** Whether to show chunk boundaries by default */
 export const SHOW_CHUNK_BOUNDARIES = false 
-
-
