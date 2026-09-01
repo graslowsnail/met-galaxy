@@ -16,6 +16,7 @@ export function PostHogProviderClient({
 
     posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
       api_host: env.NEXT_PUBLIC_POSTHOG_HOST,
+      defaults: '2026-05-30',
       person_profiles: 'always',
       // Covers client-side moves between the /art/[id] landing pages. It does
       // NOT cover the explorer, where every screen is "/" behind ?path= query
@@ -31,9 +32,8 @@ export function PostHogProviderClient({
         maskAllInputs: false,
         maskTextSelector: undefined,
       },
+      loaded: (client) => client.identify(getVoterId()),
     })
-
-    posthog.identify(getVoterId())
   }, [])
 
   return <PostHogProvider client={posthog}>{children}</PostHogProvider>
