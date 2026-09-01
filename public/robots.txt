@@ -2,6 +2,10 @@
 User-agent: *
 Allow: /
 
+Disallow: /art/
+Disallow: /*?path=
+Disallow: /*&path=
+
 # API routes hold no indexable content, except the share-card images that
 # crawlers must fetch to render link previews.
 Disallow: /api/

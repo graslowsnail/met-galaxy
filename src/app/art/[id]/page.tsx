@@ -135,7 +135,11 @@ export default async function ArtworkPage({ params }: {
       />
 
       <nav className="mb-8 text-sm">
-        <Link href="/" className="underline underline-offset-4 hover:no-underline">
+        <Link
+          href="/"
+          prefetch={false}
+          className="underline underline-offset-4 hover:no-underline"
+        >
           Open Metropolitan
         </Link>
         <span className="mx-2 opacity-50">/</span>
@@ -177,6 +181,8 @@ export default async function ArtworkPage({ params }: {
         <div className="mt-10 flex flex-wrap gap-3">
           <Link
             href={`/?path=${artwork.id}`}
+            prefetch={false}
+            rel="nofollow"
             className="rounded-full bg-[#3c3931] px-5 py-2.5 text-sm font-semibold text-[#efece4] hover:opacity-90"
           >
             Explore similar works visually
@@ -200,7 +206,12 @@ export default async function ArtworkPage({ params }: {
           <ul className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
             {related.map((item) => (
               <li key={item.id}>
-                <Link href={`/art/${item.id}`} className="group block">
+                <Link
+                  href={`/art/${item.id}`}
+                  prefetch={false}
+                  rel="nofollow"
+                  className="group block"
+                >
                   <img
                     src={item.imageUrl}
                     alt={item.title}
