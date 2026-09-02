@@ -4,6 +4,7 @@
  */
 
 import { memo, useState } from 'react'
+import { track } from '@/lib/analytics'
 import type { Chunk, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 
   CHUNK_WIDTH, 
@@ -22,6 +23,59 @@ import {
   CHUNK_BORDER_COLOR,
   CLICK_MOVE_THRESHOLD
 } from '../grid-legacy/grid/utils/constants'
+
+/**
+ * Single similarity tile image with a placeholder behind it and a clear
+ * failure state, so an unresolved thumbnail is never a blank clickable box.
+ */
+const SimilarityTileImage = memo(function SimilarityTileImage({
+  image,
+  height,
+}: {
+  image: ImageItem
+  height: number
+}) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
+
+  if (status === 'error') {
+    return (
+      <div className="flex items-center justify-center w-full h-full bg-gray-100 text-gray-400 text-sm">
+        Image unavailable
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {status === 'loading' && (
+        <div className="absolute inset-0 bg-neutral-100 animate-pulse" />
+      )}
+      <img
+        src={image.src}
+        alt={image.title ?? `Artwork ${image.id}`}
+        className="w-full h-full pointer-events-none select-none transition-all duration-300"
+        style={{
+          objectFit: 'cover',
+          objectPosition: 'center',
+        }}
+        draggable={false}
+        loading="eager"
+        decoding="async"
+        width={image.width}
+        height={height}
+        onLoad={() => setStatus('loaded')}
+        onError={() => {
+          setStatus('error')
+          track('artwork_image_failed', {
+            artwork_id: image.databaseId ?? null,
+            src: image.src,
+            surface: 'similarity_field',
+          })
+        }}
+      />
+    </>
+  )
+})
 
 interface SimilarityChunkComponentProps {
   chunk: Chunk
@@ -56,21 +110,6 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
     event.preventDefault()
     event.stopPropagation()
     onImageClick(image, event)
-  }
-
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    // Hide the image if it fails to load
-    const target = e.target as HTMLImageElement
-    target.style.display = 'none'
-    
-    // Optionally show a simple error placeholder
-    const parent = target.parentElement
-    if (parent && !parent.querySelector('.error-placeholder')) {
-      const errorDiv = document.createElement('div')
-      errorDiv.className = 'error-placeholder flex items-center justify-center w-full h-full bg-gray-100 text-gray-400 text-sm'
-      errorDiv.textContent = 'Image unavailable'
-      parent.appendChild(errorDiv)
-    }
   }
 
   return (
@@ -152,28 +191,13 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
                 />
               )}
               {/* Background for full image */}
-              <div 
-                className="w-full h-full overflow-hidden"
-                style={{ 
+              <div
+                className="relative w-full h-full overflow-hidden"
+                style={{
                   borderRadius: IMAGE_BORDER_RADIUS
                 }}
               >
-                <img
-                  src={image.src}
-                  alt={image.title ?? `Artwork ${image.id}`}
-                  className="w-full h-full pointer-events-none select-none transition-all duration-300"
-                  style={{
-                    objectFit: 'cover',
-                    objectPosition: 'center',
-                    
-                  }}
-                  draggable={false}
-                  loading="lazy"
-                  decoding="async"
-                  width={image.width}
-                  height={position.height}
-                  onError={handleError}
-                />
+                <SimilarityTileImage image={image} height={position.height} />
               </div>
 
               {/* Enhanced metadata overlay */}

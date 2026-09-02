@@ -15,6 +15,7 @@ import type {
   UseChunkDataReturn 
 } from '../../grid-legacy/grid/types/grid'
 import { getChunkKey } from '../../grid-legacy/grid/utils/chunkCalculations'
+import { useChunkRetry } from '../../grid-legacy/grid/utils/chunkRetry'
 import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../utils/constants'
 
 interface UseSimilarityChunkDataProps {
@@ -66,6 +67,9 @@ export function useSimilarityChunkDataSimple({
   
   /** Track abort controllers for in-flight requests */
   const abortControllers = useRef<Map<string, AbortController>>(new Map())
+
+  /** Retry scheduling for failed or empty chunk fetches */
+  const { canRetry, scheduleRetry, clearRetry, resetAll: resetRetries } = useChunkRetry()
   
   /** Track overall loading state */
   const [isLoading, setIsLoading] = useState(false)
@@ -118,9 +122,10 @@ export function useSimilarityChunkDataSimple({
     fetchingChunks.current.clear()
     usedArtworkIds.current.clear()
     reservedArtworkIds.current.clear()
+    resetRetries()
     lastFocalId.current = focalArtworkId
-    
-  }, [focalArtworkId])
+
+  }, [focalArtworkId, resetRetries])
   
   // ============================================================================
   // DATA FETCHING - Modified for streaming
@@ -143,6 +148,7 @@ export function useSimilarityChunkDataSimple({
       fetchingChunks.current.clear()
       usedArtworkIds.current.clear()
       reservedArtworkIds.current.clear()
+      resetRetries()
       lastFocalId.current = focalArtworkId
     }
     
@@ -294,7 +300,7 @@ export function useSimilarityChunkDataSimple({
         return stillLoading
       })
     }
-  }, [chunkDataMap, focalArtworkId, focalArtwork, cleanupDataCache])
+  }, [chunkDataMap, focalArtworkId, focalArtwork, cleanupDataCache, resetRetries])
   
   // ============================================================================
   // STREAMING OPERATIONS - New for progressive loading
@@ -378,21 +384,26 @@ export function useSimilarityChunkDataSimple({
     coordinates: ChunkCoordinates[]
   ): Promise<void> => {
     if (coordinates.length === 0) return
-    
-    
-    // Filter out chunks that don't need fetching
+
+
+    // Filter out chunks that don't need fetching. A failed or empty chunk is
+    // eligible again while it still has retry attempts left.
     const chunksToFetch = coordinates.filter(coord => {
       const chunkKey = getChunkKey(coord.x, coord.y)
       const existingData = chunkDataMap.get(chunkKey)
       const alreadyFetching = fetchingChunks.current.has(chunkKey)
-      
-      return !existingData && !alreadyFetching
+
+      if (alreadyFetching) return false
+      if (!existingData) return true
+
+      const failedOrEmpty = Boolean(existingData.error) || existingData.artworks?.length === 0
+      return failedOrEmpty && canRetry(chunkKey)
     })
-    
+
     if (chunksToFetch.length === 0) {
       return
     }
-    
+
     // Mark all chunks as loading
     const chunkKeys = chunksToFetch.map(coord => getChunkKey(coord.x, coord.y))
     chunkKeys.forEach(key => fetchingChunks.current.add(key))
@@ -460,19 +471,34 @@ export function useSimilarityChunkDataSimple({
         
       }
       
-      // Update all chunks at once
+      // Update all chunks at once. Requested chunks the API returned no data
+      // for become an empty result so they can retry instead of stranding.
       setChunkDataMap(prev => {
         const updated = new Map(prev)
         for (const [key, data] of updatedChunks) {
           updated.set(key, data)
         }
+        chunkKeys.forEach(key => {
+          if (!updatedChunks.has(key)) {
+            updated.set(key, { artworks: [], loading: false, error: null })
+          }
+        })
         return updated
       })
-      
-      
+
+      // Retry chunks that returned no artworks; forget the rest.
+      chunksToFetch.forEach(coord => {
+        const key = getChunkKey(coord.x, coord.y)
+        if ((updatedChunks.get(key)?.artworks?.length ?? 0) > 0) {
+          clearRetry(key)
+        } else {
+          scheduleRetry(key, () => void fetchMultipleChunksWithDeduplicationRef.current([coord]))
+        }
+      })
+
     } catch (error) {
       console.error(`❌ Error in multi-chunk fetch:`, error)
-      
+
       // Set error state for all chunks
       setChunkDataMap(prev => {
         const updated = new Map(prev)
@@ -485,7 +511,12 @@ export function useSimilarityChunkDataSimple({
         })
         return updated
       })
-      
+
+      chunksToFetch.forEach(coord => {
+        scheduleRetry(getChunkKey(coord.x, coord.y), () =>
+          void fetchMultipleChunksWithDeduplicationRef.current([coord]))
+      })
+
     } finally {
       // Remove all from fetching set
       chunkKeys.forEach(key => fetchingChunks.current.delete(key))
@@ -499,7 +530,11 @@ export function useSimilarityChunkDataSimple({
       // Trigger cache cleanup if needed
       cleanupDataCache()
     }
-  }, [chunkDataMap, focalArtworkId, cleanupDataCache])
+  }, [chunkDataMap, focalArtworkId, timelineRange, cleanupDataCache, canRetry, scheduleRetry, clearRetry])
+
+  /** Stable reference so a scheduled retry always calls the latest fetch */
+  const fetchMultipleChunksWithDeduplicationRef = useRef(fetchMultipleChunksWithDeduplication)
+  fetchMultipleChunksWithDeduplicationRef.current = fetchMultipleChunksWithDeduplication
   
   // ============================================================================
   // BATCH OPERATIONS - Legacy support

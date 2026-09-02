@@ -33,6 +33,11 @@ type AnalyticsEvents = {
     cleared: boolean
     had_search: boolean
   }
+  artwork_image_failed: {
+    artwork_id: number | null
+    src: string
+    surface: 'main_grid' | 'similarity_field'
+  }
   artwork_like_toggled: { artwork_id: number; liked: boolean; like_count: number }
   path_shared: { artwork_id: number; depth: number }
   shared_path_opened: { artwork_id: number; depth: number }
