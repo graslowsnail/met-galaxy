@@ -124,14 +124,16 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
   visibleChunks?: number
   chunkDataMap?: Map<string, import('../grid-legacy/grid/types/grid').ChunkData>
   focalArtwork?: {
+    id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
-    dateDisplay?: string | null
+    date?: string | null
     medium?: string | null
-    dimensions?: string | null
     creditLine?: string | null
     accessionNumber?: string | null
     department?: string | null
+    description?: string | null
     classification?: string | null
     culture?: string | null
     period?: string | null

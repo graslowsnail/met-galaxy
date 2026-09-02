@@ -11,6 +11,7 @@ import { Check, Heart, Loader2, Share } from 'lucide-react'
 
 export interface NavigationHistoryItem {
   id: number | 'main-grid'
+  objectId?: number | null
   title: string | null
   artist: string | null
   thumbnailUrl: string | null

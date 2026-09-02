@@ -24,6 +24,7 @@ interface SimilarityFieldProps {
   focalArtworkId: number
   focalArtwork?: {
     id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
     date?: string | null
@@ -36,6 +37,7 @@ interface SimilarityFieldProps {
   }
   onArtworkClick?: (artwork: {
     id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
     imageUrl: string | null
@@ -191,6 +193,7 @@ const SimilarityField = memo(function SimilarityField({
     if (onArtworkClick && image.databaseId) {
       onArtworkClick({
         id: image.databaseId,
+        objectId: image.objectId,
         title: image.title ?? null,
         artist: image.artist ?? null,
         imageUrl: image.src

@@ -60,6 +60,7 @@ export default function HomeClient() {
     artworkId: number | null;
     artworkData: {
       id: number;
+      objectId?: number | null;
       title: string | null;
       artist: string | null;
       date?: string | null;
@@ -314,6 +315,7 @@ export default function HomeClient() {
 
       const artworkData = {
         id: image.databaseId,
+        objectId: image.objectId,
         title: image.title ?? null,
         artist: image.artist ?? null,
         date: image.date ?? null,
@@ -333,6 +335,7 @@ export default function HomeClient() {
       const nextHistory = navigationHistory.length > 0
         ? [...navigationHistory, {
           id: image.databaseId,
+          objectId: image.objectId,
           title: image.title ?? null,
           artist: image.artist ?? null,
           thumbnailUrl: image.src
@@ -347,6 +350,7 @@ export default function HomeClient() {
           },
           {
             id: image.databaseId,
+            objectId: image.objectId,
             title: image.title ?? null,
             artist: image.artist ?? null,
             thumbnailUrl: image.src
@@ -384,6 +388,7 @@ export default function HomeClient() {
       artworkId: artwork.id,
       artworkData: {
         id: artwork.id,
+        objectId: artwork.objectId,
         title: artwork.title,
         artist: artwork.artist,
         date: artwork.date,
@@ -405,6 +410,7 @@ export default function HomeClient() {
       },
       {
         id: artwork.id,
+        objectId: artwork.objectId,
         title: artwork.title,
         artist: artwork.artist,
         thumbnailUrl: artwork.imageUrl,
@@ -423,12 +429,14 @@ export default function HomeClient() {
 
   const handleSimilarityArtworkClick = useCallback((artwork: {
     id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
     imageUrl: string | null
   }) => {
     const artworkData = {
       id: artwork.id,
+      objectId: artwork.objectId,
       title: artwork.title,
       artist: artwork.artist,
       imageUrl: artwork.imageUrl,
@@ -445,6 +453,7 @@ export default function HomeClient() {
       ...navigationHistory,
       {
         id: artwork.id,
+        objectId: artwork.objectId,
         title: artwork.title,
         artist: artwork.artist,
         thumbnailUrl: artwork.imageUrl
@@ -479,6 +488,7 @@ export default function HomeClient() {
 
     const artworkData = {
       id: item.id as number,
+      objectId: item.objectId,
       title: item.title,
       artist: item.artist,
       imageUrl: item.thumbnailUrl,
@@ -545,6 +555,7 @@ export default function HomeClient() {
           artworkId: artwork.id,
           artworkData: {
             id: artwork.id,
+            objectId: artwork.objectId,
             title: artwork.title,
             artist: artwork.artist,
             date: artwork.date,
@@ -566,6 +577,7 @@ export default function HomeClient() {
           },
           ...pathArtworks.map((pathArtwork) => ({
             id: pathArtwork.id,
+            objectId: pathArtwork.objectId,
             title: pathArtwork.title,
             artist: pathArtwork.artist,
             thumbnailUrl: pathArtwork.imageUrl,

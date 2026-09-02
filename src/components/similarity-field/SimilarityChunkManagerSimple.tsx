@@ -58,6 +58,7 @@ interface SimilarityChunkManagerProps {
   /** Focal artwork data for the center chunk */
   focalArtwork?: {
     id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
     date?: string | null

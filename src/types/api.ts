@@ -17,6 +17,7 @@ export interface Artwork {
   medium: string | null
   // Enhanced metadata for focal artwork display
   creditLine?: string | null
+  accessionNumber?: string | null
   description?: string | null
   objectUrl?: string | null
   // For backward compatibility

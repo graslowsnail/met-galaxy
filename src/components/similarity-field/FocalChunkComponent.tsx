@@ -6,8 +6,10 @@
  * styled focal image at the center of the chunk area.
  */
 
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { X } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
+import type { Artwork } from '@/types/api'
 import type { ChunkComponentProps, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 
   CHUNK_WIDTH, 
@@ -37,10 +39,13 @@ const FocalImage = memo(function FocalImage({
   isDragging?: boolean
   dragDistance?: number
   focalArtwork?: {
+    id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
     date?: string | null
     department?: string | null
+    accessionNumber?: string | null
     creditLine?: string | null
     description?: string | null
     objectUrl?: string | null
@@ -51,6 +56,30 @@ const FocalImage = memo(function FocalImage({
   const [isHovered, setIsHovered] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showDesktopInfo, setShowDesktopInfo] = useState(false)
+  const [enrichedArtwork, setEnrichedArtwork] = useState<Artwork | null>(null)
+
+  useEffect(() => {
+    if (
+      (!showModal && !showDesktopInfo)
+      || !focalArtwork?.id
+      || enrichedArtwork?.id === focalArtwork.id
+    ) return
+
+    const controller = new AbortController()
+    apiClient.getArtwork(focalArtwork.id, controller.signal)
+      .then(({ data }) => setEnrichedArtwork(data))
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError') && DEBUG_LOGGING) {
+          console.error('Failed to load enriched artwork metadata', error)
+        }
+      })
+
+    return () => controller.abort()
+  }, [enrichedArtwork?.id, focalArtwork?.id, showDesktopInfo, showModal])
+
+  const displayedArtwork = enrichedArtwork?.id === focalArtwork?.id
+    ? enrichedArtwork
+    : focalArtwork
 
   // Check if we're on desktop
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640 // sm breakpoint
@@ -218,12 +247,13 @@ const FocalImage = memo(function FocalImage({
 
       {/* Mobile Modal - Overlays on top of image */}
       {showModal && !isDesktop && (() => {
-        const fields = focalArtwork ? [
-          formatField("Artist", focalArtwork.artist),
-          formatField("Date", focalArtwork.date),
-          formatField("Department", focalArtwork.department),
-          formatField("Credit Line", focalArtwork.creditLine),
-          formatField("Description", focalArtwork.description),
+        const fields = displayedArtwork ? [
+          formatField("Artist", displayedArtwork.artist),
+          formatField("Date", displayedArtwork.date),
+          formatField("Department", displayedArtwork.department),
+          formatField("Accession ID", displayedArtwork.accessionNumber),
+          formatField("Credit Line", displayedArtwork.creditLine),
+          formatField("Description", displayedArtwork.description),
         ].filter(Boolean) : []
 
         return (
@@ -301,7 +331,7 @@ const FocalImage = memo(function FocalImage({
           }
         `}</style>
         <div
-          className="focal-modal-scroll"
+          className="focal-modal-scroll select-text"
           style={{
             position: 'absolute',
             left: imageX,
@@ -339,9 +369,9 @@ const FocalImage = memo(function FocalImage({
         </button>
 
         {/* Title */}
-        {focalArtwork?.title ? (
+        {displayedArtwork?.title ? (
           <h3 className="text-lg font-medium text-gray-800 leading-tight mb-4">
-            {focalArtwork.title}
+            {displayedArtwork.title}
           </h3>
         ) : (
           <h3 className="text-lg font-medium text-gray-800 leading-tight mb-4">
@@ -358,20 +388,20 @@ const FocalImage = memo(function FocalImage({
           ))}
         </div>
 
-        {fields.length === 0 && !focalArtwork?.title && (
+        {fields.length === 0 && !displayedArtwork?.title && (
           <p className="text-gray-500 text-sm italic">
             No additional information available for this artwork.
           </p>
         )}
 
-        {/* View on The MET Link */}
-        {focalArtwork?.objectUrl && (
+        {/* View on The Met Link */}
+        {displayedArtwork?.objectUrl && (
           <div className="mt-3 pt-3 text-center">
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                if (focalArtwork?.objectUrl) {
-                  window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
+                if (displayedArtwork?.objectUrl) {
+                  window.open(displayedArtwork.objectUrl, '_blank', 'noopener,noreferrer')
                 }
               }}
               className="text-gray-500 hover:text-gray-700 text-xs transition-colors duration-200 flex items-center gap-1.5"
@@ -379,7 +409,7 @@ const FocalImage = memo(function FocalImage({
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              View on The MET
+              View on The Met
             </button>
           </div>
         )}
@@ -423,7 +453,7 @@ const FocalImage = memo(function FocalImage({
             }
           `}</style>
           <div
-            className="desktop-info-scroll absolute bg-white/85 backdrop-blur-sm rounded-2xl p-8 shadow-xl shadow-black/25 animate-in fade-in-0 slide-in-from-left-5 duration-300 border border-gray-200"
+            className="desktop-info-scroll select-text absolute bg-white/85 backdrop-blur-sm rounded-2xl p-8 shadow-xl shadow-black/25 animate-in fade-in-0 slide-in-from-left-5 duration-300 border border-gray-200"
             style={{
               left: `${CHUNK_WIDTH + 20}px`, // Position to the right of focal chunk
               top: '50%',
@@ -434,6 +464,7 @@ const FocalImage = memo(function FocalImage({
               zIndex: 1000,
               paddingRight: '24px', // Extra padding for scrollbar
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
           {/* Close Button */}
@@ -446,9 +477,9 @@ const FocalImage = memo(function FocalImage({
 
           {/* Title with border */}
           <div className="mb-6 border-b border-gray-200 pb-4">
-            {focalArtwork?.title && (
+            {displayedArtwork?.title && (
               <h3 className="text-gray-800 font-serif font-bold text-2xl lg:text-3xl leading-tight pr-8">
-                {focalArtwork.title}
+                {displayedArtwork.title}
               </h3>
             )}
           </div>
@@ -457,45 +488,51 @@ const FocalImage = memo(function FocalImage({
           <div className="text-gray-700 space-y-6">
             {/* Artwork Details */}
             <div className="space-y-3">
-              {focalArtwork?.artist && (
+              {displayedArtwork?.artist && (
                 <div>
                   <span className="text-gray-700 text-base font-medium">Artist</span>
-                  <p className="text-gray-700 text-lg">{focalArtwork.artist}</p>
+                  <p className="text-gray-700 text-lg">{displayedArtwork.artist}</p>
                 </div>
               )}
-              {focalArtwork?.date && (
+              {displayedArtwork?.date && (
                 <div>
                   <span className="text-gray-500 text-sm">Date:</span>
-                  <span className="text-gray-700 text-sm ml-2">{focalArtwork.date}</span>
+                  <span className="text-gray-700 text-sm ml-2">{displayedArtwork.date}</span>
                 </div>
               )}
-              {focalArtwork?.department && (
+              {displayedArtwork?.department && (
                 <div>
                   <span className="text-gray-500 text-sm">Department:</span>
-                  <span className="text-gray-700 text-sm ml-2">{focalArtwork.department}</span>
+                  <span className="text-gray-700 text-sm ml-2">{displayedArtwork.department}</span>
                 </div>
               )}
-              {focalArtwork?.creditLine && (
+              {displayedArtwork?.accessionNumber && (
+                <div>
+                  <span className="text-gray-500 text-sm">Accession ID:</span>
+                  <span className="text-gray-700 text-sm ml-2">{displayedArtwork.accessionNumber}</span>
+                </div>
+              )}
+              {displayedArtwork?.creditLine && (
                 <div>
                   <span className="text-gray-500 text-sm">Credit Line:</span>
-                  <span className="text-gray-700 text-sm ml-2">{focalArtwork.creditLine}</span>
+                  <span className="text-gray-700 text-sm ml-2">{displayedArtwork.creditLine}</span>
                 </div>
               )}
-              {focalArtwork?.description && (
+              {displayedArtwork?.description && (
                 <div>
                   <span className="text-gray-500 text-sm">Description:</span>
-                  <p className="text-gray-700 text-sm mt-1">{focalArtwork.description}</p>
+                  <p className="text-gray-700 text-sm mt-1">{displayedArtwork.description}</p>
                 </div>
               )}
             </div>
 
             {/* View on MET link */}
-            {focalArtwork?.objectUrl && (
+            {displayedArtwork?.objectUrl && (
               <div className="pt-3 text-center">
                 <button
                   onClick={() => {
-                    if (focalArtwork.objectUrl) {
-                      window.open(focalArtwork.objectUrl, '_blank', 'noopener,noreferrer')
+                    if (displayedArtwork.objectUrl) {
+                      window.open(displayedArtwork.objectUrl, '_blank', 'noopener,noreferrer')
                     }
                   }}
                   className="text-gray-500 hover:text-gray-700 text-xs transition-colors duration-200 flex items-center gap-1.5"
@@ -503,7 +540,7 @@ const FocalImage = memo(function FocalImage({
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  View on The MET
+                  View on The Met
                 </button>
               </div>
             )}
@@ -527,10 +564,13 @@ const FocalChunkComponent = memo(function FocalChunkComponent({
 }: ChunkComponentProps & {
   dragDistance?: number
   focalArtwork?: {
+    id: number
+    objectId?: number | null
     title: string | null
     artist: string | null
     date?: string | null
     department?: string | null
+    accessionNumber?: string | null
     creditLine?: string | null
     description?: string | null
     objectUrl?: string | null
