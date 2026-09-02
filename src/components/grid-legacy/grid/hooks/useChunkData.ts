@@ -16,6 +16,7 @@ import type {
   UseChunkDataReturn 
 } from '../types/grid'
 import { getChunkKey } from '../utils/chunkCalculations'
+import { useChunkRetry } from '../utils/chunkRetry'
 import { MAX_DATA_CACHE, CHUNK_SIZE, DEBUG_LOGGING } from '../utils/constants'
 
 /**
@@ -39,6 +40,9 @@ export function useChunkData(timelineRange?: TimelineRange | null): UseChunkData
   /** Track which chunks are currently being fetched to prevent duplicates */
   const fetchingChunks = useRef<Set<string>>(new Set())
   const gridSeed = useRef(Math.floor(Math.random() * 2_147_483_647))
+
+  /** Retry scheduling for failed or empty chunk fetches */
+  const { canRetry, scheduleRetry, clearRetry, resetAll: resetRetries } = useChunkRetry()
   
   /** Track overall loading state */
   const [isLoading, setIsLoading] = useState(false)
@@ -77,11 +81,12 @@ export function useChunkData(timelineRange?: TimelineRange | null): UseChunkData
   const clearCache = useCallback(() => {
     setChunkDataMap(new Map())
     fetchingChunks.current.clear()
-    
+    resetRetries()
+
     if (DEBUG_LOGGING) {
       console.log('🧹 Data cache cleared completely')
     }
-  }, [])
+  }, [resetRetries])
   
   // ============================================================================
   // DATA FETCHING
@@ -199,13 +204,18 @@ export function useChunkData(timelineRange?: TimelineRange | null): UseChunkData
         coordinates.map(c => `(${c.x},${c.y})`).join(', '))
     }
     
-    // Filter out chunks that don't need fetching
+    // Filter out chunks that don't need fetching. A failed or empty chunk is
+    // eligible again while it still has retry attempts left.
     const chunksToFetch = coordinates.filter(coord => {
       const chunkKey = getChunkKey(coord.x, coord.y)
       const existingData = chunkDataMap.get(chunkKey)
       const alreadyFetching = fetchingChunks.current.has(chunkKey)
-      
-      return !existingData && !alreadyFetching
+
+      if (alreadyFetching) return false
+      if (!existingData) return true
+
+      const failedOrEmpty = Boolean(existingData.error) || existingData.artworks?.length === 0
+      return failedOrEmpty && canRetry(chunkKey)
     })
     
     if (chunksToFetch.length === 0) {
@@ -250,6 +260,16 @@ export function useChunkData(timelineRange?: TimelineRange | null): UseChunkData
         })
         return next
       })
+      // Retry chunks that came back empty; forget the rest so a later
+      // failure starts with a fresh retry budget.
+      sortedChunks.forEach((coord) => {
+        const chunkKey = getChunkKey(coord.x, coord.y)
+        if ((result[chunkKey]?.length ?? 0) === 0) {
+          scheduleRetry(chunkKey, () => void fetchMultipleChunksRef.current([coord], priority))
+        } else {
+          clearRetry(chunkKey)
+        }
+      })
       cleanupDataCache()
     } catch (error) {
       setChunkDataMap((previous) => {
@@ -261,11 +281,19 @@ export function useChunkData(timelineRange?: TimelineRange | null): UseChunkData
         }))
         return next
       })
+      sortedChunks.forEach((coord) => {
+        const chunkKey = getChunkKey(coord.x, coord.y)
+        scheduleRetry(chunkKey, () => void fetchMultipleChunksRef.current([coord], priority))
+      })
     } finally {
       sortedChunks.forEach((coord) => fetchingChunks.current.delete(getChunkKey(coord.x, coord.y)))
       setIsLoading(fetchingChunks.current.size > 0)
     }
-  }, [chunkDataMap, cleanupDataCache, timelineRange])
+  }, [chunkDataMap, cleanupDataCache, timelineRange, canRetry, scheduleRetry, clearRetry])
+
+  /** Stable reference so a scheduled retry always calls the latest fetch */
+  const fetchMultipleChunksRef = useRef(fetchMultipleChunks)
+  fetchMultipleChunksRef.current = fetchMultipleChunks
 
   /**
    * Fetch a single chunk with streaming approach (convenience method)

@@ -7,6 +7,7 @@
  */
 
 import { memo, useState, useEffect } from 'react'
+import { track } from '@/lib/analytics'
 import type { ChunkComponentProps } from './types/grid'
 import { 
   GRID_ORIGIN_X, 
@@ -39,29 +40,30 @@ const ImageItem = memo(function ImageItem({
   onImageClick?: (image: import('./types/grid').ImageItem, event: React.MouseEvent) => void
   isDragging?: boolean
 }) {
+  // Track image load status so a placeholder sits behind every tile until the
+  // thumbnail resolves, and a failed tile shows a clear state instead of blank.
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
+
   const handleClick = (event: React.MouseEvent) => {
     // Prevent click during dragging
     if (isDragging) return
-    
+
+    // A failed tile leads to an artwork with no image, so ignore the click
+    if (status === 'error') return
+
     // Stop event propagation to prevent triggering drag
     event.stopPropagation()
-    
+
     onImageClick?.(image, event)
   }
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    // Hide the image if it fails to load
-    const target = e.target as HTMLImageElement
-    target.style.display = 'none'
-    
-    // Optionally show a simple error placeholder
-    const parent = target.parentElement
-    if (parent && !parent.querySelector('.error-placeholder')) {
-      const errorDiv = document.createElement('div')
-      errorDiv.className = 'error-placeholder flex items-center justify-center w-full h-full bg-gray-100 text-gray-400 text-sm'
-      errorDiv.textContent = 'Image unavailable'
-      parent.appendChild(errorDiv)
-    }
+  const handleError = () => {
+    setStatus('error')
+    track('artwork_image_failed', {
+      artwork_id: image.databaseId ?? null,
+      src: image.src,
+      surface: 'main_grid',
+    })
   }
 
   return (
@@ -83,22 +85,34 @@ const ImageItem = memo(function ImageItem({
         e.currentTarget.style.boxShadow = IMAGE_SHADOW.default
       }}
     >
-      <img
-        src={image.src}
-        alt={image.title ?? `Artwork ${image.id}`}
-        className="w-full h-full object-cover pointer-events-none select-none"
-        style={{
-          objectFit: 'cover',
-          objectPosition: 'center',
-        }}
-        draggable={false}
-        loading="lazy"
-        decoding="async"
-        width={image.width}
-        height={position.height}
-        onError={handleError}
-      />
-      
+      {/* Placeholder behind the tile until the thumbnail resolves */}
+      {status === 'loading' && (
+        <div className="absolute inset-0 bg-neutral-100 animate-pulse" />
+      )}
+
+      {status === 'error' ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400 text-sm">
+          Image unavailable
+        </div>
+      ) : (
+        <img
+          src={image.src}
+          alt={image.title ?? `Artwork ${image.id}`}
+          className="w-full h-full object-cover pointer-events-none select-none"
+          style={{
+            objectFit: 'cover',
+            objectPosition: 'center',
+          }}
+          draggable={false}
+          loading="eager"
+          decoding="async"
+          width={image.width}
+          height={position.height}
+          onLoad={() => setStatus('loaded')}
+          onError={handleError}
+        />
+      )}
+
       {/* Metadata overlay on hover */}
       {(image.title ?? image.artist) && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
