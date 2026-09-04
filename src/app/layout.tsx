@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description: "Discover and explore artworks from The Metropolitan Museum of Art collection through an interactive visual galaxy.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "Open Metropolitan - Interactive Art Explorer",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Open Metropolitan - Explore The Met's Art Collection",
     description: "Discover artworks from The Met through an interactive visual galaxy.",
-    images: ["/og-image.png"],
+    images: ["/og-image.jpg"],
     creator: "@openmetropolitan",
   },
   

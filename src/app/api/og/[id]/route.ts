@@ -23,7 +23,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const fallback = Response.redirect(new URL('/og-image.png', request.url), 307)
+  const fallback = Response.redirect(new URL('/og-image.jpg', request.url), 307)
 
   const artworkId = Number((await params).id)
   if (!Number.isSafeInteger(artworkId) || artworkId <= 0) return fallback
