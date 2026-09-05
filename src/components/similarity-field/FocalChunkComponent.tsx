@@ -6,7 +6,7 @@
  * styled focal image at the center of the chunk area.
  */
 
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import ArtworkImage from '../grid-legacy/grid/ArtworkImage'
 import { X } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
@@ -58,25 +58,44 @@ const FocalImage = memo(function FocalImage({
   const [showModal, setShowModal] = useState(false)
   const [showDesktopInfo, setShowDesktopInfo] = useState(false)
   const [enrichedArtwork, setEnrichedArtwork] = useState<Artwork | null>(null)
+  const completedMetadataId = useRef<number | null>(null)
 
   useEffect(() => {
     if (
       (!showModal && !showDesktopInfo)
       || !focalArtwork?.id
-      || enrichedArtwork?.id === focalArtwork.id
+      || completedMetadataId.current === focalArtwork.id
     ) return
 
     const controller = new AbortController()
-    apiClient.getArtwork(focalArtwork.id, controller.signal)
-      .then(({ data }) => setEnrichedArtwork(data))
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError') && DEBUG_LOGGING) {
+    const artworkId = focalArtwork.id
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+    const loadMetadata = async () => {
+      try {
+        attempts += 1
+        const { data, meta } = await apiClient.getArtwork(artworkId, controller.signal)
+        if (controller.signal.aborted) return
+        setEnrichedArtwork(data)
+        if (!meta || meta.metadataStatus === 'complete') {
+          completedMetadataId.current = artworkId
+        } else {
+          const delay = Math.max(meta.retryAfterMs ?? 1000, 500)
+          if (attempts < 8 && delay <= 10000) timer = setTimeout(() => { void loadMetadata() }, delay)
+        }
+      } catch (error: unknown) {
+        if (!controller.signal.aborted && DEBUG_LOGGING) {
           console.error('Failed to load enriched artwork metadata', error)
         }
-      })
+      }
+    }
+    void loadMetadata()
 
-    return () => controller.abort()
-  }, [enrichedArtwork?.id, focalArtwork?.id, showDesktopInfo, showModal])
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [focalArtwork?.id, showDesktopInfo, showModal])
 
   const displayedArtwork = enrichedArtwork?.id === focalArtwork?.id
     ? enrichedArtwork

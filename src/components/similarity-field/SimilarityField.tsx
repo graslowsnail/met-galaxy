@@ -5,7 +5,7 @@
  * using progressive loading for better performance.
  */
 
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
 import { useViewport } from '../grid-legacy/grid/hooks/useViewport'
@@ -76,6 +76,7 @@ const SimilarityField = memo(function SimilarityField({
 
   // Fallback centering (overridden by precise centering)
   const hasInitializedCenter = useRef(false)
+  const [isCentered, setIsCentered] = useState(false)
   const updatePositionRef = useRef(updatePosition)
   useEffect(() => { updatePositionRef.current = updatePosition }, [updatePosition])
 
@@ -93,6 +94,7 @@ const SimilarityField = memo(function SimilarityField({
         x: centerX - chunkCenterX,
         y: centerY - chunkCenterY,
       })
+      setIsCentered(true)
       // allow precise centering to set hasInitializedCenter
     }
   }, [containerRef, isInitialized])
@@ -225,7 +227,7 @@ const SimilarityField = memo(function SimilarityField({
           willChange: 'transform',
         }}
       >
-        {isInitialized && (
+        {isInitialized && isCentered && (
           <SimilarityChunkManagerSimple
             viewport={viewport}
             isDragging={isDragging}
@@ -249,7 +251,7 @@ const SimilarityField = memo(function SimilarityField({
         }}
       />
 
-      {!isInitialized && (
+      {(!isInitialized || !isCentered) && (
         <ChunkSkeleton
           chunkX={0}
           chunkY={0}

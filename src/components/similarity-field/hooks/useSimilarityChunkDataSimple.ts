@@ -6,7 +6,7 @@
  * user experience (fast loading) over perfect deduplication.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { apiClient } from '@/lib/api-client'
 import type { Artwork, FieldChunkItem, MultiChunkResponse, TimelineRange } from '@/types/api'
 import type { 
@@ -66,6 +66,8 @@ export function useSimilarityChunkDataSimple({
   
   /** Track abort controllers for in-flight requests */
   const abortControllers = useRef<Map<string, AbortController>>(new Map())
+  const mounted = useRef(true)
+  const scheduledBatches = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
   
   /** Track overall loading state */
   const [isLoading, setIsLoading] = useState(false)
@@ -81,6 +83,25 @@ export function useSimilarityChunkDataSimple({
   
   /** Track when focal artwork ID changes to reset deduplication */
   const lastFocalId = useRef<number>(focalArtworkId)
+
+  useEffect(() => {
+    mounted.current = true
+    const controllers = abortControllers.current
+    const scheduled = scheduledBatches.current
+    const fetching = fetchingChunks.current
+    return () => {
+      mounted.current = false
+      controllers.forEach(controller => controller.abort())
+      controllers.clear()
+      fetching.clear()
+      scheduled.forEach(timer => clearTimeout(timer))
+      scheduled.clear()
+      // Allow interrupted chunks to restart when React replays mount effects.
+      setChunkDataMap(previous => new Map(
+        Array.from(previous).filter(([, data]) => !data.loading),
+      ))
+    }
+  }, [focalArtworkId, timelineRange?.fromYear, timelineRange?.toYear])
   
   // ============================================================================
   // CACHE MANAGEMENT - Same as before
@@ -134,6 +155,7 @@ export function useSimilarityChunkDataSimple({
    * @returns Promise resolving to artwork array or null if failed
    */
   const fetchChunkData = useCallback(async (chunkX: number, chunkY: number): Promise<Artwork[] | null> => {
+    if (!mounted.current) return null
     const chunkKey = getChunkKey(chunkX, chunkY)
     
     // Reset everything if focal artwork changed
@@ -227,6 +249,7 @@ export function useSimilarityChunkDataSimple({
           signal: abortController.signal,
           timelineRange
         })
+        if (abortController.signal.aborted || !mounted.current) return null
         
         // Transform FieldChunkItem to Artwork format
         artworks = response.data.map((item: FieldChunkItem) => ({
@@ -269,6 +292,7 @@ export function useSimilarityChunkDataSimple({
       return artworks
       
     } catch (error) {
+      if (abortController.signal.aborted || !mounted.current) return null
       console.error(`❌ Error fetching similarity chunk ${chunkX},${chunkY}:`, error)
       
       // Update with error state
@@ -281,20 +305,13 @@ export function useSimilarityChunkDataSimple({
       return null
       
     } finally {
-      // Remove from fetching set
-      fetchingChunks.current.delete(chunkKey)
-      
-      // Remove abort controller
-      abortControllers.current.delete(chunkKey)
-      
-      // Update global loading state
-      setIsLoading(prev => {
-        // Check if any other chunks are still loading
-        const stillLoading = Array.from(chunkDataMap.values()).some(data => data.loading)
-        return stillLoading
-      })
+      if (abortControllers.current.get(chunkKey) === abortController) {
+        fetchingChunks.current.delete(chunkKey)
+        abortControllers.current.delete(chunkKey)
+        if (mounted.current) setIsLoading(fetchingChunks.current.size > 0)
+      }
     }
-  }, [chunkDataMap, focalArtworkId, focalArtwork, cleanupDataCache])
+  }, [chunkDataMap, focalArtworkId, focalArtwork, cleanupDataCache, timelineRange])
   
   // ============================================================================
   // STREAMING OPERATIONS - New for progressive loading
@@ -341,6 +358,7 @@ export function useSimilarityChunkDataSimple({
     // Process chunks in parallel batches to improve performance
     const BATCH_SIZE = 4 // Process 4 chunks at once
     const processBatch = async (batch: ChunkCoordinates[]) => {
+      if (!mounted.current) return
       await Promise.all(
         batch.map(coord => 
           fetchChunkData(coord.x, coord.y).catch(error => {
@@ -360,9 +378,13 @@ export function useSimilarityChunkDataSimple({
     batches.forEach((batch, index) => {
       const delay = priority === 'low' ? index * 25 : index * 10 // Reduced delays
       if (delay > 0) {
-        setTimeout(() => processBatch(batch), delay)
+        const timer = setTimeout(() => {
+          scheduledBatches.current.delete(timer)
+          void processBatch(batch)
+        }, delay)
+        scheduledBatches.current.add(timer)
       } else {
-        processBatch(batch)
+        void processBatch(batch)
       }
     })
     
@@ -377,7 +399,7 @@ export function useSimilarityChunkDataSimple({
   const fetchMultipleChunksWithDeduplication = useCallback(async (
     coordinates: ChunkCoordinates[]
   ): Promise<void> => {
-    if (coordinates.length === 0) return
+    if (coordinates.length === 0 || !mounted.current) return
     
     
     // Filter out chunks that don't need fetching
@@ -395,7 +417,11 @@ export function useSimilarityChunkDataSimple({
     
     // Mark all chunks as loading
     const chunkKeys = chunksToFetch.map(coord => getChunkKey(coord.x, coord.y))
-    chunkKeys.forEach(key => fetchingChunks.current.add(key))
+    const abortController = new AbortController()
+    chunkKeys.forEach(key => {
+      fetchingChunks.current.add(key)
+      abortControllers.current.set(key, abortController)
+    })
     
     // Set loading states
     setChunkDataMap(prev => {
@@ -417,10 +443,11 @@ export function useSimilarityChunkDataSimple({
         targetId: focalArtworkId,
         chunks: chunksToFetch,
         count: CHUNK_SIZE,
-        excludeIds: excludeIds
-        , timelineRange
+        excludeIds,
+        timelineRange,
+        signal: abortController.signal,
       })
-      
+      if (abortController.signal.aborted || !mounted.current) return
       
       // Process each chunk's data
       const updatedChunks = new Map<string, ChunkData>()
@@ -471,6 +498,7 @@ export function useSimilarityChunkDataSimple({
       
       
     } catch (error) {
+      if (abortController.signal.aborted || !mounted.current) return
       console.error(`❌ Error in multi-chunk fetch:`, error)
       
       // Set error state for all chunks
@@ -487,19 +515,18 @@ export function useSimilarityChunkDataSimple({
       })
       
     } finally {
-      // Remove all from fetching set
-      chunkKeys.forEach(key => fetchingChunks.current.delete(key))
-      
-      // Update global loading state
-      setIsLoading(prev => {
-        const stillLoading = Array.from(chunkDataMap.values()).some(data => data.loading)
-        return stillLoading
+      chunkKeys.forEach(key => {
+        if (abortControllers.current.get(key) === abortController) {
+          fetchingChunks.current.delete(key)
+          abortControllers.current.delete(key)
+        }
       })
-      
-      // Trigger cache cleanup if needed
-      cleanupDataCache()
+      if (mounted.current) {
+        setIsLoading(fetchingChunks.current.size > 0)
+        cleanupDataCache()
+      }
     }
-  }, [chunkDataMap, focalArtworkId, cleanupDataCache])
+  }, [chunkDataMap, focalArtworkId, cleanupDataCache, timelineRange])
   
   // ============================================================================
   // BATCH OPERATIONS - Legacy support

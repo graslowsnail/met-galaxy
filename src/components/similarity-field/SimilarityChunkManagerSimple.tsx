@@ -357,6 +357,15 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
 
   // Performance tracking - same as draggable grid
   const loadingChunks = useRef<Set<string>>(new Set())
+  const loadGeneration = useRef(0)
+
+  useEffect(() => {
+    const loading = loadingChunks.current
+    return () => {
+      loadGeneration.current += 1
+      loading.clear()
+    }
+  }, [])
   
   // ============================================================================
   // CHUNK CREATION LOGIC
@@ -413,7 +422,7 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
    * Load chunks with smart batching and deduplication
    */
   const loadChunks = useCallback(async (coords: ChunkCoordinates[]) => {
-    
+    const generation = loadGeneration.current
     const chunksToFetch: ChunkCoordinates[] = []
     const chunksReadyForCreation: ChunkCoordinates[] = []
     
@@ -484,6 +493,7 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       
       // Handle focal chunks first with individual API calls (they contain target artwork)
       for (const focalChunk of focalChunksToFetch) {
+        if (generation !== loadGeneration.current) return
         await fetchMultipleChunksStreaming([focalChunk], 'high')
       }
       
@@ -494,6 +504,7 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
 
         for (const batch of [visible, buffered]) {
           for (let offset = 0; offset < batch.length; offset += 16) {
+            if (generation !== loadGeneration.current) return
             await fetchMultipleChunksWithDeduplication(batch.slice(offset, offset + 16))
           }
         }

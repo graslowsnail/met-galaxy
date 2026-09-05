@@ -5,12 +5,14 @@
  * These are separate from the draggable grid constants to allow independent customization.
  */
 
+import { ARTWORK_TILE_WIDTH } from '../../grid-legacy/grid/utils/constants'
+
 // ============================================================================
 // GRID LAYOUT CONSTANTS
 // ============================================================================
 
 /** Width of each column in pixels - drives the effective "zoom" of the field */
-export const COLUMN_WIDTH = 160
+export const COLUMN_WIDTH = ARTWORK_TILE_WIDTH
 
 /** Gap between items in pixels - smaller gap for compact layout */
 export const GAP = 12

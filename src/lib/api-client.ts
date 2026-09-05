@@ -5,6 +5,10 @@ import { API_CONFIG, type RandomArtworksResponse, type RandomChunksResponse, typ
 const CLIENT_HEADER = 'X-Met-Galaxy-Client'
 const CLIENT_HEADER_VALUE = 'web'
 
+const FIELD_CACHE_TTL_MS = 5 * 60 * 1000
+const MAX_CACHED_FIELD_BATCHES = 32
+const fieldBatchCache = new Map<string, { data: MultiChunkResponse; expiresAt: number }>()
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -238,22 +242,32 @@ export const apiClient = {
   }): Promise<MultiChunkResponse> {
     const url = new URL(API_CONFIG.endpoints.fieldChunks, API_CONFIG.baseUrl)
     
+    params.signal?.throwIfAborted()
     const requestBody = {
       targetId: params.targetId,
       chunks: params.chunks,
       count: params.count ?? 20,
-      ...(params.excludeIds?.length ? { excludeIds: params.excludeIds } : {}),
-      ...(params.seed ? { seed: params.seed } : {})
-      , ...(params.timelineRange ?? {})
+      ...(params.excludeIds?.length ? { excludeIds: [...new Set(params.excludeIds)].sort((a, b) => a - b) } : {}),
+      ...(params.seed ? { seed: params.seed } : {}),
+      ...(params.timelineRange ?? {}),
     }
-    
+
+    const cacheKey = JSON.stringify(requestBody)
+    const cached = fieldBatchCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      fieldBatchCache.delete(cacheKey)
+      fieldBatchCache.set(cacheKey, cached)
+      return cached.data
+    }
+    fieldBatchCache.delete(cacheKey)
+
     const response = await fetch(url.toString(), {
       method: 'POST',
       signal: params.signal,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody)
+      body: cacheKey
     })
 
     if (!response.ok) {
@@ -267,6 +281,13 @@ export const apiClient = {
     }
     const json = (await response.json()) as MultiChunkResponse
     if (!json.success) throw new Error(`field-chunks error: ${(json as { error?: string }).error ?? 'unknown'}`)
+    params.signal?.throwIfAborted()
+    fieldBatchCache.set(cacheKey, { data: json, expiresAt: Date.now() + FIELD_CACHE_TTL_MS })
+    while (fieldBatchCache.size > MAX_CACHED_FIELD_BATCHES) {
+      const oldestKey = fieldBatchCache.keys().next().value
+      if (oldestKey === undefined) break
+      fieldBatchCache.delete(oldestKey)
+    }
     return json
   },
 

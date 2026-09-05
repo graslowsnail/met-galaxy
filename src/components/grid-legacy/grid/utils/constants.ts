@@ -14,16 +14,15 @@
 /** Width of each column in pixels */
 export const COLUMN_WIDTH = 280
 
+export const ARTWORK_TILE_WIDTH = 160
+
 /** Gap between items in pixels */
 export const GAP = 16
 
-/**
- * World scale per breakpoint. Images visible on screen grows as 1/scale^2, so
- * dividing a scale by sqrt(2) (~0.707) roughly doubles the artwork on screen.
- */
-export const MOBILE_GRID_SCALE = 0.51
+/** Match the artwork field's tile width at both breakpoints. */
+export const MOBILE_GRID_SCALE = ARTWORK_TILE_WIDTH / COLUMN_WIDTH
 
-export const DESKTOP_GRID_SCALE = 0.71
+export const DESKTOP_GRID_SCALE = ARTWORK_TILE_WIDTH / COLUMN_WIDTH
 
 /** Number of images per chunk */
 export const CHUNK_SIZE = 20

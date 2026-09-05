@@ -39,6 +39,10 @@ export interface TimelineSummaryResponse {
 export interface ArtworkResponse {
   success: boolean
   data: Artwork
+  meta?: {
+    metadataStatus: 'complete' | 'pending' | 'deferred'
+    retryAfterMs?: number
+  }
 }
 
 export interface ArtworksResponse {
