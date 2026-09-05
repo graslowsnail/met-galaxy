@@ -4,6 +4,7 @@ import posthog from 'posthog-js'
 import { PostHogProvider } from 'posthog-js/react'
 import { useEffect } from 'react'
 import { env } from '@/config/env'
+import { beforeSend } from '@/lib/error-filtering'
 import { getVoterId } from '@/lib/likes'
 
 export function PostHogProviderClient({
@@ -27,6 +28,9 @@ export function PostHogProviderClient({
       capture_heatmaps: true,
       capture_dead_clicks: true,
       capture_exceptions: true,
+      // Drops stackless browser-extension messaging errors that reach us only
+      // because they surface on `window`; see lib/error-filtering.ts.
+      before_send: beforeSend,
       session_recording: {
         maskAllInputs: false,
         maskTextSelector: undefined,
