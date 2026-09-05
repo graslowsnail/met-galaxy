@@ -53,7 +53,7 @@ export const CHUNK_HEIGHT = Math.round(
 // ============================================================================
 
 /** Buffer around viewport for smooth scrolling experience */
-export const VIEWPORT_BUFFER = 200
+export const VIEWPORT_BUFFER = 400
 
 /** Maximum chunks to render simultaneously (keep this small for performance!) */
 export const MAX_RENDERED_CHUNKS = 40

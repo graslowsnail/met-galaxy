@@ -45,7 +45,7 @@ export const CHUNK_HEIGHT = 1600
 // ============================================================================
 
 /** Buffer around viewport for smooth scrolling experience */
-export const VIEWPORT_BUFFER = 100
+export const VIEWPORT_BUFFER = 600
 
 /** Maximum chunks to render simultaneously (keep this small for performance!) */
 export const MAX_RENDERED_CHUNKS = 24

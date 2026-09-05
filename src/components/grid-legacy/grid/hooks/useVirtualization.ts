@@ -6,23 +6,22 @@
  * It works closely with the viewport hook to provide efficient chunk management.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
+import { useChunkCoordinates } from './useChunkCoordinates'
 import type { 
-  ChunkCoordinates, 
   ViewportBounds, 
   ViewportState,
   UseVirtualizationReturn,
   Chunk
 } from '../types/grid'
 import { 
-  getVisibleChunkCoords,
   calculateViewportBounds,
-  getChunkKey,
-  isSignificantViewportChange
+  getChunkKey
 } from '../utils/chunkCalculations'
 import { 
   MAX_RENDERED_CHUNKS,
-  VIEWPORT_CHANGE_THRESHOLD,
+  CHUNK_WIDTH,
+  CHUNK_HEIGHT,
   DEBUG_LOGGING 
 } from '../utils/constants'
 
@@ -45,81 +44,26 @@ interface UseVirtualizationOptions {
  * Features:
  * - Efficient visibility calculations
  * - Aggressive chunk cleanup for memory management
- * - RAF-throttled updates for smooth performance
- * - Drag-aware updates to prevent stuttering
- * - Configurable virtualization thresholds
+ * - Viewport coverage during dragging and momentum
+ * - Stable coordinate lists between chunk crossings
  */
 export function useVirtualization(options: UseVirtualizationOptions): UseVirtualizationReturn {
-  const { viewport, isDragging, isInitialized, chunks, setChunks } = options
-  
-  // ============================================================================
-  // STATE MANAGEMENT
-  // ============================================================================
-  
-  /** Currently visible chunk coordinates */
-  const [visibleChunks, setVisibleChunks] = useState<ChunkCoordinates[]>([])
-  
-  /** Chunk coordinates that should be loaded (including buffer) */
-  const [chunksToLoad, setChunksToLoad] = useState<ChunkCoordinates[]>([])
-  
-  // ============================================================================
-  // REFS FOR PERFORMANCE
-  // ============================================================================
-  
-  /** Track last viewport state for change detection */
-  const lastViewport = useRef({ x: 0, y: 0, width: 0, height: 0 })
-  
-  /** RAF ID for throttled updates */
-  const rafId = useRef<number | undefined>(undefined)
-  
-  /** Cleanup callbacks for external systems */
+  const { viewport, isInitialized, chunks, setChunks } = options
+
+  const enabled = isInitialized && viewport.width > 0 && viewport.height > 0
+  const visibleChunks = useChunkCoordinates(
+    calculateViewportBounds(viewport, false), CHUNK_WIDTH, CHUNK_HEIGHT, enabled,
+  )
+  const chunksToLoad = useChunkCoordinates(
+    calculateViewportBounds(viewport, true), CHUNK_WIDTH, CHUNK_HEIGHT, enabled,
+  )
   const cleanupCallbacks = useRef<Array<() => void>>([])
-  
-  // ============================================================================
-  // VISIBILITY CALCULATIONS
-  // ============================================================================
-  
-  /**
-   * Calculate visible chunk coordinates based on current viewport
-   */
-  const calculateVisibleChunks = useCallback((includeBuffer = true): ChunkCoordinates[] => {
-    const bounds = calculateViewportBounds(viewport, includeBuffer)
-    return getVisibleChunkCoords(bounds)
-  }, [viewport])
-  
-  /**
-   * Calculate chunks that are strictly within viewport (no buffer)
-   */
-  const calculateStrictVisibleChunks = useCallback((): ChunkCoordinates[] => {
-    const bounds = calculateViewportBounds(viewport, false)
-    return getVisibleChunkCoords(bounds)
-  }, [viewport])
-  
-  /**
-   * Update visible chunks and chunks to load
-   */
-  const updateChunkVisibility = useCallback(() => {
-    const bufferedVisible = calculateVisibleChunks(true)
-    const strictVisible = calculateStrictVisibleChunks()
-    
-    setVisibleChunks(strictVisible)
-    setChunksToLoad(bufferedVisible)
-    
-    if (DEBUG_LOGGING) {
-      console.log(`🔍 Visibility update: ${strictVisible.length} visible, ${bufferedVisible.length} to load`)
-    }
-  }, [calculateVisibleChunks, calculateStrictVisibleChunks])
-  
-  // ============================================================================
-  // CHUNK MANAGEMENT
-  // ============================================================================
-  
+
   /**
    * Aggressive cleanup for true virtualization - immediately drop chunks outside viewport
    */
   const cleanupDistantChunks = useCallback(() => {
-    const visibleCoords = calculateVisibleChunks(true)
-    const visibleSet = new Set(visibleCoords.map(coord => getChunkKey(coord.x, coord.y)))
+    const visibleSet = new Set(chunksToLoad.map(coord => getChunkKey(coord.x, coord.y)))
     
     setChunks(prevChunks => {
       const newChunks = new Map(prevChunks)
@@ -137,12 +81,12 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
         console.log(`🧹 Virtualization cleanup: removed ${removedCount} chunks, keeping ${newChunks.size}`)
       }
       
-      return newChunks
+      return removedCount > 0 ? newChunks : prevChunks
     })
     
     // Trigger external cleanup callbacks
     cleanupCallbacks.current.forEach(callback => callback())
-  }, [calculateVisibleChunks, setChunks])
+  }, [chunksToLoad, setChunks])
   
   /**
    * Check if chunk limit is exceeded and needs cleanup
@@ -181,114 +125,16 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
     return chunkDistances.slice(0, excessCount).map(item => item.key)
   }, [chunks, viewport])
   
-  // ============================================================================
-  // VIRTUALIZATION UPDATE LOGIC
-  // ============================================================================
-  
-  /**
-   * Main virtualization update function
-   */
   const updateVirtualization = useCallback(() => {
-    // Don't update chunks until we're properly initialized
-    if (!viewport.width || !viewport.height || !isInitialized) {
-      if (DEBUG_LOGGING) {
-        console.log('⏭️ Skipping virtualization: not initialized')
-      }
-      return
-    }
-    
-    // CRITICAL: Don't update virtualization while user is dragging to prevent stuttering
-    if (isDragging) {
-      if (DEBUG_LOGGING) {
-        console.log('⏭️ Skipping virtualization: dragging active')
-      }
-      return
-    }
-    
-    const currentViewport = {
-      x: -viewport.translateX,
-      y: -viewport.translateY,
-      width: viewport.width,
-      height: viewport.height
-    }
-    
-    // Use larger threshold to prevent frequent updates during smooth scrolling
-    // BUT: Allow initial render by checking if we have never updated before
-    const isInitialRender = lastViewport.current.x === 0 && lastViewport.current.y === 0
-    const hasSignificantChange = isSignificantViewportChange(
-      { x: lastViewport.current.x, y: lastViewport.current.y },
-      { x: currentViewport.x, y: currentViewport.y },
-      VIEWPORT_CHANGE_THRESHOLD
-    )
-    
-    if (!hasSignificantChange && !isInitialRender) {
-      return
-    }
-    
-    lastViewport.current = currentViewport
-    
-    if (DEBUG_LOGGING) {
-      console.log('🎯 Viewport changed, updating virtualization')
-    }
-    
-    // Update visibility calculations
-    updateChunkVisibility()
-    
-    // Always cleanup first for immediate virtualization
-    cleanupDistantChunks()
-  }, [viewport, isInitialized, isDragging, updateChunkVisibility, cleanupDistantChunks])
-  
-  /**
-   * Force immediate virtualization update (useful for external triggers)
-   */
-  const forceUpdate = useCallback(() => {
-    updateChunkVisibility()
-    cleanupDistantChunks()
-  }, [updateChunkVisibility, cleanupDistantChunks])
-  
-  // ============================================================================
-  // RAF-THROTTLED UPDATES
-  // ============================================================================
-  
-  /**
-   * Only trigger virtualization updates when viewport significantly changes
-   */
+    if (enabled) cleanupDistantChunks()
+  }, [enabled, cleanupDistantChunks])
+
+  const forceUpdate = updateVirtualization
+
   useEffect(() => {
-    // Don't auto-update - let external systems trigger updates when needed
-    // This prevents infinite loops from constant RAF scheduling
-    if (!isInitialized || isDragging) {
-      return
-    }
+    updateVirtualization()
+  }, [updateVirtualization, chunks.size])
 
-    // Only update if viewport has changed significantly to prevent excessive calls
-    const currentViewport = { 
-      x: viewport.translateX, 
-      y: viewport.translateY, 
-      width: viewport.width, 
-      height: viewport.height 
-    }
-    
-    if (!isSignificantViewportChange(lastViewport.current, currentViewport, VIEWPORT_CHANGE_THRESHOLD)) {
-      return
-    }
-
-    // Throttle updates to prevent excessive calls
-    if (rafId.current) {
-      cancelAnimationFrame(rafId.current)
-    }
-    
-    rafId.current = requestAnimationFrame(() => {
-      updateVirtualization()
-      lastViewport.current = currentViewport
-    })
-    
-    return () => {
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current)
-      }
-    }
-  }, [isInitialized, viewport.translateX, viewport.translateY, viewport.width, viewport.height, isDragging, updateVirtualization])
-  
   // ============================================================================
   // EXTERNAL INTEGRATION
   // ============================================================================
@@ -318,9 +164,9 @@ export function useVirtualization(options: UseVirtualizationOptions): UseVirtual
       renderedChunks: chunks.size,
       maxRenderedChunks: MAX_RENDERED_CHUNKS,
       needsCleanup: needsChunkCleanup(),
-      isActive: !isDragging && isInitialized
+      isActive: isInitialized
     }
-  }, [visibleChunks.length, chunksToLoad.length, chunks.size, needsChunkCleanup, isDragging, isInitialized])
+  }, [visibleChunks.length, chunksToLoad.length, chunks.size, needsChunkCleanup, isInitialized])
   
   // ============================================================================
   // UTILITY FUNCTIONS

@@ -7,6 +7,7 @@
 
 import { memo, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
 import { useViewport } from '../grid-legacy/grid/hooks/useViewport'
 import { TRACKPAD_SPEED, DEBUG_LOGGING, CHUNK_WIDTH, CHUNK_HEIGHT } from './utils/constants'
 import { chunkToPixelCoords } from './utils/chunkCalculations'
@@ -55,6 +56,7 @@ const SimilarityField = memo(function SimilarityField({
 }: SimilarityFieldProps) {
   const {
     viewport,
+    viewportDimensions,
     isDragging,
     dragDistance,
     isInitialized,
@@ -65,12 +67,12 @@ const SimilarityField = memo(function SimilarityField({
     handlePointerCancel,
     handleClickCapture,
     translate,
-    updatePosition
-  } = useViewport()
+    updatePosition,
+    setViewportPosition
+  } = useViewport(1, 1)
 
-  // Keep a ref of the latest translate for delta math
-  const translateRef = useRef(translate)
-  useEffect(() => { translateRef.current = translate }, [translate])
+  const setViewportPositionRef = useRef(setViewportPosition)
+  setViewportPositionRef.current = setViewportPosition
 
   // Fallback centering (overridden by precise centering)
   const hasInitializedCenter = useRef(false)
@@ -87,15 +89,13 @@ const SimilarityField = memo(function SimilarityField({
       const chunkCenterX = chunk00Position.x + (CHUNK_WIDTH / 2)
       const chunkCenterY = chunk00Position.y + (CHUNK_HEIGHT / 2)
 
-      const desiredTranslateX = centerX - chunkCenterX
-      const desiredTranslateY = centerY - chunkCenterY
-
-      const dx = desiredTranslateX - translateRef.current.x
-      const dy = desiredTranslateY - translateRef.current.y
-      updatePositionRef.current(dx, dy)
+      setViewportPositionRef.current({
+        x: centerX - chunkCenterX,
+        y: centerY - chunkCenterY,
+      })
       // allow precise centering to set hasInitializedCenter
     }
-  }, [isInitialized])
+  }, [containerRef, isInitialized])
 
   // Handle trackpad navigation
   useEffect(() => {
@@ -167,24 +167,18 @@ const SimilarityField = memo(function SimilarityField({
     const desiredTranslateX = targetX - position.x
     const desiredTranslateY = targetY - position.y
 
-    const curr = translateRef.current
-    const dx = desiredTranslateX - curr.x
-    const dy = desiredTranslateY - curr.y
-
     if (DEBUG_LOGGING) {
       console.log('🎯 Focal placement', {
         focalWorld: position,
         viewport: { width, height },
         target: { x: targetX, y: targetY },
-        currTranslate: curr,
         desiredTranslate: { x: desiredTranslateX, y: desiredTranslateY },
-        delta: { x: dx, y: dy },
       })
     }
 
-    updatePositionRef.current(dx, dy)
+    setViewportPositionRef.current({ x: desiredTranslateX, y: desiredTranslateY })
     hasInitializedCenter.current = true
-  }, [])
+  }, [containerRef])
 
   const handleImageClick = useCallback((image: ImageItem, event: React.MouseEvent) => {
     event.preventDefault()
@@ -256,18 +250,12 @@ const SimilarityField = memo(function SimilarityField({
       />
 
       {!isInitialized && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            fontSize: '18px',
-            color: '#666'
-          }}
-        >
-          Loading similarity field...
-        </div>
+        <ChunkSkeleton
+          chunkX={0}
+          chunkY={0}
+          chunkWidth={viewportDimensions.width || CHUNK_WIDTH}
+          chunkHeight={viewportDimensions.height || CHUNK_HEIGHT}
+        />
       )}
     </div>
   )

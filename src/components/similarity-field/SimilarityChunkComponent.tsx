@@ -4,6 +4,7 @@
  */
 
 import { memo, useState } from 'react'
+import ArtworkImage from '../grid-legacy/grid/ArtworkImage'
 import type { Chunk, ImageItem } from '../grid-legacy/grid/types/grid'
 import { 
   CHUNK_WIDTH, 
@@ -58,24 +59,11 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
     onImageClick(image, event)
   }
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    // Hide the image if it fails to load
-    const target = e.target as HTMLImageElement
-    target.style.display = 'none'
-    
-    // Optionally show a simple error placeholder
-    const parent = target.parentElement
-    if (parent && !parent.querySelector('.error-placeholder')) {
-      const errorDiv = document.createElement('div')
-      errorDiv.className = 'error-placeholder flex items-center justify-center w-full h-full bg-gray-100 text-gray-400 text-sm'
-      errorDiv.textContent = 'Image unavailable'
-      parent.appendChild(errorDiv)
-    }
-  }
 
   return (
     <div
       className="absolute"
+      data-artwork-chunk={`${chunkX},${chunkY}`}
       style={{
         left: GRID_ORIGIN_X + (chunkX * CHUNK_WIDTH),
         top: GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT),
@@ -153,26 +141,16 @@ const SimilarityChunkComponent = memo(function SimilarityChunkComponent({
               )}
               {/* Background for full image */}
               <div 
-                className="w-full h-full overflow-hidden"
+                className="relative w-full h-full overflow-hidden"
                 style={{ 
                   borderRadius: IMAGE_BORDER_RADIUS
                 }}
               >
-                <img
+                <ArtworkImage
                   src={image.src}
                   alt={image.title ?? `Artwork ${image.id}`}
-                  className="w-full h-full pointer-events-none select-none transition-all duration-300"
-                  style={{
-                    objectFit: 'cover',
-                    objectPosition: 'center',
-                    
-                  }}
-                  draggable={false}
-                  loading="lazy"
-                  decoding="async"
                   width={image.width}
                   height={position.height}
-                  onError={handleError}
                 />
               </div>
 

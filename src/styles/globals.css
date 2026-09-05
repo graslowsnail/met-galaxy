@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+.gallery-skeleton {
+  background-color: #e7e5e1;
+  animation: gallery-skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes gallery-skeleton-pulse {
+  0%, 100% { background-color: #e7e5e1; }
+  50% { background-color: #efede9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-skeleton { animation: none; }
+}
+
 @theme {
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";

@@ -108,11 +108,11 @@ export function InfoWidget() {
             </ul>
           </div>
 
-          <p className="mt-3 border-t border-[#e8e5dd] pt-3 text-[11px] text-[#77736b] sm:hidden">
+          <p className="mt-3 border-t border-[#e8e5dd] pt-3 text-[11px] text-[#77736b] xl:hidden">
             Built by{" "}
-            <a href="https://pabloar.com" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:text-[#1f2937]">Pablo</a>
-            , powered by{" "}
-            <a href="https://fractalbootcamp.com/fractal-tech-hub" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:text-[#1f2937]">Fractal</a>
+            <a href="https://pabloar.com" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:text-[#1f2937]">Pablo Ramirez</a>{" "}
+            at{" "}
+            <a href="https://fractalbootcamp.com/fractal-tech-hub" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:text-[#1f2937]">Fractal Tech</a>
           </p>
 
         </section>

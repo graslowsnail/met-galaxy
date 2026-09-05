@@ -6,7 +6,8 @@
  * styled focal image at the center of the chunk area.
  */
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
+import ArtworkImage from '../grid-legacy/grid/ArtworkImage'
 import { X } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import type { Artwork } from '@/types/api'
@@ -100,18 +101,18 @@ const FocalImage = memo(function FocalImage({
     }
   }
 
-  const handleLoad = () => {
+  const handleLoad = useCallback(() => {
     setIsLoaded(true)
     setHasError(false)
-  }
+  }, [])
 
-  const handleError = () => {
+  const handleError = useCallback(() => {
     setHasError(true)
     setIsLoaded(false)
     if (DEBUG_LOGGING) {
       console.error(`❌ Focal image failed to load: ${image.src}`)
     }
-  }
+  }, [image.src])
 
   // Center the image within the chunk using its natural dimensions
   const centerX = CHUNK_WIDTH / 2
@@ -143,74 +144,31 @@ const FocalImage = memo(function FocalImage({
           transition: isDragging ? 'none' : 'all 0.2s ease-out',
           transform: `translate(-50%, -50%) scale(${FOCAL_IMAGE_SCALE}) ${isHovered && !isDragging ? 'scale(1.02)' : ''}`,
           transformOrigin: 'center center',
-          zIndex: 10
+          zIndex: 10,
+          borderRadius: FOCAL_IMAGE_BORDER_RADIUS,
         }}
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-      {!hasError ? (
-        <img
+        <ArtworkImage
           src={image.src}
           alt={image.title ?? 'Focal artwork'}
+          width={image.width}
+          height={image.height}
+          loading="eager"
+          className="block"
           style={{
-            // Let image render at its natural dimensions
-            display: 'block',
             borderRadius: FOCAL_IMAGE_BORDER_RADIUS,
-            boxShadow: isHovered && !isDragging ? 
-              '0 20px 40px -10px rgb(0 0 0 / 0.25), 0 8px 20px -4px rgb(0 0 0 / 0.15)' : 
-              FOCAL_IMAGE_SHADOW,
+            boxShadow: isHovered && !isDragging
+              ? '0 20px 40px -10px rgb(0 0 0 / 0.25), 0 8px 20px -4px rgb(0 0 0 / 0.15)'
+              : FOCAL_IMAGE_SHADOW,
             transition: isDragging ? 'none' : 'all 0.2s ease-out',
-            opacity: isLoaded ? 1 : 0
           }}
           onLoad={handleLoad}
           onError={handleError}
-          loading="eager"
-          decoding="async"
-          width={image.width}
-          height={image.height}
-          draggable={false}
         />
-      ) : (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            backgroundColor: '#f5f5f5',
-            borderRadius: FOCAL_IMAGE_BORDER_RADIUS,
-            boxShadow: FOCAL_IMAGE_SHADOW,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#999',
-            fontSize: '14px'
-          }}
-        >
-          Image unavailable
-        </div>
-      )}
-      
-      {!isLoaded && !hasError && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: '#f5f5f5',
-            borderRadius: FOCAL_IMAGE_BORDER_RADIUS,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#999',
-            fontSize: '14px'
-          }}
-        >
-          Loading...
-        </div>
-      )}
-      
+
       {/* Click Indicator */}
       {isLoaded && !hasError && (
         <div

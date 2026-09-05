@@ -369,13 +369,13 @@ const ChunkManager = memo(function ChunkManager({
       }
     }
     
+    createChunksFromCoordinates(chunksToCreate)
+
     // Start streaming fetch with priority (doesn't wait for completion)
     if (visibleChunksToFetch.length > 0 || bufferChunksToFetch.length > 0) {
       await fetchChunksWithPriority(visibleChunksToFetch, bufferChunksToFetch)
     }
     
-    // Create chunks that already have data ready (immediate rendering)
-    createChunksFromCoordinates(chunksToCreate)
     
   }, [chunks, chunkDataMap, fetchChunksWithPriority, visibleChunks, createChunksFromCoordinates])
 
@@ -430,11 +430,8 @@ const ChunkManager = memo(function ChunkManager({
   useEffect(() => {
     const chunksReadyForCreation: ChunkCoordinates[] = []
     
-    // Check all loading chunks to see if their data has arrived
-    for (const chunkKey of loadingChunks.current) {
-      const [xStr, yStr] = chunkKey.split(',')
-      const x = parseInt(xStr!, 10)
-      const y = parseInt(yStr!, 10)
+    for (const { x, y } of loadableChunks) {
+      const chunkKey = `${x},${y}`
       
       const chunkData = chunkDataMap.get(chunkKey)
       const chunkExists = chunks.has(chunkKey)
@@ -449,7 +446,7 @@ const ChunkManager = memo(function ChunkManager({
     if (chunksReadyForCreation.length > 0) {
       createChunksFromCoordinates(chunksReadyForCreation)
     }
-  }, [chunkDataMap, chunks, createChunksFromCoordinates])
+  }, [chunkDataMap, chunks, loadableChunks, createChunksFromCoordinates])
 
   /**
    * Store updateVirtualization in ref to avoid dependency cycles
@@ -465,20 +462,6 @@ const ChunkManager = memo(function ChunkManager({
       updateVirtualizationRef.current()
     }
   }, [isInitialized, isDragging])
-
-  /**
-   * Handle window resize and clear chunks
-   */
-  useEffect(() => {
-    const handleResize = () => {
-      // Clear layout state on resize but DON'T reset translate position
-      setChunks(new Map())
-      loadingChunks.current.clear()
-    }
-    
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
 
   // ============================================================================
   // RENDER

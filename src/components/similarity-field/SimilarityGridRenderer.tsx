@@ -7,12 +7,14 @@
 
 import { memo } from 'react'
 import SimilarityChunkComponent from './SimilarityChunkComponent'
-import SimilarityChunkSkeleton from './SimilarityChunkSkeleton'
+import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
 import FocalChunkComponent from './FocalChunkComponent'
 import type { GridRendererProps } from '../grid-legacy/grid/types/grid'
 import { 
   GRID_ORIGIN_X, 
   GRID_ORIGIN_Y,
+  CHUNK_WIDTH,
+  CHUNK_HEIGHT,
   AXIS_LINE_COLOR,
   AXIS_LINE_THICKNESS,
   Z_INDEX_AXIS_LINES,
@@ -58,27 +60,17 @@ const AxisLines = memo(function AxisLines() {
  * Loading indicators component - shows skeletons for chunks that need loading
  */
 const LoadingIndicators = memo(function LoadingIndicators({ 
-  loadingChunks,
   chunksToLoad,
   existingChunks
 }: { 
-  loadingChunks: Set<string>
   chunksToLoad: import('../grid-legacy/grid/types/grid').ChunkCoordinates[]
   existingChunks: Map<string, import('../grid-legacy/grid/types/grid').Chunk>
 }) {
-  // Create a combined set of all chunks that should show skeletons
-  const allLoadingChunks = new Set<string>()
-  
-  // Add actively loading chunks
-  loadingChunks.forEach(key => allLoadingChunks.add(key))
-  
-  // Add chunks that are identified for loading but don't exist yet
-  chunksToLoad.forEach(coord => {
-    const chunkKey = `${coord.x},${coord.y}`
-    if (!existingChunks.has(chunkKey)) {
-      allLoadingChunks.add(chunkKey)
-    }
-  })
+  const allLoadingChunks = new Set(
+    chunksToLoad
+      .filter(coord => !existingChunks.has(`${coord.x},${coord.y}`))
+      .map(coord => `${coord.x},${coord.y}`)
+  )
 
   if (allLoadingChunks.size === 0) return null
 
@@ -90,10 +82,12 @@ const LoadingIndicators = memo(function LoadingIndicators({
         const chunkY = parseInt(yStr!, 10)
         
         return (
-          <SimilarityChunkSkeleton
+          <ChunkSkeleton
             key={`loading-${chunkKey}`}
             chunkX={chunkX}
             chunkY={chunkY}
+            chunkWidth={CHUNK_WIDTH}
+            chunkHeight={CHUNK_HEIGHT}
             showBoundary={SHOW_CHUNK_BOUNDARIES}
           />
         )
@@ -112,7 +106,6 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
   isDragging,
   dragDistance,
   onImageClick,
-  loadingChunks = new Set(),
   chunksToLoad = [],
   visibleChunks = 0,
   chunkDataMap = new Map(),
@@ -150,7 +143,6 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
       
       {/* Loading indicators for chunks being fetched */}
       <LoadingIndicators 
-        loadingChunks={loadingChunks} 
         chunksToLoad={chunksToLoad}
         existingChunks={chunks}
       />

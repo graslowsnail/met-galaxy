@@ -6,7 +6,8 @@
  * interactions, error handling, and hover effects.
  */
 
-import { memo, useState, useEffect } from 'react'
+import { memo } from 'react'
+import ArtworkImage from './ArtworkImage'
 import type { ChunkComponentProps } from './types/grid'
 import { 
   GRID_ORIGIN_X, 
@@ -49,20 +50,6 @@ const ImageItem = memo(function ImageItem({
     onImageClick?.(image, event)
   }
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    // Hide the image if it fails to load
-    const target = e.target as HTMLImageElement
-    target.style.display = 'none'
-    
-    // Optionally show a simple error placeholder
-    const parent = target.parentElement
-    if (parent && !parent.querySelector('.error-placeholder')) {
-      const errorDiv = document.createElement('div')
-      errorDiv.className = 'error-placeholder flex items-center justify-center w-full h-full bg-gray-100 text-gray-400 text-sm'
-      errorDiv.textContent = 'Image unavailable'
-      parent.appendChild(errorDiv)
-    }
-  }
 
   return (
     <div
@@ -83,20 +70,11 @@ const ImageItem = memo(function ImageItem({
         e.currentTarget.style.boxShadow = IMAGE_SHADOW.default
       }}
     >
-      <img
+      <ArtworkImage
         src={image.src}
         alt={image.title ?? `Artwork ${image.id}`}
-        className="w-full h-full object-cover pointer-events-none select-none"
-        style={{
-          objectFit: 'cover',
-          objectPosition: 'center',
-        }}
-        draggable={false}
-        loading="lazy"
-        decoding="async"
         width={image.width}
         height={position.height}
-        onError={handleError}
       />
       
       {/* Metadata overlay on hover */}
@@ -136,18 +114,6 @@ const ChunkComponent = memo(function ChunkComponent({
   showBoundary = false
 }: ChunkComponentProps & { showBoundary?: boolean }) {
   
-  // Fade-in animation state
-  const [isVisible, setIsVisible] = useState(false)
-  
-  // Trigger fade-in animation when chunk first appears
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(true)
-    }, 50) // Small delay to ensure smooth animation
-    
-    return () => clearTimeout(timer)
-  }, [])
-  
   // Early return if chunk has no valid positions
   if (!chunk.positions || chunk.positions.length === 0) {
     return null
@@ -175,13 +141,8 @@ const ChunkComponent = memo(function ChunkComponent({
       
       {/* Clipping container for images */}
       <div
-        className={`absolute overflow-hidden transition-all duration-500 ease-out transform ${
-          isVisible 
-            ? 'opacity-100 scale-100' 
-            : 'opacity-0 scale-95'
-        } ${
-          isLoading ? 'opacity-50' : ''
-        }`}
+        className={`absolute overflow-hidden ${isLoading ? 'opacity-50' : ''}`}
+        data-artwork-chunk={`${chunk.x},${chunk.y}`}
         style={{
           left: chunkLeft,
           top: chunkTop,

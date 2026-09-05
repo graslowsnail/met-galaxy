@@ -488,14 +488,18 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       }
       
       if (regularChunksToFetch.length > 0) {
-        for (let offset = 0; offset < regularChunksToFetch.length; offset += 16) {
-          await fetchMultipleChunksWithDeduplication(
-            regularChunksToFetch.slice(offset, offset + 16)
-          )
+        const visibleKeys = new Set(visibleChunks.map(coord => `${coord.x},${coord.y}`))
+        const visible = regularChunksToFetch.filter(coord => visibleKeys.has(`${coord.x},${coord.y}`))
+        const buffered = regularChunksToFetch.filter(coord => !visibleKeys.has(`${coord.x},${coord.y}`))
+
+        for (const batch of [visible, buffered]) {
+          for (let offset = 0; offset < batch.length; offset += 16) {
+            await fetchMultipleChunksWithDeduplication(batch.slice(offset, offset + 16))
+          }
         }
       }
     }
-  }, [chunks, chunkDataMap, fetchMultipleChunksStreaming, fetchMultipleChunksWithDeduplication])
+  }, [chunks, chunkDataMap, visibleChunks, fetchMultipleChunksStreaming, fetchMultipleChunksWithDeduplication])
   
   // Store loadChunks in a ref to avoid dependency issues
   const loadChunksRef = useRef(loadChunks)
@@ -521,11 +525,8 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
   useEffect(() => {
     const chunksReadyForCreation: ChunkCoordinates[] = []
     
-    // Check all loading chunks to see if their data has arrived
-    for (const chunkKey of loadingChunks.current) {
-      const [xStr, yStr] = chunkKey.split(',')
-      const x = parseInt(xStr!, 10)
-      const y = parseInt(yStr!, 10)
+    for (const { x, y } of chunksToLoad) {
+      const chunkKey = `${x},${y}`
       
       const chunkData = chunkDataMap.get(chunkKey)
       const chunkExists = chunks.has(chunkKey)
@@ -540,7 +541,7 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
     if (chunksReadyForCreation.length > 0) {
       createChunksFromCoordinatesRef.current(chunksReadyForCreation)
     }
-  }, [chunkDataMap, chunks])
+  }, [chunkDataMap, chunks, chunksToLoad])
 
   /**
    * Store updateVirtualization in ref to avoid dependency cycles
@@ -556,20 +557,6 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
       updateVirtualizationRef.current()
     }
   }, [isInitialized, isDragging])
-
-  /**
-   * Handle window resize and clear chunks
-   */
-  useEffect(() => {
-    const handleResize = () => {
-      // Clear layout state on resize but DON'T reset translate position
-      setChunks(new Map())
-      loadingChunks.current.clear()
-    }
-    
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
 
   // ============================================================================
   // RENDER - Same as draggable grid

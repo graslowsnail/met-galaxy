@@ -59,27 +59,17 @@ const AxisLines = memo(function AxisLines() {
  * Shows both chunks that are about to load AND chunks that are actively loading
  */
 const LoadingIndicators = memo(function LoadingIndicators({ 
-  loadingChunks,
   chunksToLoad,
   existingChunks
 }: { 
-  loadingChunks: Set<string>
   chunksToLoad: import('./types/grid').ChunkCoordinates[]
   existingChunks: Map<string, import('./types/grid').Chunk>
 }) {
-  // Create a combined set of all chunks that should show skeletons
-  const allLoadingChunks = new Set<string>()
-  
-  // Add actively loading chunks
-  loadingChunks.forEach(key => allLoadingChunks.add(key))
-  
-  // Add chunks that are identified for loading but don't exist yet
-  chunksToLoad.forEach(coord => {
-    const chunkKey = `${coord.x},${coord.y}`
-    if (!existingChunks.has(chunkKey)) {
-      allLoadingChunks.add(chunkKey)
-    }
-  })
+  const allLoadingChunks = new Set(
+    chunksToLoad
+      .filter(coord => !existingChunks.has(`${coord.x},${coord.y}`))
+      .map(coord => `${coord.x},${coord.y}`)
+  )
 
   if (allLoadingChunks.size === 0) return null
 
@@ -148,7 +138,6 @@ const GridRenderer = memo(function GridRenderer({
   translate,
   isDragging,
   onImageClick,
-  loadingChunks = new Set(),
   chunksToLoad = [],
   visibleChunks = 0,
   chunkDataMap = new Map(),
@@ -169,7 +158,6 @@ const GridRenderer = memo(function GridRenderer({
       
       {/* Loading indicators for chunks being fetched */}
       <LoadingIndicators 
-        loadingChunks={loadingChunks} 
         chunksToLoad={chunksToLoad}
         existingChunks={chunks}
       />

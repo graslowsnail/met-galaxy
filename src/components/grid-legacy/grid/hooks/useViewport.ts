@@ -51,7 +51,7 @@ const GLIDE_REFERENCE_FRAME_MS = 1000 / 60
  * - Smooth drag performance with optimized updates
  * - Post-drag update callbacks
  */
-export function useViewport(mobileScale = DESKTOP_GRID_SCALE): UseViewportReturn {
+export function useViewport(mobileScale = DESKTOP_GRID_SCALE, desktopScale = DESKTOP_GRID_SCALE): UseViewportReturn {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
@@ -173,7 +173,7 @@ export function useViewport(mobileScale = DESKTOP_GRID_SCALE): UseViewportReturn
       
       // Check if we're on a mobile/small screen
       const isMobile = viewportDimensions.width < 768 // sm breakpoint
-      const scale = isMobile ? mobileScale : DESKTOP_GRID_SCALE
+      const scale = isMobile ? mobileScale : desktopScale
       
       let chunkCenterX: number
       let chunkCenterY: number
@@ -201,7 +201,7 @@ export function useViewport(mobileScale = DESKTOP_GRID_SCALE): UseViewportReturn
       applyTranslate({ x: translateX, y: translateY })
       setIsInitialized(true)
     }
-  }, [viewportDimensions, isInitialized, mobileScale, applyTranslate])
+  }, [viewportDimensions, isInitialized, mobileScale, desktopScale, applyTranslate])
   
   // ============================================================================
   // MOVEMENT PREDICTION LOGIC
@@ -581,7 +581,7 @@ export function useViewport(mobileScale = DESKTOP_GRID_SCALE): UseViewportReturn
    * Get current viewport state
    */
   const getViewportState = useCallback((): ViewportState => {
-    const scale = viewportDimensions.width < 768 ? mobileScale : DESKTOP_GRID_SCALE
+    const scale = viewportDimensions.width < 768 ? mobileScale : desktopScale
 
     return {
       width: viewportDimensions.width / scale,
@@ -589,7 +589,7 @@ export function useViewport(mobileScale = DESKTOP_GRID_SCALE): UseViewportReturn
       translateX: translate.x / scale,
       translateY: translate.y / scale,
     }
-  }, [viewportDimensions, translate, mobileScale])
+  }, [viewportDimensions, translate, mobileScale, desktopScale])
   
   /**
    * Get current viewport bounds in world coordinates
