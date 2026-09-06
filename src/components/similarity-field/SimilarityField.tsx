@@ -8,6 +8,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
+import { isChunkLoadError } from '@/lib/chunk-error'
 import { useViewport } from '../grid-legacy/grid/hooks/useViewport'
 import { TRACKPAD_SPEED, DEBUG_LOGGING, CHUNK_WIDTH, CHUNK_HEIGHT } from './utils/constants'
 import { chunkToPixelCoords } from './utils/chunkCalculations'
@@ -15,11 +16,31 @@ import type { ImageItem } from '../grid-legacy/grid/types/grid'
 import type { Artwork } from '@/types/api'
 import type { TimelineRange } from '@/types/api'
 
+// On a chunk miss, reload once to pull the current HTML with its fresh chunk
+// hashes. The sessionStorage guard bounds this to a single reload, so a chunk
+// that stays missing cannot loop — it falls through to the error boundary.
+const CHUNK_RELOAD_GUARD = 'similarity-chunk-reloaded'
+
+function importChunkManagerWithRetry() {
+  return import('./SimilarityChunkManagerSimple')
+    .then((module) => {
+      window.sessionStorage.removeItem(CHUNK_RELOAD_GUARD)
+      return module
+    })
+    .catch((error: unknown) => {
+      const alreadyReloaded = window.sessionStorage.getItem(CHUNK_RELOAD_GUARD) === 'true'
+      if (isChunkLoadError(error) && !alreadyReloaded) {
+        window.sessionStorage.setItem(CHUNK_RELOAD_GUARD, 'true')
+        window.location.reload()
+        // Never settle: the reload replaces this document before it matters.
+        return new Promise<never>(() => undefined)
+      }
+      throw error
+    })
+}
+
 // Dynamically import the chunk manager to avoid SSR issues
-const SimilarityChunkManagerSimple = dynamic(
-  () => import('./SimilarityChunkManagerSimple'),
-  { ssr: false }
-)
+const SimilarityChunkManagerSimple = dynamic(importChunkManagerWithRetry, { ssr: false })
 
 interface SimilarityFieldProps {
   focalArtworkId: number
