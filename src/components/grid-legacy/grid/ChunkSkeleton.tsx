@@ -1,9 +1,10 @@
 import { memo, useMemo } from 'react'
 import {
   GRID_ORIGIN_X, GRID_ORIGIN_Y, CHUNK_WIDTH, CHUNK_HEIGHT,
-  COLUMNS_PER_CHUNK, COLUMN_WIDTH, GAP, AXIS_MARGIN,
+  CHUNK_SIZE, COLUMN_WIDTH,
   Z_INDEX_CHUNK_OUTLINE, CHUNK_BORDER_COLOR,
 } from './utils/constants'
+import { calculateImageDimensions, calculateOptimalChunkLayout, generateAspectRatio, DEFAULT_CHUNK_LAYOUT, type ChunkLayout } from './utils/chunkCalculations'
 
 const ChunkSkeleton = memo(function ChunkSkeleton({
   chunkX,
@@ -11,41 +12,29 @@ const ChunkSkeleton = memo(function ChunkSkeleton({
   showBoundary = false,
   chunkWidth = CHUNK_WIDTH,
   chunkHeight = CHUNK_HEIGHT,
+  layout = DEFAULT_CHUNK_LAYOUT,
+  imageCount = CHUNK_SIZE,
 }: {
   chunkX: number
   chunkY: number
   showBoundary?: boolean
   chunkWidth?: number
   chunkHeight?: number
+  layout?: ChunkLayout
+  imageCount?: number
 }) {
-  const scaleX = chunkWidth / CHUNK_WIDTH
-  const scaleY = chunkHeight / CHUNK_HEIGHT
+  const scaleX = chunkWidth / layout.width
+  const scaleY = chunkHeight / layout.height
   const positions = useMemo(() => {
-    const height = CHUNK_HEIGHT
-    const columns = COLUMNS_PER_CHUNK
-    const columnWidth = COLUMN_WIDTH
-    const gap = GAP
-    const padding = AXIS_MARGIN
-    const availableHeight = height - 2 * padding
-    const rows = Math.max(1, Math.round((availableHeight + gap) / (columnWidth * 1.15 + gap)))
-    const tileSpace = availableHeight - (rows - 1) * gap
-    const weights = [1, 1.25, 0.85, 1.1, 0.95]
-    const tiles: Array<{ x: number; y: number; height: number }> = []
-
-    for (let column = 0; column < columns; column++) {
-      const offset = ((chunkX * 3 + chunkY * 7 + column * 2) % weights.length + weights.length) % weights.length
-      const columnWeights = Array.from({ length: rows }, (_, row) => weights[(offset + row) % weights.length]!)
-      const totalWeight = columnWeights.reduce((sum, weight) => sum + weight, 0)
-      let y = padding
-
-      for (const weight of columnWeights) {
-        const tileHeight = tileSpace * weight / totalWeight
-        tiles.push({ x: padding + column * (columnWidth + gap), y, height: tileHeight })
-        y += tileHeight + gap
-      }
-    }
-    return tiles
-  }, [chunkX, chunkY])
+    const images = Array.from({ length: imageCount }, (_, index) => (
+      calculateImageDimensions(generateAspectRatio(chunkX, chunkY, index))
+    ))
+    return calculateOptimalChunkLayout(images, chunkX, chunkY, layout).map(position => ({
+      ...position,
+      x: position.x - (GRID_ORIGIN_X + chunkX * layout.width),
+      y: position.y - (GRID_ORIGIN_Y + chunkY * layout.height),
+    }))
+  }, [chunkX, chunkY, layout, imageCount])
 
   return (
     <div

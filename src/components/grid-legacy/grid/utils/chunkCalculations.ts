@@ -29,6 +29,14 @@ import {
   MIN_IMAGE_HEIGHT,
 } from "./constants"
 
+export const DEFAULT_CHUNK_LAYOUT = {
+  width: CHUNK_WIDTH,
+  height: CHUNK_HEIGHT,
+  columns: COLUMNS_PER_CHUNK,
+}
+
+export type ChunkLayout = typeof DEFAULT_CHUNK_LAYOUT
+
 // ============================================================================
 // COORDINATE SYSTEM FUNCTIONS
 // ============================================================================
@@ -125,8 +133,8 @@ export function isSignificantViewportChange(
 /**
  * Initialize column heights for a new chunk's masonry layout
  */
-export function initializeColumnHeights(): number[] {
-  return new Array(COLUMNS_PER_CHUNK).fill(AXIS_MARGIN) as number[]
+export function initializeColumnHeights(columns = COLUMNS_PER_CHUNK): number[] {
+  return new Array(columns).fill(AXIS_MARGIN) as number[]
 }
 
 /**
@@ -136,16 +144,17 @@ export function initializeColumnHeights(): number[] {
 export function calculateOptimalChunkLayout(
   images: { width: number; height: number }[],
   chunkX: number,
-  chunkY: number
+  chunkY: number,
+  layout: ChunkLayout = DEFAULT_CHUNK_LAYOUT
 ): PositionedImage[] {
   const positions: PositionedImage[] = []
-  const columnHeights = initializeColumnHeights()
-  const baseY = GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)
-  const maxY = baseY + CHUNK_HEIGHT - AXIS_MARGIN
+  const columnHeights = initializeColumnHeights(layout.columns)
+  const baseY = GRID_ORIGIN_Y + (chunkY * layout.height)
+  const maxY = baseY + layout.height - AXIS_MARGIN
   
   // Track which images are in which columns
   const columnImages = new Map<number, number[]>()
-  for (let i = 0; i < COLUMNS_PER_CHUNK; i++) {
+  for (let i = 0; i < layout.columns; i++) {
     columnImages.set(i, [])
   }
   
@@ -156,7 +165,8 @@ export function calculateOptimalChunkLayout(
       img.width,
       img.height,
       chunkX,
-      chunkY
+      chunkY,
+      layout
     )
     
     if (result) {
@@ -171,7 +181,7 @@ export function calculateOptimalChunkLayout(
   })
   
   // Second pass: Stretch the last images in each column to fill gaps
-  for (let colIndex = 0; colIndex < COLUMNS_PER_CHUNK; colIndex++) {
+  for (let colIndex = 0; colIndex < layout.columns; colIndex++) {
     const imagesInColumn = columnImages.get(colIndex) ?? []
     
     if (imagesInColumn.length > 0) {
@@ -235,18 +245,19 @@ export function calculateImagePosition(
   imageWidth: number,
   imageHeight: number,
   chunkX: number,
-  chunkY: number
+  chunkY: number,
+  layout: ChunkLayout = DEFAULT_CHUNK_LAYOUT
 ): { position: PositionedImage; columnIndex: number } | null {
-  const columnIndex = findBestColumn(columnHeights, imageHeight, CHUNK_HEIGHT)
-  const baseX = GRID_ORIGIN_X + (chunkX * CHUNK_WIDTH)
-  const baseY = GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)
+  const columnIndex = findBestColumn(columnHeights, imageHeight, layout.height)
+  const baseX = GRID_ORIGIN_X + (chunkX * layout.width)
+  const baseY = GRID_ORIGIN_Y + (chunkY * layout.height)
   
   // Calculate local position within chunk based on chunk orientation
   let localX: number, localY: number
   
   if (chunkX < 0) {
     // For negative X chunks, position from right edge
-    localX = CHUNK_WIDTH - AXIS_MARGIN - (columnIndex + 1) * (COLUMN_WIDTH + GAP)
+    localX = layout.width - AXIS_MARGIN - (columnIndex + 1) * (COLUMN_WIDTH + GAP)
     localY = columnHeights[columnIndex]!
   } else {
     // For positive X chunks, position from left edge  
@@ -259,8 +270,8 @@ export function calculateImagePosition(
   const y = baseY + localY
   
   // Check bounds and available space
-  const chunkMaxY = baseY + CHUNK_HEIGHT - AXIS_MARGIN
-  const chunkMaxX = baseX + CHUNK_WIDTH - AXIS_MARGIN
+  const chunkMaxY = baseY + layout.height - AXIS_MARGIN
+  const chunkMaxX = baseX + layout.width - AXIS_MARGIN
   const availableHeight = chunkMaxY - y
   const availableWidth = chunkMaxX - x
   
@@ -373,5 +384,4 @@ export function generateImageId(
   const prefix = type === 'artwork' && objectId ? 'artwork' : 'placeholder'
   return `${prefix}-${chunkX}-${chunkY}-${index}`
 }
-
 

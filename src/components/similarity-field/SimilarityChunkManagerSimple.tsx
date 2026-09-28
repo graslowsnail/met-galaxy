@@ -29,11 +29,10 @@ import {
   calculateBoundingBox,
   calculateOptimalChunkLayout,
 } from '../grid-legacy/grid/utils/chunkCalculations'
-import { calculateSimpleGridLayout } from './utils/chunkCalculations'
-import { calculateSimilarityMasonryLayout } from './utils/masonryLayout'
 import { 
   COLUMN_WIDTH,
   CHUNK_SIZE,
+  CHUNK_LAYOUT,
   CHUNK_WIDTH,
   CHUNK_HEIGHT,
   COLUMNS_PER_CHUNK,
@@ -97,9 +96,7 @@ function generateChunkImagesFromArtworks(chunkX: number, chunkY: number, artwork
   
   return filledArtworks.map((artwork, i) => {
       const aspectRatio = generateAspectRatio(chunkX, chunkY, i)
-      // For masonry layout, use actual aspect ratios
-      const width = COLUMN_WIDTH
-      const height = Math.round(COLUMN_WIDTH * aspectRatio)
+      const { width, height } = calculateImageDimensions(aspectRatio)
 
       // Use primaryImageSmall if available, fallback to primaryImage
       const imageUrl = artwork.primaryImageSmall ?? artwork.primaryImage
@@ -272,13 +269,11 @@ function createChunk(
     chunkY,
   }))
 
-  // Use masonry layout for 2x3 similarity grid with actual aspect ratios
-  const positions = calculateSimilarityMasonryLayout(
-    finalImages.map(img => ({ 
-      width: img.width, 
-      height: img.height,
-      src: img.src 
-    }))
+  const positions = calculateOptimalChunkLayout(
+    finalImages.map(img => ({ width: img.width, height: img.height })),
+    chunkX,
+    chunkY,
+    CHUNK_LAYOUT
   )
 
   // Report focal artwork position if this is the focal chunk (0,0)
@@ -524,10 +519,10 @@ const SimilarityChunkManagerSimple = memo(function SimilarityChunkManagerSimple(
    * Load chunks when chunksToLoad changes
    */
   useEffect(() => {
-    if (chunksToLoad.length > 0) {
+    if (focalArtwork && chunksToLoad.length > 0) {
       void loadChunksRef.current(chunksToLoad)
     }
-  }, [chunksToLoad])
+  }, [chunksToLoad, focalArtwork])
 
   /**
    * STREAMING: Create chunks immediately when their data becomes available

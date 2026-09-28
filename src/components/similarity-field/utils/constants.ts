@@ -2,10 +2,17 @@
  * Constants for the SimilarityField component system
  * 
  * This file contains all configuration constants used across the similarity field components.
- * These are separate from the draggable grid constants to allow independent customization.
+ * Regular chunks use the home gallery's geometry at its displayed scale.
  */
 
-import { ARTWORK_TILE_WIDTH } from '../../grid-legacy/grid/utils/constants'
+import {
+  ARTWORK_TILE_WIDTH,
+  COLUMN_WIDTH as HOME_COLUMN_WIDTH,
+  GAP as HOME_GAP,
+  AXIS_MARGIN as HOME_AXIS_MARGIN,
+  MIN_IMAGE_HEIGHT as HOME_MIN_IMAGE_HEIGHT,
+  DESKTOP_GRID_SCALE,
+} from '../../grid-legacy/grid/utils/constants'
 
 // ============================================================================
 // GRID LAYOUT CONSTANTS
@@ -14,41 +21,34 @@ import { ARTWORK_TILE_WIDTH } from '../../grid-legacy/grid/utils/constants'
 /** Width of each column in pixels - drives the effective "zoom" of the field */
 export const COLUMN_WIDTH = ARTWORK_TILE_WIDTH
 
-/** Gap between items in pixels - smaller gap for compact layout */
-export const GAP = 12
-
-/** Number of columns per chunk */
-export const COLUMNS_PER_CHUNK = 3
+/** Match the home gallery's displayed gap. */
+export const GAP = HOME_GAP * DESKTOP_GRID_SCALE
 
 /** Number of rows per chunk (approximate for masonry layout) */
+export const COLUMNS_PER_CHUNK = 3
 export const ROWS_PER_CHUNK = 3
-
-/** Number of images per chunk */
 export const CHUNK_SIZE = COLUMNS_PER_CHUNK * ROWS_PER_CHUNK
 
 /** Number of images in the focal chunk (should be 1 for single focal image) */
 export const FOCAL_CHUNK_SIZE = 1
 
 /** Space around the axis lines in pixels */
-export const AXIS_MARGIN = 5
+export const AXIS_MARGIN = HOME_AXIS_MARGIN * DESKTOP_GRID_SCALE
 
 /** Minimum image height in pixels to prevent very short images */
-export const MIN_IMAGE_HEIGHT = Math.round(COLUMN_WIDTH * 0.5)
+export const MIN_IMAGE_HEIGHT = HOME_MIN_IMAGE_HEIGHT * DESKTOP_GRID_SCALE
+
+export const CHUNK_LAYOUT = {
+  width: COLUMNS_PER_CHUNK * (HOME_COLUMN_WIDTH + HOME_GAP) + 2 * HOME_AXIS_MARGIN,
+  height: Math.round(ROWS_PER_CHUNK * (HOME_COLUMN_WIDTH * 1.15 + HOME_GAP) + 2 * HOME_AXIS_MARGIN),
+  columns: COLUMNS_PER_CHUNK,
+}
 
 /** Width includes margins - total width of each chunk */
-export const CHUNK_WIDTH = COLUMNS_PER_CHUNK * (COLUMN_WIDTH + GAP) + (2 * AXIS_MARGIN)
-
-/**
- * Mean of the aspect ratio table in generateAspectRatio (grid-legacy chunkCalculations).
- * Used to size chunks so a full chunk of images roughly fills its height without the
- * masonry gap-fill pass having to stretch images.
- */
-const AVG_ASPECT_RATIO = 1.15
+export const CHUNK_WIDTH = CHUNK_LAYOUT.width * DESKTOP_GRID_SCALE
 
 /** Height includes margins - derived so masonry columns naturally fill the chunk */
-export const CHUNK_HEIGHT = Math.round(
-  ROWS_PER_CHUNK * (COLUMN_WIDTH * AVG_ASPECT_RATIO + GAP) + (2 * AXIS_MARGIN)
-)
+export const CHUNK_HEIGHT = CHUNK_LAYOUT.height * DESKTOP_GRID_SCALE
 
 // ============================================================================
 // PERFORMANCE CONSTANTS
@@ -89,6 +89,9 @@ export const SHOW_CHUNK_BOUNDARIES = false
 
 /** Scale factor for focal image (shrink to fit within chunk bounds) */
 export const FOCAL_IMAGE_SCALE = 1.5
+
+export const FOCAL_IMAGE_WIDTH = 'min(80vw, 400px)'
+export const FOCAL_IMAGE_HEIGHT = 'min(65vh, 480px)'
 
 /** Border radius for focal image in pixels */
 export const FOCAL_IMAGE_BORDER_RADIUS = 12

@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 .gallery-skeleton {
-  background-color: #e7e5e1;
+  background-color: #d3d0ca;
   animation: gallery-skeleton-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes gallery-skeleton-pulse {
-  0%, 100% { background-color: #e7e5e1; }
-  50% { background-color: #efede9; }
+  0%, 100% { background-color: #d3d0ca; }
+  50% { background-color: #dedbd5; }
 }
 
 @media (prefers-reduced-motion: reduce) {

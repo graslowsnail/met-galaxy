@@ -7,7 +7,7 @@
  * managing the complex state transitions themselves.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import type { 
   ViewportState, 
   DragState, 
@@ -555,7 +555,7 @@ export function useViewport(mobileScale = DESKTOP_GRID_SCALE, desktopScale = DES
   /**
    * Set up resize listener for viewport dimension tracking
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     updateViewportDimensions()
     
     const handleResize = () => {
@@ -569,7 +569,7 @@ export function useViewport(mobileScale = DESKTOP_GRID_SCALE, desktopScale = DES
   /**
    * Initialize viewport when dimensions are available
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     initializeViewport()
   }, [initializeViewport])
   

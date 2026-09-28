@@ -6,7 +6,8 @@
  */
 
 import { memo } from 'react'
-import SimilarityChunkComponent from './SimilarityChunkComponent'
+import ChunkComponent from '../grid-legacy/grid/ChunkComponent'
+import { CLICK_MOVE_THRESHOLD, DESKTOP_GRID_SCALE } from '../grid-legacy/grid/utils/constants'
 import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
 import FocalChunkComponent from './FocalChunkComponent'
 import type { GridRendererProps } from '../grid-legacy/grid/types/grid'
@@ -15,6 +16,10 @@ import {
   GRID_ORIGIN_Y,
   CHUNK_WIDTH,
   CHUNK_HEIGHT,
+  CHUNK_LAYOUT,
+  CHUNK_SIZE,
+  FOCAL_IMAGE_WIDTH,
+  FOCAL_IMAGE_HEIGHT,
   AXIS_LINE_COLOR,
   AXIS_LINE_THICKNESS,
   Z_INDEX_AXIS_LINES,
@@ -80,6 +85,24 @@ const LoadingIndicators = memo(function LoadingIndicators({
         const [xStr, yStr] = chunkKey.split(',')
         const chunkX = parseInt(xStr!, 10)
         const chunkY = parseInt(yStr!, 10)
+
+        if (chunkX === 0 && chunkY === 0) {
+          return (
+            <div
+              key={`loading-${chunkKey}`}
+              data-skeleton-chunk={chunkKey}
+              aria-hidden="true"
+              className="gallery-skeleton absolute rounded-xl"
+              style={{
+                left: CHUNK_WIDTH / 2,
+                top: CHUNK_HEIGHT / 2,
+                width: FOCAL_IMAGE_WIDTH,
+                height: FOCAL_IMAGE_HEIGHT,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          )
+        }
         
         return (
           <ChunkSkeleton
@@ -88,6 +111,8 @@ const LoadingIndicators = memo(function LoadingIndicators({
             chunkY={chunkY}
             chunkWidth={CHUNK_WIDTH}
             chunkHeight={CHUNK_HEIGHT}
+            layout={CHUNK_LAYOUT}
+            imageCount={CHUNK_SIZE}
             showBoundary={SHOW_CHUNK_BOUNDARIES}
           />
         )
@@ -164,14 +189,19 @@ const SimilarityGridRenderer = memo(function SimilarityGridRenderer({
           )
         } else {
           return (
-            <SimilarityChunkComponent
+            <div
               key={chunk.id}
-              chunk={chunk}
-              onImageClick={onImageClick}
-              isDragging={isDragging}
-              dragDistance={dragDistance ?? 0}
-              showBoundary={SHOW_CHUNK_BOUNDARIES}
-            />
+              style={{ transform: `scale(${DESKTOP_GRID_SCALE})`, transformOrigin: 'top left' }}
+            >
+              <ChunkComponent
+                chunk={chunk}
+                chunkWidth={CHUNK_LAYOUT.width}
+                chunkHeight={CHUNK_LAYOUT.height}
+                onImageClick={onImageClick}
+                isDragging={isDragging || (dragDistance ?? 0) > CLICK_MOVE_THRESHOLD}
+                showBoundary={SHOW_CHUNK_BOUNDARIES}
+              />
+            </div>
           )
         }
       })}

@@ -16,6 +16,8 @@ import {
   CHUNK_WIDTH, 
   CHUNK_HEIGHT,
   FOCAL_IMAGE_SCALE,
+  FOCAL_IMAGE_WIDTH,
+  FOCAL_IMAGE_HEIGHT,
   FOCAL_IMAGE_BORDER_RADIUS,
   FOCAL_IMAGE_SHADOW,
   FOCAL_CHUNK_BACKGROUND,
@@ -159,6 +161,11 @@ const FocalImage = memo(function FocalImage({
           position: 'absolute',
           left: imageX,
           top: imageY,
+          width: `calc(${FOCAL_IMAGE_WIDTH} / ${FOCAL_IMAGE_SCALE})`,
+          height: `calc(${FOCAL_IMAGE_HEIGHT} / ${FOCAL_IMAGE_SCALE})`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           cursor: isDragging ? 'grabbing' : 'pointer',
           transition: isDragging ? 'none' : 'all 0.2s ease-out',
           transform: `translate(-50%, -50%) scale(${FOCAL_IMAGE_SCALE}) ${isHovered && !isDragging ? 'scale(1.02)' : ''}`,
@@ -170,6 +177,14 @@ const FocalImage = memo(function FocalImage({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        <div
+          className="relative flex items-center justify-center"
+          style={{
+            width: isLoaded ? 'auto' : '100%',
+            height: isLoaded ? 'auto' : '100%',
+            borderRadius: FOCAL_IMAGE_BORDER_RADIUS,
+          }}
+        >
         <ArtworkImage
           src={image.src}
           alt={image.title ?? 'Focal artwork'}
@@ -178,6 +193,11 @@ const FocalImage = memo(function FocalImage({
           loading="eager"
           className="block"
           style={{
+            width: 'auto',
+            height: 'auto',
+            maxWidth: `calc(${FOCAL_IMAGE_WIDTH} / ${FOCAL_IMAGE_SCALE})`,
+            maxHeight: `calc(${FOCAL_IMAGE_HEIGHT} / ${FOCAL_IMAGE_SCALE})`,
+            objectFit: 'contain',
             borderRadius: FOCAL_IMAGE_BORDER_RADIUS,
             boxShadow: isHovered && !isDragging
               ? '0 20px 40px -10px rgb(0 0 0 / 0.25), 0 8px 20px -4px rgb(0 0 0 / 0.15)'
@@ -220,6 +240,7 @@ const FocalImage = memo(function FocalImage({
           View Info
         </div>
       )}
+        </div>
       </div>
 
       {/* Mobile Modal - Overlays on top of image */}

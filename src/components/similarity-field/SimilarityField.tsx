@@ -5,21 +5,15 @@
  * using progressive loading for better performance.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
-import ChunkSkeleton from '../grid-legacy/grid/ChunkSkeleton'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import SimilarityChunkManagerSimple from './SimilarityChunkManagerSimple'
 import { useViewport } from '../grid-legacy/grid/hooks/useViewport'
+import { GRID_BACKGROUND_COLOR } from '../grid-legacy/grid/utils/constants'
 import { TRACKPAD_SPEED, DEBUG_LOGGING, CHUNK_WIDTH, CHUNK_HEIGHT } from './utils/constants'
 import { chunkToPixelCoords } from './utils/chunkCalculations'
 import type { ImageItem } from '../grid-legacy/grid/types/grid'
 import type { Artwork } from '@/types/api'
 import type { TimelineRange } from '@/types/api'
-
-// Dynamically import the chunk manager to avoid SSR issues
-const SimilarityChunkManagerSimple = dynamic(
-  () => import('./SimilarityChunkManagerSimple'),
-  { ssr: false }
-)
 
 interface SimilarityFieldProps {
   focalArtworkId: number
@@ -56,7 +50,6 @@ const SimilarityField = memo(function SimilarityField({
 }: SimilarityFieldProps) {
   const {
     viewport,
-    viewportDimensions,
     isDragging,
     dragDistance,
     isInitialized,
@@ -80,7 +73,7 @@ const SimilarityField = memo(function SimilarityField({
   const updatePositionRef = useRef(updatePosition)
   useEffect(() => { updatePositionRef.current = updatePosition }, [updatePosition])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isInitialized && !hasInitializedCenter.current && containerRef.current) {
       const container = containerRef.current
       const centerX = container.clientWidth / 2
@@ -212,7 +205,7 @@ const SimilarityField = memo(function SimilarityField({
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none',
         userSelect: 'none',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: GRID_BACKGROUND_COLOR
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -242,23 +235,6 @@ const SimilarityField = memo(function SimilarityField({
         )}
       </div>
 
-      {/* Vignette overlay */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at center, transparent 0%, transparent 40%, rgba(0, 0, 0, 0.15) 70%, rgba(0, 0, 0, 0.3) 100%)`,
-          zIndex: 10,
-        }}
-      />
-
-      {(!isInitialized || !isCentered) && (
-        <ChunkSkeleton
-          chunkX={0}
-          chunkY={0}
-          chunkWidth={viewportDimensions.width || CHUNK_WIDTH}
-          chunkHeight={viewportDimensions.height || CHUNK_HEIGHT}
-        />
-      )}
     </div>
   )
 })

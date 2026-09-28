@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { DraggableImageGrid } from "@/components/draggable-image-grid"
 import { SimilarityField } from "@/components/similarity-field"
 import NavigationOverlay, { type NavigationHistoryItem } from "@/components/similarity-field/NavigationOverlay"
@@ -54,6 +54,7 @@ const readTimelineFromUrl = (): TimelineRange | null => {
 }
 
 export default function HomeClient() {
+  const [isPathInitialized, setIsPathInitialized] = useState(false)
   const [timelineRange, setTimelineRange] = useState<TimelineRange | null>(null)
   const [similarityMode, setSimilarityMode] = useState<{
     active: boolean;
@@ -514,8 +515,9 @@ export default function HomeClient() {
     })
   }, [handleCloseSimilarity, navigationHistory])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const openArtworkFromUrl = async (isInitialLoad: boolean) => {
+      setIsPathInitialized(true)
       setTimelineRange(readTimelineFromUrl())
       const pathIds = readPathFromUrl()
       sharedArtworkRequestRef.current?.abort()
@@ -537,19 +539,31 @@ export default function HomeClient() {
       const controller = new AbortController()
       sharedArtworkRequestRef.current = controller
 
+      const artworkId = pathIds[pathIds.length - 1]!
+      setSearchState({
+        results: null,
+        query: "",
+        nextCursor: null,
+        hasMore: false,
+        isLoadingMore: false,
+      })
+      setSimilarityMode(current => ({
+        active: true,
+        artworkId,
+        artworkData: current.artworkId === artworkId ? current.artworkData : null,
+      }))
+
       try {
         const { data: pathArtworks } = await apiClient.getArtworks(pathIds, controller.signal)
         if (controller.signal.aborted) return
         const artwork = pathArtworks.at(-1)
-        if (!artwork) return
+        if (!artwork) {
+          setSimilarityMode({ active: false, artworkId: null, artworkData: null })
+          setNavigationHistory([])
+          updatePathUrl([], 'replace')
+          return
+        }
 
-        setSearchState({
-          results: null,
-          query: "",
-          nextCursor: null,
-          hasMore: false,
-          isLoadingMore: false,
-        })
         setSimilarityMode({
           active: true,
           artworkId: artwork.id,
@@ -599,6 +613,8 @@ export default function HomeClient() {
       } catch (error) {
         if (!controller.signal.aborted) {
           console.error('Failed to open shared artwork path:', error)
+          setSimilarityMode({ active: false, artworkId: null, artworkData: null })
+          setNavigationHistory([])
           updatePathUrl([], 'replace')
         }
       }
@@ -700,7 +716,7 @@ export default function HomeClient() {
       />
 
       {/* Main and search result grid */}
-      {(!similarityMode.active || searchState.results) && (
+      {isPathInitialized && (!similarityMode.active || searchState.results) && (
         <DraggableImageGrid
           key={searchState.results
             ? `search-${searchState.query}-${searchResultsRevision}`
@@ -725,12 +741,12 @@ export default function HomeClient() {
       )}
 
       {/* Similarity exploration mode */}
-      {similarityMode.active && !searchState.results && similarityMode.artworkId && similarityMode.artworkData && (
+      {similarityMode.active && !searchState.results && similarityMode.artworkId && (
         <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
           <SimilarityField
             key={`similarity-${similarityMode.artworkId}-${timelineRange ? `${timelineRange.fromYear}-${timelineRange.toYear}` : 'all'}`}
             focalArtworkId={similarityMode.artworkId}
-            focalArtwork={similarityMode.artworkData}
+            focalArtwork={similarityMode.artworkData ?? undefined}
             onArtworkClick={handleSimilarityArtworkClick}
             timelineRange={timelineRange}
           />

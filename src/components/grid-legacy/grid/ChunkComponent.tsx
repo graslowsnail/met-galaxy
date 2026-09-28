@@ -30,6 +30,8 @@ const ImageItem = memo(function ImageItem({
   position, 
   chunkX, 
   chunkY, 
+  chunkWidth = CHUNK_WIDTH,
+  chunkHeight = CHUNK_HEIGHT,
   onImageClick, 
   isDragging 
 }: {
@@ -37,6 +39,8 @@ const ImageItem = memo(function ImageItem({
   position: import('./types/grid').PositionedImage
   chunkX: number
   chunkY: number
+  chunkWidth?: number
+  chunkHeight?: number
   onImageClick?: (image: import('./types/grid').ImageItem, event: React.MouseEvent) => void
   isDragging?: boolean
 }) {
@@ -55,8 +59,8 @@ const ImageItem = memo(function ImageItem({
     <div
       className="absolute bg-white overflow-hidden border border-neutral-200 hover:shadow-md transition-shadow duration-200 group cursor-pointer"
       style={{
-        left: position.x - (GRID_ORIGIN_X + (chunkX * CHUNK_WIDTH)),
-        top: position.y - (GRID_ORIGIN_Y + (chunkY * CHUNK_HEIGHT)),
+        left: position.x - (GRID_ORIGIN_X + (chunkX * chunkWidth)),
+        top: position.y - (GRID_ORIGIN_Y + (chunkY * chunkHeight)),
         width: image.width,
         height: position.height,
         borderRadius: IMAGE_BORDER_RADIUS,
@@ -111,16 +115,18 @@ const ChunkComponent = memo(function ChunkComponent({
   isLoading = false,
   onImageClick,
   isDragging = false,
-  showBoundary = false
-}: ChunkComponentProps & { showBoundary?: boolean }) {
+  showBoundary = false,
+  chunkWidth = CHUNK_WIDTH,
+  chunkHeight = CHUNK_HEIGHT,
+}: ChunkComponentProps & { chunkWidth?: number; chunkHeight?: number }) {
   
   // Early return if chunk has no valid positions
   if (!chunk.positions || chunk.positions.length === 0) {
     return null
   }
 
-  const chunkLeft = GRID_ORIGIN_X + (chunk.x * CHUNK_WIDTH)
-  const chunkTop = GRID_ORIGIN_Y + (chunk.y * CHUNK_HEIGHT)
+  const chunkLeft = GRID_ORIGIN_X + (chunk.x * chunkWidth)
+  const chunkTop = GRID_ORIGIN_Y + (chunk.y * chunkHeight)
 
   return (
     <div key={`container-${chunk.id}`}>
@@ -131,8 +137,8 @@ const ChunkComponent = memo(function ChunkComponent({
           style={{
             left: chunkLeft,
             top: chunkTop,
-            width: CHUNK_WIDTH,
-            height: CHUNK_HEIGHT,
+            width: chunkWidth,
+            height: chunkHeight,
             borderColor: CHUNK_BORDER_COLOR,
             zIndex: Z_INDEX_CHUNK_OUTLINE
           }}
@@ -146,8 +152,8 @@ const ChunkComponent = memo(function ChunkComponent({
         style={{
           left: chunkLeft,
           top: chunkTop,
-          width: CHUNK_WIDTH,
-          height: CHUNK_HEIGHT,
+          width: chunkWidth,
+          height: chunkHeight,
           zIndex: Z_INDEX_IMAGES,
         }}
       >
@@ -166,6 +172,8 @@ const ChunkComponent = memo(function ChunkComponent({
               position={position}
               chunkX={chunk.x}
               chunkY={chunk.y}
+              chunkWidth={chunkWidth}
+              chunkHeight={chunkHeight}
               onImageClick={onImageClick}
               isDragging={isDragging}
             />
@@ -180,8 +188,8 @@ const ChunkComponent = memo(function ChunkComponent({
           style={{
             left: chunkLeft,
             top: chunkTop,
-            width: CHUNK_WIDTH,
-            height: CHUNK_HEIGHT,
+            width: chunkWidth,
+            height: chunkHeight,
             zIndex: Z_INDEX_IMAGES + 1,
           }}
         >
