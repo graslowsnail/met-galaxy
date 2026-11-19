@@ -19,7 +19,6 @@ That's it! No complex event tracking or user behavior analysis.
 Update `.env` with your key:
 ```bash
 NEXT_PUBLIC_POSTHOG_KEY="your-api-key-here"
-NEXT_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
 ```
 
 ### 3. That's It!

@@ -15,7 +15,8 @@ export function PostHogProviderClient({
     if (typeof window === 'undefined' || !env.NEXT_PUBLIC_POSTHOG_KEY) return
 
     posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
-      api_host: env.NEXT_PUBLIC_POSTHOG_HOST,
+      api_host: '/ingest',
+      ui_host: 'https://us.posthog.com',
       person_profiles: 'always',
       // Covers client-side moves between the /art/[id] landing pages. It does
       // NOT cover the explorer, where every screen is "/" behind ?path= query
